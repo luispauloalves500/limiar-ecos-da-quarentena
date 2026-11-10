@@ -1,3 +1,4 @@
+import { shoulderOffset } from "../src/controls";
 import { surfaceDetail } from "../src/art";
 import { describe, it, expect } from "vitest";
 import * as T from "three";
@@ -211,4 +212,18 @@ describe("orçamento de material", () => {
     surfaceDetail(mesh, true);
     expect(m.bumpMap).toBe(bump);
   });
+});
+
+describe("enquadramento de ombro", () => {
+  it("Helena fica à esquerda da retícula tanto livre quanto mirando", () => {
+    for (const aim of [false, true]) {
+      const camera = new T.PerspectiveCamera(aim ? 48 : 62, 1.6, 0.06, 65);
+      camera.position.set(shoulderOffset(aim, 1), 1.67, aim ? 1.65 : 2.85);
+      camera.lookAt(camera.position.clone().add(new T.Vector3(0, 0, -10)));
+      camera.updateMatrixWorld();
+      expect(new T.Vector3(0, 1.4, 0).project(camera).x).toBeLessThan(-0.25);
+    }
+  });
+  it("trocar ombro espelha o deslocamento", () =>
+    expect(shoulderOffset(true, -1)).toBe(-shoulderOffset(true, 1)));
 });

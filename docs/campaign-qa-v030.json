@@ -1,0 +1,108 @@
+{
+  "shoulder": {
+    "errors": [],
+    "warnings": [],
+    "httpErrors": [],
+    "rooms": [
+      "arquivo",
+      "atrio",
+      "corredor",
+      "enfermaria",
+      "escadaria",
+      "gerador",
+      "internacao",
+      "isolamento",
+      "lavanderia",
+      "posto",
+      "recepcao",
+      "segura"
+    ],
+    "ending": {
+      "room": "isolamento",
+      "mode": "win",
+      "flags": {
+        "chave": true,
+        "fusivel": true,
+        "energia": true,
+        "boss": true,
+        "pulseira": true,
+        "valve1": true,
+        "valve2": true,
+        "pressao": true,
+        "alerta": true,
+        "final": true
+      },
+      "hp": 100,
+      "documents": 5
+    },
+    "afterReload": "posto",
+    "asset": "ready",
+    "playerAsset": "ready"
+  },
+  "tank": {
+    "errors": [],
+    "warnings": [],
+    "httpErrors": [],
+    "rooms": [
+      "arquivo",
+      "atrio",
+      "corredor",
+      "enfermaria",
+      "escadaria",
+      "gerador",
+      "internacao",
+      "isolamento",
+      "lavanderia",
+      "posto",
+      "recepcao",
+      "segura"
+    ],
+    "ending": {
+      "room": "isolamento",
+      "mode": "win",
+      "flags": {
+        "chave": true,
+        "fusivel": true,
+        "energia": true,
+        "boss": true,
+        "pulseira": true,
+        "valve1": true,
+        "valve2": true,
+        "pressao": true,
+        "alerta": true,
+        "final": true
+      },
+      "hp": 100,
+      "documents": 5
+    },
+    "afterReload": "posto",
+    "asset": "ready",
+    "playerAsset": "ready"
+  },
+  "scopeNote": "Fresh complete shoulder/tank passes preceded the final visual left-support-grip bake. Final visual build rechecked from fresh start to real second-save checkpoint, then resumed untouched checkpoint to ending.",
+  "finalBuildShoulderResume": {
+    "source": "Unmodified Playwright storageState from actual second gravador save",
+    "durationSeconds": 70.2,
+    "errors": [],
+    "warnings": [],
+    "httpErrors": [],
+    "ending": {
+      "room": "isolamento",
+      "flags": {
+        "chave": true,
+        "fusivel": true,
+        "energia": true,
+        "boss": true,
+        "pulseira": true,
+        "valve1": true,
+        "valve2": true,
+        "pressao": true,
+        "alerta": true,
+        "final": true
+      },
+      "hp": 68
+    },
+    "afterReload": "posto",
+    "evidence": "/workspace/limiar-v030-smoke/resumed-shoulder"
+  }
+}

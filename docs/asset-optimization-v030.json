@@ -1,0 +1,212 @@
+[
+  {
+    "version": "zombie-original",
+    "bytes": 9529864,
+    "sha256": "1b064c6f105f0c7a914bd5c49df8f4a9df51d6f63112a26ef377d3d46105ac80",
+    "triangles": 104176,
+    "vertices": 60255,
+    "bones": 66,
+    "maxInfluences": 4,
+    "primitives": 1,
+    "images": [
+      {
+        "name": "Image_2",
+        "format": "JPEG",
+        "width": 2048,
+        "height": 2048,
+        "bytes": 1782094
+      },
+      {
+        "name": "Image_0",
+        "format": "JPEG",
+        "width": 2048,
+        "height": 2048,
+        "bytes": 2248530
+      },
+      {
+        "name": "Image_1",
+        "format": "JPEG",
+        "width": 2048,
+        "height": 2048,
+        "bytes": 1445361
+      }
+    ],
+    "animations": [
+      "Running",
+      "Walking"
+    ],
+    "extensions": []
+  },
+  {
+    "version": "zombie-near",
+    "bytes": 461476,
+    "sha256": "c3a33b0fcb5f96c4d5cfb22eb418c66a528fed459dec71aaa42c82089141d7b5",
+    "triangles": 15626,
+    "vertices": 12802,
+    "bones": 66,
+    "maxInfluences": 4,
+    "primitives": 1,
+    "images": [
+      {
+        "name": "Image_2",
+        "format": "WEBP",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 33608
+      },
+      {
+        "name": "Image_0",
+        "format": "WEBP",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 106166
+      },
+      {
+        "name": "Image_1",
+        "format": "WEBP",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 32588
+      }
+    ],
+    "animations": [
+      "Running",
+      "Walking"
+    ],
+    "extensions": [
+      "EXT_meshopt_compression",
+      "EXT_texture_webp",
+      "KHR_mesh_quantization"
+    ]
+  },
+  {
+    "version": "zombie-lod",
+    "bytes": 243784,
+    "sha256": "a104f82c96205a9d1393844c112e4c361bee331063abc969226f6aea4990e3e6",
+    "triangles": 4684,
+    "vertices": 4644,
+    "bones": 66,
+    "maxInfluences": 4,
+    "primitives": 1,
+    "images": [
+      {
+        "name": "Image_2",
+        "format": "WEBP",
+        "width": 512,
+        "height": 512,
+        "bytes": 7688
+      },
+      {
+        "name": "Image_0",
+        "format": "WEBP",
+        "width": 512,
+        "height": 512,
+        "bytes": 44148
+      },
+      {
+        "name": "Image_1",
+        "format": "WEBP",
+        "width": 512,
+        "height": 512,
+        "bytes": 12484
+      }
+    ],
+    "animations": [
+      "Running",
+      "Walking"
+    ],
+    "extensions": [
+      "EXT_meshopt_compression",
+      "EXT_texture_webp",
+      "KHR_mesh_quantization"
+    ]
+  },
+  {
+    "version": "player-original",
+    "bytes": 2969100,
+    "sha256": "e5a994f9c16a14371ad4122329be6214d487ffa0f98d26a657e1bc8a9e0551b4",
+    "triangles": 10319,
+    "vertices": 17623,
+    "bones": 66,
+    "maxInfluences": 4,
+    "primitives": 1,
+    "images": [
+      {
+        "name": "normal",
+        "format": "JPEG",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 588726
+      },
+      {
+        "name": "texture_0",
+        "format": "JPEG",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 364692
+      },
+      {
+        "name": "texture_0_metallic_roughness",
+        "format": "JPEG",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 316338
+      }
+    ],
+    "animations": [
+      "Running",
+      "Walking",
+      "Archery_Shot",
+      "Attack",
+      "Climb_Attempt_and_Fall",
+      "Double_Combo_Attack",
+      "Run_and_Shoot",
+      "Sneaky_Walk",
+      "Sneaky_Walk_inplace"
+    ],
+    "extensions": []
+  },
+  {
+    "version": "player-optimized",
+    "bytes": 606528,
+    "sha256": "6b84dbffed7343fc5240b6973a9c62685d3008ff53f39e001d4922f532bb34ac",
+    "triangles": 10185,
+    "vertices": 17511,
+    "bones": 66,
+    "maxInfluences": 4,
+    "primitives": 1,
+    "images": [
+      {
+        "name": "normal",
+        "format": "WEBP",
+        "width": 512,
+        "height": 512,
+        "bytes": 65318
+      },
+      {
+        "name": "texture_0",
+        "format": "WEBP",
+        "width": 1024,
+        "height": 1024,
+        "bytes": 143666
+      },
+      {
+        "name": "texture_0_metallic_roughness",
+        "format": "WEBP",
+        "width": 512,
+        "height": 512,
+        "bytes": 35416
+      }
+    ],
+    "animations": [
+      "Running",
+      "Walking",
+      "Sneaky_Walk_inplace"
+    ],
+    "extensions": [
+      "EXT_meshopt_compression",
+      "EXT_texture_webp",
+      "KHR_mesh_quantization"
+    ]
+  }
+]

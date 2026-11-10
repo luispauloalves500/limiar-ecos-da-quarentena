@@ -1,3 +1,8 @@
+import { playerActor, type PlayerAnimator, type PlayerFrame } from "./player";
+import { zombieActor } from "./zombie";
+import { shoulderOffset } from "./controls";
+import { roomDetails } from "./details";
+import { corpseOpacity, isCollected } from "./logic";
 import { surfaceDetail } from "./art";
 import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
@@ -20,7 +25,14 @@ export class View {
   camera = new T.PerspectiveCamera(62, 1, 0.06, 65);
   group = new T.Group();
   player = person();
+  playerAnimation?: PlayerAnimator;
+  playerAnimationPreview = "";
+  playerFrame: Partial<PlayerFrame> = {};
   enemyMeshes = new Map<string, Actor>();
+  proceduralZombies = false;
+  animationPreview: string | undefined;
+  frustum = new T.Frustum();
+  previousEnemyPositions = new Map<string, T.Vector3>();
   itemMeshes = new Map<string, T.Group>();
   light: T.SpotLight;
   target = new T.Object3D();
@@ -118,6 +130,15 @@ export class View {
     window.addEventListener("resize", () => this.resize());
     this.resize();
   }
+  installPlayer() {
+    const loaded = playerActor();
+    if (!loaded) return;
+    this.playerAnimation?.dispose();
+    this.disposeGroup(this.player.root);
+    this.player = loaded.actor;
+    this.playerAnimation = loaded.animation;
+    this.scene.add(this.player.root);
+  }
   setPreferences(p: Preferences) {
     const changed = this.prefs.mode !== p.mode;
     this.prefs = { ...p };
@@ -196,7 +217,11 @@ export class View {
   }
   load(id: RoomId, s: GameState) {
     this.disposeGroup(this.group);
-    for (const a of this.enemyMeshes.values()) this.disposeGroup(a.root);
+    for (const a of this.enemyMeshes.values()) {
+      a.animation?.dispose();
+      this.disposeGroup(a.root);
+    }
+    this.previousEnemyPositions.clear();
     this.group = new T.Group();
     this.scene.add(this.group);
     this.enemyMeshes.clear();
@@ -263,7 +288,7 @@ export class View {
     for (const o of r.obstacles) {
       const metal = mat(0x56635b, 0.58, 0.5, this.rust),
         cloth = mat(0xb4b5a0, 0.95, 0, this.wallTex);
-      if (id === "corredor") {
+      if (["corredor", "enfermaria", "internacao"].includes(id)) {
         this.addObstacle(box(o.w, 1.1, o.d, mat(0x48564f), o.x, 0.55, o.z));
         this.group.add(box(o.w + 0.08, 0.18, o.d, cloth, o.x, 1.05, o.z));
         this.group.add(
@@ -385,7 +410,7 @@ export class View {
       this.group.add(glow);
     }
     for (const item of r.items) {
-      if (s.items.includes(item.id) && item.kind !== "document") continue;
+      if (isCollected(s, item.id)) continue;
       const g = new T.Group();
       g.position.set(item.x, 0, item.z);
       const c =
@@ -396,7 +421,21 @@ export class View {
             : item.kind === "herb"
               ? 0xc1c4a4
               : 0xd2c399;
-      g.add(box(0.35, 0.12, 0.25, mat(c, 0.65, 0.15), 0, 0.24, 0));
+      if (item.kind === "document") {
+        g.add(box(0.34, 0.009, 0.46, mat(0xc2c5ad), 0, 0.025, 0));
+        for (let k = 0; k < 3; k++)
+          g.add(
+            box(0.23, 0.003, 0.012, mat(0x586a5b), 0, 0.032, -0.12 + k * 0.07),
+          );
+      } else if (item.kind === "key") {
+        const band = new T.Mesh(
+          new T.TorusGeometry(0.14, 0.035, 5, 12),
+          mat(0xa99153, 0.5, 0.2),
+        );
+        band.rotation.x = Math.PI / 2;
+        band.position.y = 0.23;
+        g.add(band);
+      } else g.add(box(0.35, 0.12, 0.25, mat(c, 0.65, 0.15), 0, 0.24, 0));
       if (item.kind === "herb") {
         g.add(box(0.19, 0.035, 0.07, mat(0xb98170), 0, 0.32, 0));
         g.add(box(0.07, 0.035, 0.19, mat(0xb98170), 0, 0.32, 0));
@@ -406,13 +445,16 @@ export class View {
         new T.MeshBasicMaterial({ color: c }),
       );
       beacon.position.y = 0.65;
+      beacon.name = "pickup-marker";
       g.add(beacon);
       this.group.add(g);
       this.itemMeshes.set(item.id, g);
     }
     for (const e of Object.values(s.enemies)) {
-      if (e.room !== id || e.dead) continue;
-      const a = person(true, e.boss, e.id);
+      if (e.room !== id || (e.dead && corpseOpacity(e) === 0)) continue;
+      const a =
+        (!e.boss && !this.proceduralZombies ? zombieActor(e) : undefined) ||
+        person(true, e.boss, e.id, e.kind);
       this.scene.add(a.root);
       this.enemyMeshes.set(e.id, a);
     }
@@ -464,7 +506,7 @@ export class View {
     // Practical lights remain readable even with an empty flashlight.
     for (const [i, z] of [-5, 4].entries()) {
       const l = new T.PointLight(
-        r.safe ? 0xffc58e : 0xa9c7b4,
+        r.safe ? 0xffc58e : id === "isolamento" ? 0xd88769 : 0xa9c7b4,
         r.safe ? 22 : 14,
         13,
         1.5,
@@ -501,6 +543,10 @@ export class View {
       this.fixture("GRAVADOR · E", 0, -3, 0xcbb97c);
       this.fixture("RÁDIO DE EMERGÊNCIA", -4, -6, 0x9eb691);
     }
+    if (id === "lavanderia")
+      this.fixture("VÁLVULAS · 3 / 1 / 2", 4, -6.2, 0xb9a361);
+    if (id === "isolamento")
+      this.fixture("TRANSMITIR E SELAR", 0, -6.5, 0xc0a177);
     if (id === "arquivo") this.fixture("RELÓGIO DE PLANTÃO", 0, -6.6, 0xd3c18d);
     if (id === "gerador") this.fixture("QUADRO ELÉTRICO", 4, -6, 0x88b5a2);
     if (id === "atrio") this.fixture("TRAVA ELÉTRICA", 0, -6.7, 0xc7a975);
@@ -525,6 +571,7 @@ export class View {
       }),
     );
     this.group.add(this.dust);
+    this.group.add(roomDetails(id));
     surfaceDetail(this.group, this.prefs.quality !== "low");
     this.syncCamera(s.player);
     this.setCamera(0);
@@ -557,7 +604,9 @@ export class View {
     g.removeFromParent();
     g.traverse((o) => {
       if (o instanceof T.Mesh || o instanceof T.Points) {
-        o.geometry.dispose();
+        if (o instanceof T.InstancedMesh) o.dispose();
+        if (o instanceof T.SkinnedMesh) o.skeleton.dispose();
+        if (!o.geometry.userData.zombieShared) o.geometry.dispose();
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
           if (
             "map" in m &&
@@ -565,10 +614,29 @@ export class View {
             !m.map.userData.persistent
           )
             m.map.dispose();
-          m.dispose();
+          if (!m.userData.zombieShared) m.dispose();
         }
       }
     });
+  }
+  removePickup(id: string) {
+    const g = this.itemMeshes.get(id);
+    if (g) {
+      this.disposeGroup(g);
+      this.itemMeshes.delete(id);
+    }
+  }
+  worldObjects() {
+    return {
+      items: [...this.itemMeshes.keys()],
+      animations: [...this.enemyMeshes].map(([id, a]) => ({
+        id,
+        state: a.animation?.stateName || "procedural",
+        lod: a.animation?.lod,
+        updates: a.animation?.mixersUpdated,
+      })),
+      actors: [...this.enemyMeshes.keys()],
+    };
   }
   updateCamera(s: GameState, dt: number, aiming: boolean) {
     if (this.prefs.mode === "tank") {
@@ -590,7 +658,7 @@ export class View {
     const desired = pivot
       .clone()
       .addScaledVector(dir, aiming ? -1.65 : -2.85)
-      .addScaledVector(right, 0.5 * this.prefs.shoulder)
+      .addScaledVector(right, shoulderOffset(aiming, this.prefs.shoulder))
       .add(new T.Vector3(0, 0.15, 0));
     this.scene.updateMatrixWorld(true);
     const safe = cameraCollision(pivot, desired, this.obstacles);
@@ -627,14 +695,48 @@ export class View {
     const p = s.player;
     this.player.root.position.set(p.x, 0, p.z);
     this.player.root.rotation.y = p.yaw;
-    animate(this.player, moving, this.walk, aiming, this.recoil);
-    this.hurtTime = Math.max(0, this.hurtTime - dt);
-    this.player.body.rotation.x =
-      this.hurtTime > 0 ? Math.sin(this.hurtTime * 18) * 0.12 : 0;
-    if (aiming && this.prefs.mode === "shoulder")
-      this.player.arms.forEach((arm) => (arm.rotation.x -= this.pitch));
-    if (this.player.gun) this.player.gun.rotation.x = aiming ? 1.6 : 0;
+    if (this.playerAnimation) {
+      this.playerAnimation.preview = this.playerAnimationPreview;
+      this.playerAnimation.update(
+        dt,
+        {
+          moving,
+          aiming,
+          running: false,
+          cautious: false,
+          reloading: false,
+          hp: p.hp,
+          light: s.light && s.battery > 0,
+          pitch: this.prefs.mode === "shoulder" ? this.pitch : 0,
+          yawDelta:
+            this.prefs.mode === "shoulder"
+              ? Math.atan2(
+                  Math.sin(this.yaw - p.yaw),
+                  Math.cos(this.yaw - p.yaw),
+                )
+              : 0,
+          ...this.playerFrame,
+        },
+        this.prefs.quality,
+      );
+    } else {
+      animate(this.player, moving, this.walk, aiming, this.recoil);
+      this.hurtTime = Math.max(0, this.hurtTime - dt);
+      this.player.body.rotation.x =
+        this.hurtTime > 0 ? Math.sin(this.hurtTime * 18) * 0.12 : 0;
+      if (aiming && this.prefs.mode === "shoulder")
+        this.player.arms.forEach((arm) => (arm.rotation.x -= this.pitch));
+      if (this.player.gun) this.player.gun.rotation.x = aiming ? 1.6 : 0;
+    }
     this.player.root.visible = true;
+    this.updateCamera(s, dt, aiming);
+    this.camera.updateMatrixWorld();
+    this.frustum.setFromProjectionMatrix(
+      new T.Matrix4().multiplyMatrices(
+        this.camera.projectionMatrix,
+        this.camera.matrixWorldInverse,
+      ),
+    );
     for (const e of Object.values(s.enemies)) {
       const a = this.enemyMeshes.get(e.id);
       if (!a) continue;
@@ -647,10 +749,60 @@ export class View {
           e.state === "windup"
             ? Math.atan2(e.dx, e.dz)
             : Math.atan2(p.x - e.x, p.z - e.z);
+      if (a.animation) {
+        const position = new T.Vector3(e.x, 0, e.z),
+          previous = this.previousEnemyPositions.get(e.id) || position;
+        const speed = position.distanceTo(previous) / Math.max(dt, 0.001);
+        this.previousEnemyPositions.set(e.id, position);
+        const visible = this.frustum.intersectsSphere(
+          new T.Sphere(new T.Vector3(e.x, 0.85, e.z), 1.5),
+        );
+        a.root.visible = visible;
+        a.animation.preview = this.animationPreview;
+        a.animation.update(
+          e,
+          dt,
+          visible,
+          Math.hypot(e.x - p.x, e.z - p.z),
+          speed,
+          this.prefs.quality,
+        );
+        if (e.dead) {
+          const alpha = corpseOpacity(e);
+          if (alpha <= 0) {
+            a.animation.dispose();
+            this.disposeGroup(a.root);
+            this.enemyMeshes.delete(e.id);
+            continue;
+          }
+          a.animation.fade(alpha);
+        }
+        continue;
+      }
       if (e.dead) {
-        a.body.rotation.x = Math.min(Math.PI / 2, a.body.rotation.x + dt * 2);
+        const alpha = corpseOpacity(e);
+        if (alpha <= 0) {
+          this.disposeGroup(a.root);
+          this.enemyMeshes.delete(e.id);
+          continue;
+        }
+        a.body.rotation.x = Math.min(
+          Math.PI / 2,
+          (Math.max(0, (Date.now() - e.deathAt) / 800) * Math.PI) / 2,
+        );
         a.root.position.y = 0.1;
         a.head.visible = !e.headGone;
+        if (alpha < 1)
+          a.root.traverse((o) => {
+            if (o instanceof T.Mesh) {
+              const ms = Array.isArray(o.material) ? o.material : [o.material];
+              for (const m of ms) {
+                m.transparent = true;
+                m.opacity = alpha;
+                m.depthWrite = false;
+              }
+            }
+          });
         continue;
       }
       animate(a, e.state === "chase", this.elapsed * (e.crawl ? 5 : 4), false);
@@ -666,7 +818,6 @@ export class View {
         a.core.material.color.set(e.vulnerable > 0 ? 0xffc77f : 0x7e9486);
       a.head.visible = !e.headGone;
     }
-    this.updateCamera(s, dt, aiming);
     this.light.visible = s.light && s.battery > 0;
     this.light.angle = focus ? 0.25 : 0.54;
     this.light.intensity = focus ? 92 : 68;
@@ -677,6 +828,10 @@ export class View {
       1.38,
       p.z + Math.cos(lyaw) * 0.43 + Math.sin(lyaw) * 0.12,
     );
+    if (this.playerAnimation)
+      this.light.position.copy(
+        this.playerAnimation.lampTip.getWorldPosition(new T.Vector3()),
+      );
     this.target.position.set(
       p.x + Math.sin(lyaw) * 8,
       1.38 + Math.sin(lpitch) * 8,
@@ -696,10 +851,12 @@ export class View {
       l.intensity = l.userData.base * pulse;
     }
     for (const [id, g] of this.itemMeshes) {
-      g.visible =
-        !s.items.includes(id) ||
-        !!rooms[s.room].items.find((i) => i.id === id && i.kind === "document");
-      if (g.visible && g.children[1]) g.children[1].rotation.y += dt;
+      if (isCollected(s, id)) {
+        this.removePickup(id);
+        continue;
+      }
+      const beacon = g.getObjectByName("pickup-marker");
+      if (beacon) beacon.rotation.y += dt;
     }
     if (this.dust) {
       const arr = this.dust.geometry.attributes.position;
@@ -785,7 +942,9 @@ export class View {
     this.ray.setFromCamera(new T.Vector2(0, 0), this.camera);
     this.ray.far = 16;
     const boxes = this.getHitboxes(s),
-      muzzle = new T.Vector3(s.player.x, 1.35, s.player.z);
+      muzzle = this.playerAnimation
+        ? this.playerAnimation.barrel.getWorldPosition(new T.Vector3())
+        : new T.Vector3(s.player.x, 1.35, s.player.z);
     let hit = raycastShot(this.ray, boxes, this.obstacles, muzzle);
     if (!hit && assist) {
       const candidates = boxes
@@ -810,6 +969,7 @@ export class View {
   }
   shotFx(s: GameState, point?: T.Vector3, blood = false) {
     this.recoil = 1;
+    this.playerAnimation?.trigger("Fire");
     const dir = new T.Vector3(
       Math.sin(s.player.yaw),
       0,
@@ -817,6 +977,10 @@ export class View {
     );
     this.flash.position.set(s.player.x, 1.35, s.player.z);
     this.flash.position.addScaledVector(dir, 0.6);
+    if (this.playerAnimation)
+      this.flash.position.copy(
+        this.playerAnimation.barrel.getWorldPosition(new T.Vector3()),
+      );
     this.muzzle.position.copy(this.flash.position);
     this.muzzle.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dir);
     if (point) {

@@ -1,10 +1,12 @@
+import type { ZombieAnimator } from "./zombie";
 import * as T from "three";
 import { box, capsule, material as mat } from "./art";
 import type { Region } from "./logic";
 export type Actor = {
   root: T.Group;
   body: T.Group;
-  head: T.Mesh;
+  head: T.Object3D;
+  animation?: ZombieAnimator;
   arms: T.Group[];
   elbows: T.Group[];
   legs: T.Group[];
@@ -14,11 +16,26 @@ export type Actor = {
   core?: T.Mesh;
   gun?: T.Object3D;
 };
-export function person(enemy = false, boss = false, id = "player"): Actor {
+export function person(
+  enemy = false,
+  boss = false,
+  id = "player",
+  kind = "E01",
+): Actor {
   const root = new T.Group(),
     body = new T.Group();
   root.add(body);
-  const cloth = mat(boss ? 0x4c514a : enemy ? 0x9a9e8f : 0x946e46),
+  const cloth = mat(
+      boss
+        ? 0x4c514a
+        : enemy
+          ? kind === "E02"
+            ? 0x728e8a
+            : kind === "E04"
+              ? 0x86554b
+              : 0x9a9e8f
+          : 0x946e46,
+    ),
     skin = mat(enemy ? 0x828b76 : 0xbe9c80),
     dark = mat(0x202d2d),
     metal = mat(0x747c6b, 0.5, 0.65);
@@ -61,6 +78,12 @@ export function person(enemy = false, boss = false, id = "player"): Actor {
   );
   hair.position.y = 0.035;
   head.add(hair);
+  if (enemy && kind === "E02") {
+    head.add(box(0.4, 0.08, 0.28, mat(0xb9c1ab), 0, 0.27, 0));
+    body.add(box(0.32, 0.5, 0.04, mat(0xbac0ae), 0, 1.12, 0.24));
+  }
+  if (enemy && kind === "E04")
+    body.add(box(0.32, 0.05, 0.05, mat(0x9d3934), 0, 1.25, 0.25));
   if (!enemy) head.add(capsule(0.08, 0.16, mat(0x302821), 0, -0.1, -0.19));
   body.add(capsule(0.09, 0.1, skin, 0, 1.53, 0));
   hit(head, new T.SphereGeometry(0.24, 10, 8), "head", 0, 0, 0);

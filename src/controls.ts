@@ -1,5 +1,5 @@
 import type { Vec } from "./world";
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 export type CameraMode = "shoulder" | "tank";
 export type Quality = "low" | "medium" | "high";
 export type Preferences = {
@@ -92,3 +92,7 @@ export const profiles = {
   medium: { scale: 0.9, shadows: true, shadowSize: 512, post: true, dust: 90 },
   high: { scale: 1.15, shadows: true, shadowSize: 1024, post: true, dust: 180 },
 } as const;
+
+export function shoulderOffset(aiming: boolean, side: number) {
+  return (aiming ? 0.92 : 0.85) * side;
+}

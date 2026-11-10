@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const url =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
-const out = process.env.SMOKE_OUT || "/workspace/limiar-v020-smoke/ui";
+const out = process.env.SMOKE_OUT || "/workspace/limiar-v030-smoke/ui";
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -43,7 +43,7 @@ const shot = async (name) => {
 };
 try {
   await page.goto(url, { waitUntil: "networkidle" });
-  assert.equal((await state()).version, "0.2.0");
+  assert.equal((await state()).version, "0.3.0");
   assert.equal((await state()).preferences.mode, "shoulder");
   await page.locator("#options").click();
   await page.locator("#opt-sensitivity").fill("1.4");
@@ -55,6 +55,9 @@ try {
   await page.locator("#opt-sensitivity").dispatchEvent("input");
   await page.locator("#options-back").click();
   await page.locator("#new").click();
+  assert.equal((await state()).asset.status, "ready");
+  assert.equal((await state()).playerAsset.status, "ready");
+  assert.equal((await state()).playerAnimation.model, "supplied");
   await shot("01-ombro-medio");
   await page.keyboard.press("f");
   await shot("02-sem-lanterna");
@@ -95,7 +98,23 @@ try {
   await page.waitForTimeout(350);
   await page.keyboard.press("k");
   await page.waitForFunction(() => window.limiar.ammo === 11);
+  await shot("player-tiro-real");
   await page.keyboard.up("j");
+  await page.keyboard.press("r");
+  await page.waitForFunction(
+    () => window.limiar.playerAnimation.upper === "Reload",
+  );
+  await shot("player-recarga-real");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  assert.equal((await state()).ammo, 12);
+  await page.keyboard.down("AltLeft");
+  await page.keyboard.down("w");
+  await page.waitForFunction(
+    () => window.limiar.playerAnimation.base === "Sneaky_Walk_inplace",
+  );
+  await shot("player-cautela-real");
+  await page.keyboard.up("w");
+  await page.keyboard.up("AltLeft");
   await page.keyboard.press("Escape");
   await page.locator("#quality").click();
   await page.locator("#opt-quality").selectOption("high");
@@ -109,14 +128,18 @@ try {
   await page.locator("#options-back").click();
   await page.locator("#resume").click();
   await page.reload();
-  await page.waitForFunction(() => !!window.limiar);
+  await page.waitForFunction(
+    () =>
+      window.limiar?.playerAsset.status === "ready" &&
+      window.limiar?.asset.status === "ready",
+  );
   assert.equal((await state()).preferences.mode, "tank");
   assert.equal((await state()).preferences.quality, "medium");
   assert.equal((await state()).preferences.shoulder, -1);
   result = await state();
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
-  console.log("V020 UI / POINTER LOCK / PROFILES PASS", url);
+  console.log("V030 UI / MODELS / POINTER LOCK / PROFILES PASS", url);
 } catch (e) {
   errors.push(String(e));
   process.exitCode = 1;

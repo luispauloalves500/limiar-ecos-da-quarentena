@@ -16,12 +16,12 @@ const cases = [
     quality: null,
   },
   {
-    name: "0.2-baixo",
+    name: "build-local-baixo",
     url: "http://127.0.0.1:4173/limiar-ecos-da-quarentena/",
     quality: "low",
   },
   {
-    name: "0.2-medio",
+    name: "build-local-medio",
     url: "http://127.0.0.1:4173/limiar-ecos-da-quarentena/",
     quality: "medium",
   },
@@ -75,7 +75,7 @@ try {
   }
 } finally {
   await writeFile(
-    "/workspace/limiar-v020-smoke/benchmark.json",
+    process.env.BENCH_OUT || "/workspace/limiar-v030-smoke/benchmark.json",
     JSON.stringify(
       {
         browser: browser.version(),

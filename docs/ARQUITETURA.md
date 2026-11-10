@@ -8,7 +8,7 @@ O gravador aceita somente estados completos de gameplay na sala segura. `parseSa
 
 ## Portas
 
-O grafo contém seis conexões com duas extremidades cada. O spawn de chegada fica deslocado para o interior, distante do gatilho. Uma transação mantém a origem como estado autoritativo enquanto a cena de porta é desenhada. O input é limpo e bloqueado durante toda a passagem. O destino procedural é construído oculto, o spawn é validado, e só então a sala e a posição persistentes são alteradas. Erros recuperam a geometria da origem e liberam o controle; a lógica de rollback é coberta por teste com loader rejeitado.
+O grafo contém doze conexões com duas extremidades cada. O spawn de chegada fica deslocado para o interior, distante do gatilho. Uma transação mantém a origem como estado autoritativo enquanto a cena de porta é desenhada. O input é limpo e bloqueado durante toda a passagem. O destino procedural é construído oculto, o spawn é validado, e só então a sala e a posição persistentes são alteradas. Erros recuperam a geometria da origem e liberam o controle; a lógica de rollback é coberta por teste com loader rejeitado.
 
 Não há arquivos de salas baixados pela rede: todas as definições pequenas estão no bundle. O ponto de extensão assíncrono aceita um loader, mas não deve ser confundido com streaming de campanha implementado.
 
@@ -45,3 +45,21 @@ A visão padrão agora é sobre o ombro. `controls.ts` separa preferências vers
 O save de gameplay continua v1 compatível. Opções ficam em chave própria e podem falhar por restrições de armazenamento sem impedir a sessão. `actors.ts`, `art.ts` e `post.ts` isolam arte e efeitos da coordenação. Texturas Canvas compartilhadas recebem marca de recurso persistente para não serem descartadas na troca de sala; geometrias e materiais específicos são liberados. Há apenas uma sombra dinâmica da lanterna nos perfis Médio/Alto, atualizada em intervalos controlados; o Baixo dispensa sombra/pós.
 
 As salas são fechadas no ombro. O tank oculta teto e paredes próximas por cutaway, sem alterar o grafo, inimigos ou estado persistente. A câmera suavizada é revalidada contra paredes após interpolar; a proximidade extrema oculta Helena para evitar obstrução. A linha de luz considera também o cone tridimensional e obstáculos físicos.
+
+# Atualização 0.3.0
+
+O formato raiz continua `version:1`, com `contentVersion:3`. A leitura migra saves 0.1/0.2: adiciona os inimigos novos, converte documentos lidos em coletados e considera cadáveres legados já removidos. `deathAt` usa epoch de relógio real; `removed` sela a remoção. `updateCorpses` e `corpseOpacity` não dependem de sala, taxa de simulação ou corte de câmera. Em save novo, carregar depois dos cinco segundos remove imediatamente. Mudanças manuais grandes no relógio do sistema podem afetar este prazo.
+
+`collect/isCollected` é a origem única para interação/render/inventário. A coleta descarta o grupo inteiro e a entrada do mapa de objetos, inclusive beacon. `roomDetails` usa instâncias para decoração repetida; a mobília principal continua nas colisões do mundo. E02/E04 compartilham o rig, mas têm stats e máquina de ataque próprios. O grafo agora tem 12 salas e duas seguras; B01 libera D07 e não encerra mais o jogo. A conclusão exige pressão liberada e Febril final neutralizado, então sela a transmissão no terminal de isolamento. R-18 é reservado ao capítulo 6 do GDD e não é simulado nesta expansão.
+
+## Modelos recebidos na 0.3.0
+
+`preloadZombie` carrega near/LOD uma vez; `preloadPlayer` carrega Helena uma vez. GLTFLoader usa MeshoptDecoder; SkeletonUtils.clone separa ossos/mixers por instância sem duplicar geometria ou imagens. Skeleton/hitboxes/props exclusivos são liberados na saída/morte; caches compartilhados só no pagehide sem bfcache. Eventos e estado de gameplay escolhem clips; os clips não deslocam a colisão (Hips XZ in-place).
+
+Helena usa máscaras disjuntas de membros inferiores/superiores. Marcha/corrida/cautela podem coexistir com mira/recarga/lanterna, sem média indesejada de braços balançando com a pose de mira. Correções de pitch e yaw limitado são aplicadas sobre Spine2/Arm em seus referenciais Mixamo. Pistol/lanterna estão nas mãos, e muzzle/SpotLight usam posições desses ossos. Collider de navegação de Helena continua raio 0,3; tamanho do asset recebido é aproximadamente 1,84 m. A câmera já deslocada à direita mantém a personagem à esquerda da retícula.
+
+Hitboxes dos inimigos são caixas invisíveis presas a Head, Spine2, UpLeg/Leg, selecionadas no LOD ativo. O mixer fora do frustum é pulado, mas a IA permanece simulada; volta ao enquadramento atualiza a pose antes do próximo tiro. O LOD é visual, nunca ressuscita/reinicia HP/estado. Templates, geometrias, texturas e materiais por perfil/variante são compartilhados. B01 permanece procedural.
+
+As páginas `qa-zombies.html` e `qa-player.html` são galerias técnicas encenadas separadas, sem acesso ao save do jogo. Não devem ser confundidas com o playthrough real de `scripts/smoke.mjs`.
+
+O apoio da mão esquerda da pistola foi refinado com um solver CCD executado apenas no bake dos keyframes próprios Aim/WalkAim/Fire, durante preload. Os quaternions resultantes viram tracks normais; não se roda IK por frame, não se desloca a arma/mão direita nem o collider, e não se altera os clips recebidos.

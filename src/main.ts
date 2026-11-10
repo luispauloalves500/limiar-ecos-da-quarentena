@@ -1,3 +1,14 @@
+import { preloadPlayer, playerDiagnostics, disposePlayerCache } from "./player";
+import { preloadZombie, zombieDiagnostics } from "./zombie";
+import {
+  collect,
+  isCollected,
+  killEnemy,
+  updateCorpses,
+  turnValve,
+  enemyStats,
+  enemyPattern,
+} from "./logic";
 import "./style.css";
 import { View } from "./render";
 import { Audio } from "./audio";
@@ -200,12 +211,12 @@ function options() {
   });
 }
 function controls() {
-  return `<div class="controls"><p><b>V</b> ombro / tank · <b>Shift</b> correr · <b>E</b> interagir</p><p><b>Ombro:</b> clique na cena para capturar mouse; WASD relativo à câmera; mouse mira; C troca ombro; setas são alternativa ao mouse.</p><p><b>Tank:</b> W/S avança/recua, A/D gira; Z meia-volta; 1/2/3 escolhe cabeça/tronco/perna; T alterna alvo.</p><p><b>RMB / J</b> mirar · <b>LMB / K</b> disparar · <b>R</b> recarregar · <b>F / Q</b> lanterna / foco</p><p><b>B / H</b> bateria / cura · <b>Tab / M / Esc</b> inventário / mapa / pausa</p></div>`;
+  return `<div class="controls"><p><b>V</b> ombro / tank · <b>Shift</b> correr · <b>Alt</b> cautela · <b>E</b> interagir</p><p><b>Ombro:</b> clique na cena para capturar mouse; WASD relativo à câmera; mouse mira; C troca ombro; setas são alternativa ao mouse.</p><p><b>Tank:</b> W/S avança/recua, A/D gira; Z meia-volta; 1/2/3 escolhe cabeça/tronco/perna; T alterna alvo.</p><p><b>RMB / J</b> mirar · <b>LMB / K</b> disparar · <b>R</b> recarregar · <b>F / Q</b> lanterna / foco</p><p><b>B / H</b> bateria / cura · <b>Tab / M / Esc</b> inventário / mapa / pausa</p></div>`;
 }
 function menu() {
   mode = "menu";
   panel(
-    `<div class="eyebrow">SANTA AVELINA / 1998</div><h1>LIMIAR<span>ECOS DA QUARENTENA</span></h1><p class="intro">Um rádio transmite o nome de alguém que não deveria estar vivo.<br>Você veio buscar Caio. O hospital ainda está à espera.</p><div class="actions"><button id="new" class="primary">INICIAR EXPEDIÇÃO <span>→</span></button><button id="load">CONTINUAR DO GRAVADOR</button><button id="options">OPÇÕES / CÂMERA</button></div><div class="tag">FATIA VERTICAL EXPERIMENTAL · ARTE 3D E ÁUDIO AUTORAIS</div><p class="muted">Terror e violência estilizada. Desktop / teclado e mouse. Não é a campanha completa do GDD.</p>${controls()}`,
+    `<div class="eyebrow">SANTA AVELINA / 1998</div><h1>LIMIAR<span>ECOS DA QUARENTENA</span></h1>${zombieDiagnostics().status === "fallback" || playerDiagnostics().status === "fallback" ? "<p>Modelo indisponível: modo procedural de segurança. Recarregue para tentar novamente.</p>" : ""}<p class="intro">Um rádio transmite o nome de alguém que não deveria estar vivo.<br>Você veio buscar Caio. O hospital ainda está à espera.</p><div class="actions"><button id="new" class="primary">INICIAR EXPEDIÇÃO <span>→</span></button><button id="load">CONTINUAR DO GRAVADOR</button><button id="options">OPÇÕES / CÂMERA</button></div><div class="tag">EXPANSÃO EXPERIMENTAL · MODELOS DO USUÁRIO / ANIMAÇÕES ADICIONAIS PRÓPRIAS</div><p class="muted">Terror e violência estilizada. Desktop / teclado e mouse. Não é a campanha completa do GDD.</p>${controls()}`,
   );
   buttons({
     new: () => {
@@ -247,7 +258,7 @@ function pause() {
   if (mode === "play") {
     mode = "pause";
     panel(
-      `<div class="eyebrow">SINAL INTERROMPIDO</div><h2>Pausa</h2>${controls()}<div class="actions"><button id="resume" class="primary">VOLTAR AO HOSPITAL</button><button id="sound">${audio.muted ? "LIGAR" : "SILENCIAR"} ÁUDIO</button><button id="quality">OPÇÕES / CÂMERA / GRÁFICOS</button><button id="load">CARREGAR GRAVAÇÃO</button><button id="menu">MENU PRINCIPAL</button></div><p class="muted">Salve no gravador do posto de rádio. Não há autosave antes do chefe.</p>`,
+      `<div class="eyebrow">SINAL INTERROMPIDO</div><h2>Pausa</h2>${controls()}<div class="actions"><button id="resume" class="primary">VOLTAR AO HOSPITAL</button><button id="sound">${audio.muted ? "LIGAR" : "SILENCIAR"} ÁUDIO</button><button id="quality">OPÇÕES / CÂMERA / GRÁFICOS</button><button id="load">CARREGAR GRAVAÇÃO</button><button id="menu">MENU PRINCIPAL</button></div><p class="muted">Salve nos gravadores dos dois postos seguros. Não há autosave antes do chefe.</p>`,
     );
     buttons({
       resume: close,
@@ -266,7 +277,7 @@ function pause() {
 function inventory() {
   mode = "inventory";
   panel(
-    `<div class="eyebrow">EQUIPAMENTO DE RESGATE</div><h2>Inventário</h2><div class="inventory"><div>PISTOLA 9 MM <strong>${s.ammo} / 12</strong><small>${s.reserve} na reserva</small></div><div>LANTERNA <strong>${Math.ceil(s.battery)}%</strong><small>${s.batteries} baterias de +35</small></div><div>KIT MÉDICO <strong>${s.kits}</strong><small>Recupera 60 HP</small></div><div>MISSÃO <strong>${s.flags.chave ? "Chave de manutenção" : "—"}</strong><small>${s.flags.fusivel ? (s.flags.energia ? "Fusível instalado" : "Fusível cerâmico") : "Sem fusível"}</small></div></div><div class="actions"><button id="heal">USAR KIT [H]</button><button id="cell">TROCAR BATERIA [B]</button><button id="back" class="primary">VOLTAR</button></div><h3>Documentos recuperados</h3><div class="actions">${
+    `<div class="eyebrow">EQUIPAMENTO DE RESGATE</div><h2>Inventário</h2><div class="inventory"><div>PISTOLA 9 MM <strong>${s.ammo} / 12</strong><small>${s.reserve} na reserva</small></div><div>LANTERNA <strong>${Math.ceil(s.battery)}%</strong><small>${s.batteries} baterias de +35</small></div><div>KIT MÉDICO <strong>${s.kits}</strong><small>Recupera 60 HP</small></div><div>MISSÃO <strong>${s.flags.chave ? "Chave de manutenção" : "—"}</strong><small>${s.flags.fusivel ? (s.flags.energia ? "Fusível instalado" : "Fusível cerâmico") : "Sem fusível"}</small><small>${s.flags.pulseira ? "Pulseira de serviço 203" : "Sem pulseira de serviço"}</small></div></div><div class="actions"><button id="heal">USAR KIT [H]</button><button id="cell">TROCAR BATERIA [B]</button><button id="back" class="primary">VOLTAR</button></div><h3>Documentos recuperados</h3><div class="actions">${
       s.docs
         .map(
           (id) =>
@@ -297,6 +308,8 @@ function documentView(id: string) {
     .flatMap((r) => r.items)
     .find((i) => i.id === id)!;
   if (!s.docs.includes(id)) s.docs.push(id);
+  if (!s.items.includes(id)) s.items.push(id);
+  view.removePickup(id);
   mode = "document";
   panel(
     `<div class="eyebrow">ARQUIVO / ${id.toUpperCase()}</div><h2>${doc.label}</h2><blockquote>${doc.text}</blockquote><button id="back" class="primary">GUARDAR DOCUMENTO [E / ESC]</button>`,
@@ -306,16 +319,16 @@ function documentView(id: string) {
 function map() {
   mode = "map";
   panel(
-    `<div class="eyebrow">PLANTA DO SETOR A</div><h2>Rotas de evacuação</h2><div class="map"><div class="maproute">RECEPÇÃO ↔ CORREDOR LESTE ↔ MANUTENÇÃO ↔ ÁTRIO<br>         ↙  ↘<br>      POSTO DE RÁDIO  ARQUIVO</div>${Object.values(
+    `<div class="eyebrow">PLANTA DOS SETORES A / INTERNAÇÃO</div><h2>Rotas de evacuação</h2><div class="map"><div class="maproute">RECEPÇÃO ↔ CORREDOR LESTE ↔ MANUTENÇÃO ↔ ÁTRIO<br>         ↙  ↘<br>      POSTO DE RÁDIO  ARQUIVO<br>ÁTRIO → PATAMAR → INTERNAÇÃO ↔ POSTO DE ENFERMAGEM<br>INTERNAÇÃO ↔ ENFERMARIA 203<br>INTERNAÇÃO → LAVANDERIA → ISOLAMENTO</div>${Object.values(
       rooms,
     )
       .map(
         (r) =>
-          `<div class="maproom ${s.room === r.id ? "here" : ""}"><b>${s.room === r.id ? "● " : ""}${r.name}</b><span>${r.safe ? "Sala segura" : r.id === "gerador" && !s.flags.chave ? "Exige chave" : r.id === "atrio" && !s.flags.energia ? "Exige energia" : "Acessível pela rota"}</span></div>`,
+          `<div class="maproom ${s.room === r.id ? "here" : ""}"><b>${s.room === r.id ? "● " : ""}${r.name}</b><span>${r.safe ? "Sala segura" : r.id === "gerador" && !s.flags.chave ? "Exige chave" : r.id === "atrio" && !s.flags.energia ? "Exige energia" : r.id === "escadaria" && !s.flags.boss ? "Exige Porteiro neutralizado" : r.id === "lavanderia" && !s.flags.pulseira ? "Exige pulseira 203" : r.id === "isolamento" && !s.flags.pressao ? "Exige purga de pressão" : "Acessível pela rota"}</span></div>`,
       )
       .join(
         "",
-      )}</div><p>Encontre o bilhete → ajuste o relógio em <b>03:15</b> → pegue a chave → instale o fusível no gerador → enfrente o Porteiro.</p><button id="back" class="primary">FECHAR MAPA [M / ESC]</button>`,
+      )}</div><p>Encontre o bilhete → ajuste o relógio em <b>03:15</b> → pegue a chave → instale o fusível no gerador → enfrente o Porteiro → internação / pulseira 203 → válvulas 3–1–2 → transmissão final.</p><button id="back" class="primary">FECHAR MAPA [M / ESC]</button>`,
   );
   buttons({ back: close });
 }
@@ -383,7 +396,11 @@ function interactions(): Interaction[] {
             ? "Trancada. A chave está no relógio do arquivo."
             : d.key === "energia"
               ? "Catracas sem energia. Instale o fusível no quadro elétrico."
-              : "O Porteiro bloqueia este atalho.",
+              : d.key === "pulseira"
+                ? "Falta a pulseira de serviço do leito 203."
+                : d.key === "pressao"
+                  ? "Barreira pressurizada. Regule as válvulas na lavanderia."
+                  : "O Porteiro bloqueia este acesso.",
         );
         audio.tone(80, 0.18);
         return;
@@ -392,20 +409,18 @@ function interactions(): Interaction[] {
     },
   }));
   for (const i of r.items) {
-    if (s.items.includes(i.id) && i.kind !== "document") continue;
+    if (isCollected(s, i.id)) continue;
     list.push({
       label: i.label,
       position: i,
       run: () => {
+        if (!collect(s, i)) return;
+        view.removePickup(i.id);
+        el("prompt").textContent = "";
         if (i.kind === "document") {
           documentView(i.id);
           return;
         }
-        s.items.push(i.id);
-        if (i.kind === "ammo") s.reserve += 12;
-        if (i.kind === "battery") s.batteries++;
-        if (i.kind === "herb") s.kits++;
-        if (i.kind === "fuse") s.flags.fusivel = true;
         audio.tone(660, 0.2);
         announce(i.label + " coletado.");
       },
@@ -459,9 +474,30 @@ function interactions(): Interaction[] {
         audio.tone(110, 0.7, 0.7, "sawtooth");
         announce("Armadura aberta por 4 segundos!");
         if (b.hp === 0) {
-          b.dead = true;
+          killEnemy(b);
           bossWin();
         }
+      },
+    });
+  if (s.room === "lavanderia" && !s.flags.pressao)
+    list.push({
+      label: s.flags.pressao
+        ? "Pressão estabilizada"
+        : "Regular válvulas de pressão",
+      position: { x: 4, z: -6.2 },
+      run: pressurePuzzle,
+    });
+  if (s.room === "isolamento")
+    list.push({
+      label: "Transmitir fita e selar barreira",
+      position: { x: 0, z: -6.5 },
+      run: () => {
+        if (!s.enemies.febril02.dead)
+          return announce(
+            "Movimento detectado. Neutralize o Febril antes de selar.",
+          );
+        s.flags.final = true;
+        finalWin();
       },
     });
   return list;
@@ -474,6 +510,7 @@ function nearest() {
 async function changeRoom(id: string) {
   const d = roomDoors(s.room).find((d) => d.id === id)!;
   if (travel.active) return;
+  view.playerAnimation?.trigger("Door");
   doorDuration = 2.6;
   doorTime = 0;
   keys.clear();
@@ -498,7 +535,13 @@ async function changeRoom(id: string) {
     if (ok) {
       view.syncCamera(s.player);
       invulnerable = 1.3;
-      announce(rooms[s.room].name);
+      if (s.room === "isolamento" && !s.flags.alerta) {
+        s.flags.alerta = true;
+        announce(
+          "ALARME DE ISOLAMENTO · Neutralize o movimento e sele a Porta 13.",
+        );
+        audio.tone(180, 1, 0.4, "sawtooth");
+      } else announce(rooms[s.room].name);
       audio.tone(80, 0.25);
     }
   } catch {
@@ -596,21 +639,48 @@ function bossWin() {
   if (s.flags.boss) return;
   s.flags.boss = true;
   audio.tone(240, 1);
-  announce("O Porteiro caiu. Chave administrativa recuperada. Atalho aberto.");
-  setTimeout(() => {
-    if (mode === "play" && s.flags.boss) {
-      mode = "win";
-      panel(
-        `<div class="eyebrow">TRANSMISSÃO RECUPERADA</div><h2>O limiar foi cruzado.</h2><blockquote>“Helena… eu sabia que você viria. Não desça para o subsolo.”<br>— Caio, canal 03</blockquote><p>O Porteiro foi neutralizado e o atalho administrativo está aberto. Esta é a conclusão da fatia vertical, não o fim da campanha planejada.</p><p>Tempo: ${Math.floor(s.time / 60)} min · Documentos: ${s.docs.length} · Derrotas nesta sessão: ${deaths}</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
-      );
-      buttons({ explore: close, menu });
-    }
-  }, 1400);
+  announce(
+    "Porteiro neutralizado. Acesso à internação aberto à direita. Caio ainda transmite.",
+  );
 }
-function hitPlayer(amount: number) {
+function pressurePuzzle() {
+  mode = "puzzle";
+  panel(
+    `<div class="eyebrow">P02 / LAVANDERIA</div><h2>Circuito de pressão</h2><p>Ordem de purga: consulte os registros de Lia. Uma sequência incorreta reinicia as válvulas.</p><p>Etapas corretas: ${s.flags.valve2 ? 2 : s.flags.valve1 ? 1 : 0}/3</p><div class="actions"><button id="valve-1">1 · ENTRADA</button><button id="valve-2">2 · DESCARGA</button><button id="valve-3">3 · RETORNO</button></div><button id="back">VOLTAR</button>`,
+  );
+  buttons({ back: close });
+  for (const n of [1, 2, 3])
+    buttons({
+      ["valve-" + n]: () => {
+        const ok = turnValve(s, n);
+        audio.tone(ok ? 420 : 90, 0.2);
+        if (s.flags.pressao) {
+          close();
+          announce("Pressão estabilizada. Barreira de isolamento liberada.");
+        } else {
+          pressurePuzzle();
+          announce(
+            ok
+              ? "Válvula confirmada."
+              : "Sequência incorreta. Circuito reiniciado.",
+          );
+        }
+      },
+    });
+}
+function finalWin() {
+  mode = "win";
+  audio.tone(240, 1);
+  panel(
+    `<div class="eyebrow">FITA 03:16 / SETOR SELADO</div><h2>Do outro lado da porta.</h2><blockquote>“Helena, a lista não era de mortos. Era de transferências. Não existe leito treze.” — Caio</blockquote><p>A transmissão foi copiada e a barreira selada. Do outro lado, três batidas respondem ao rádio. O sinal aponta para a pediatria abandonada.</p><p>Conclusão da expansão de internação. A campanha completa continua planejada, não implementada.</p><p>Derrotas nesta sessão: ${deaths} · Documentos: ${s.docs.length} · Tempo: ${Math.floor(s.time / 60)} min</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
+  );
+  buttons({ explore: close, menu });
+}
+function hitPlayer(amount: number, grapple = false) {
   if (invulnerable > 0 || mode !== "play" || travel.active) return;
   s.player.hp = Math.max(0, s.player.hp - amount);
   view.hurtTime = 0.35;
+  view.playerAnimation?.trigger(grapple ? "Grabbed" : "Hit");
   invulnerable = 1.3;
   reloadTime = 0;
   audio.tone(75, 0.4, 0.8, "triangle");
@@ -692,12 +762,11 @@ function pathDirection(e: Vec, p: Vec): Vec {
   return { x: n.x - e.x, z: n.z - e.z };
 }
 function tickEnemy(e: Enemy, dt: number) {
-  if (e.dead) {
-    e.timer += dt;
-    return;
-  }
+  if (e.dead) return;
   e.vulnerable = Math.max(0, e.vulnerable - dt);
   const d = dist(e, s.player);
+  const stats = enemyStats(e.kind),
+    pattern = enemyPattern(e, d);
   const dot =
     ((e.x - s.player.x) * Math.sin(s.player.yaw) +
       (e.z - s.player.z) * Math.cos(s.player.yaw)) /
@@ -717,9 +786,43 @@ function tickEnemy(e: Enemy, dt: number) {
     if (e.timer <= 0) e.state = "chase";
     return;
   }
+  if (e.state === "charge") {
+    if (e.crawl) {
+      e.state = "recover";
+      e.timer = 1.1;
+      return;
+    }
+    const old = { x: e.x, z: e.z };
+    moveBody(e, e.dx * 7 * dt, e.dz * 7 * dt, 0.3, false, true);
+    if (
+      e.attack === 1 &&
+      dist(e, s.player) < 1.5 &&
+      lineClear(e, s.player, rooms[s.room].obstacles)
+    ) {
+      hitPlayer(stats.damage, e.kind === "E02" && !e.crawl);
+      e.attack = 2;
+    }
+    if (e.timer <= 0 || dist(e, old) < 0.001) {
+      e.state = "recover";
+      e.timer = stats.recover;
+    }
+    return;
+  }
   if (e.state === "windup") {
     if (e.timer <= 0) {
-      if (e.boss && e.attack === 1) {
+      if (e.kind === "E04" && e.attack === 1 && !e.crawl) {
+        e.state = "charge";
+        e.timer = 0.5;
+      } else if (e.kind === "E02" && !e.crawl) {
+        moveBody(e, e.dx * 0.65, e.dz * 0.65, 0.3, false, true);
+        if (
+          dist(e, s.player) < 1.9 &&
+          lineClear(e, s.player, rooms[s.room].obstacles)
+        )
+          hitPlayer(stats.damage, e.kind === "E02" && !e.crawl);
+        e.state = "recover";
+        e.timer = stats.recover;
+      } else if (e.boss && e.attack === 1) {
         e.state = "recover";
         e.timer = 1.7;
         const hit =
@@ -733,22 +836,27 @@ function tickEnemy(e: Enemy, dt: number) {
           d < (e.boss ? 2.8 : e.crawl ? 1.1 : 1.6) &&
           lineClear(e, s.player, rooms[s.room].obstacles)
         )
-          hitPlayer(e.boss ? (e.hp < 336 ? 28 : 20) : 15);
+          hitPlayer(
+            e.boss ? (e.hp < 336 ? 28 : 20) : stats.damage,
+            e.kind === "E02" && !e.crawl,
+          );
         e.state = "recover";
-        e.timer = e.boss ? 1.6 : 1.1;
+        e.timer = stats.recover;
       }
     }
     return;
   }
   if (
-    d < (e.boss ? 5.5 : e.crawl ? 0.9 : 1.25) &&
+    d < (e.boss ? 5.5 : pattern.range) &&
     lineClear(e, s.player, rooms[s.room].obstacles)
   ) {
     e.state = "windup";
-    e.timer = e.boss ? 1.2 : 0.7;
-    e.attack = e.boss && d > 2.6 ? 1 : 0;
+    e.timer = stats.windup;
+    e.attack = (e.boss && d > 2.6) || pattern.charge ? 1 : 0;
     e.dx = (s.player.x - e.x) / Math.max(d, 0.01);
     e.dz = (s.player.z - e.z) / Math.max(d, 0.01);
+    if (pattern.feint)
+      moveBody(e, -e.dx * 0.45, -e.dz * 0.45, 0.3, false, true);
     audio.tone(e.boss ? 60 : 95, 0.5, 0.4, "triangle");
     return;
   }
@@ -757,7 +865,7 @@ function tickEnemy(e: Enemy, dt: number) {
   const len = Math.hypot(dir.x, dir.z);
   if (len > 0.1) {
     const speed =
-      (e.boss ? (e.hp < 336 ? 1.5 : 1.2) : e.crawl ? 0.36 : 1.05) *
+      (e.boss ? (e.hp < 336 ? 1.5 : 1.2) : e.crawl ? 0.36 : stats.speed) *
       (e.exposure >= 25 ? 0.8 : 1);
     moveBody(
       e,
@@ -805,7 +913,8 @@ function tick(dt: number) {
     const speed =
       (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 3.7 : 2.2) *
       (aiming ? 0.4 : 1) *
-      (s.player.hp <= 30 ? 0.88 : 1);
+      (s.player.hp <= 30 ? 0.88 : 1) *
+      (keys.has("AltLeft") ? 0.65 : 1);
     moveBody(s.player, v.x * speed * dt, v.z * speed * dt, 0.3, true);
     if (prefs.mode === "shoulder" && !aiming) {
       const desired = Math.atan2(v.x, v.z);
@@ -840,13 +949,19 @@ function hud() {
     `LUZ ${s.light ? "ON" : "OFF"}  ${Math.ceil(s.battery)}%  [${s.batteries}]`;
   el("region").textContent =
     `${reloadTime > 0 ? "RECARREGANDO…" : aiming ? (prefs.mode === "shoulder" ? "MIRA LIVRE / RETÍCULA" : "MIRA: " + (region === "head" ? "CABEÇA" : region === "body" ? "TRONCO" : "PERNA ESQUERDA")) : "R recarregar · H curar"}`;
-  el("objective").textContent = s.flags.boss
-    ? "ATALHO ADMINISTRATIVO LIBERADO"
-    : s.flags.energia
-      ? "Enfrente o Porteiro no átrio"
-      : s.flags.chave
-        ? "Restaure a energia na manutenção"
-        : "Encontre a chave no arquivo · 03:15";
+  el("objective").textContent = s.flags.final
+    ? "FITA 03:16 RECUPERADA / SETOR SELADO"
+    : s.flags.pressao
+      ? "Sele a barreira no terminal de isolamento"
+      : s.flags.pulseira
+        ? "Lavanderia: purgue na ordem 3 → 1 → 2"
+        : s.flags.boss
+          ? "Acesso à internação → leito 203"
+          : s.flags.energia
+            ? "Neutralize o Porteiro no átrio"
+            : s.flags.chave
+              ? "Instale o fusível no gerador"
+              : "Encontre a chave no arquivo · 03:15";
   const i = mode === "play" && !travel.active ? nearest() : undefined;
   el("prompt").textContent = i ? "[ E ] " + i.label : "";
   el("top").style.opacity = travel.active ? "0" : "1";
@@ -876,7 +991,7 @@ function hud() {
   }
   el("hint").textContent =
     prefs.mode === "shoulder"
-      ? "OMBRO · Clique para capturar mouse · WASD / Shift · RMB/J mirar · LMB/K atirar · E interagir · C ombro · V tank · Esc pausa"
+      ? "OMBRO · Clique para capturar mouse · WASD / Shift / Alt cauteloso · RMB/J mirar · LMB/K atirar · E interagir · C ombro · V tank · Esc pausa"
       : "TANK · W/S avançar/recuar · A/D girar · Z meia-volta · 1/2/3 região · E interagir · V ombro · Esc pausa";
   const threat = Object.values(s.enemies).find(
     (e) => e.room === s.room && !e.dead && e.state === "windup",
@@ -892,6 +1007,7 @@ function hud() {
       : "";
 }
 window.addEventListener("keydown", (e) => {
+  if (mode === "play" && e.altKey) e.preventDefault();
   if (
     [
       "Tab",
@@ -929,9 +1045,16 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.code === "KeyZ" && prefs.mode === "tank")
     s.player.yaw = wrapAngle(s.player.yaw + Math.PI);
+  view.playerAnimation?.trigger("QuickTurn");
   if (e.code === "Tab") inventory();
   if (e.code === "KeyM") map();
-  if (e.code === "KeyE") nearest()?.run();
+  if (e.code === "KeyE") {
+    const n = nearest();
+    if (n) {
+      view.playerAnimation?.trigger("Interact");
+      n.run();
+    }
+  }
   if (e.code === "KeyF") {
     s.light = !s.light;
     audio.tone(450, 0.06);
@@ -1035,6 +1158,7 @@ function frame(now: number) {
   const realDelta = (now - last) / 1000;
   const delta = Math.min(0.1, realDelta);
   last = now;
+  updateCorpses(s);
   if (document.hidden) return;
   if (doorTime >= 0) doorTime += delta;
   if (noticeTime > 0) {
@@ -1046,6 +1170,11 @@ function frame(now: number) {
     tick(1 / 60);
     acc -= 1 / 60;
   }
+  view.playerFrame = {
+    running: keys.has("ShiftLeft") || keys.has("ShiftRight"),
+    cautious: keys.has("AltLeft"),
+    reloading: reloadTime > 0,
+  };
   view.update(
     s,
     delta,
@@ -1087,6 +1216,9 @@ Object.defineProperty(window, "limiar", {
     reloading: reloadTime > 0,
     aiming,
     version: VERSION,
+    asset: zombieDiagnostics(),
+    playerAsset: playerDiagnostics(),
+    playerAnimation: view.playerAnimation?.diagnostic(),
     preferences: { ...prefs },
     cameraYaw: view.yaw,
     cameraPitch: view.pitch,
@@ -1094,6 +1226,9 @@ Object.defineProperty(window, "limiar", {
     aimTargets: view.aimTargets(s),
     rayHit: view.shot(s, false),
     pointerLocked: !!document.pointerLockElement,
+    worldObjects: view.worldObjects(),
+    collected: [...s.items],
+    documents: [...s.docs],
     room: s.room,
     hp: s.player.hp,
     player: { ...s.player },
@@ -1110,6 +1245,32 @@ Object.defineProperty(window, "limiar", {
     camera: view.zone,
   }),
 });
-view.load(s.room, s);
-menu();
+panel(
+  `<div class="eyebrow">PREPARANDO O HOSPITAL</div><h2>Carregando personagens e animações</h2><p id="assetprogress">0%</p><p>Helena, zumbi e LOD são carregados uma vez.</p>`,
+);
+Promise.allSettled([
+  preloadZombie((n) => {
+    const p = document.getElementById("assetprogress");
+    if (p) p.textContent = "Zumbi: " + n + "%";
+  }),
+  preloadPlayer(),
+]).then((results) => {
+  for (const r of results)
+    if (r.status === "rejected")
+      console.warn("Modelo indisponível; fallback procedural:", r.reason);
+  view.installPlayer();
+  view.load(s.room, s);
+  menu();
+  if (
+    zombieDiagnostics().status !== "ready" ||
+    playerDiagnostics().status !== "ready"
+  )
+    announce("Falha no modelo. Fallback procedural de segurança ativo.");
+});
+window.addEventListener("pagehide", (e) => {
+  if (!e.persisted) {
+    view.playerAnimation?.dispose();
+    disposePlayerCache();
+  }
+});
 requestAnimationFrame(frame);

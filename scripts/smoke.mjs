@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const base =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
 const gameMode = process.env.GAME_MODE || "shoulder";
-const out = process.env.SMOKE_OUT || `/workspace/limiar-v020-smoke/${gameMode}`;
+const out = process.env.SMOKE_OUT || `/workspace/limiar-v030-smoke/${gameMode}`;
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -15,7 +15,10 @@ const browser = await chromium.launch({
     "--enable-unsafe-swiftshader",
   ],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const page = await browser.newPage({
+  viewport: { width: 1280, height: 800 },
+  storageState: process.env.RESUME_SAVE || undefined,
+});
 const errors = [],
   warnings = [],
   responses = [];
@@ -70,6 +73,32 @@ const obstacles = {
     [3, -1, 1.2, 2],
   ],
 };
+Object.assign(obstacles, {
+  escadaria: [
+    [-3, -2, 2, 4],
+    [3, -3, 2, 3],
+  ],
+  internacao: [
+    [-3, -1, 2, 3],
+    [3, 2, 1.4, 2.5],
+  ],
+  posto: [
+    [-3, -4, 4, 1.4],
+    [3, -3, 1.5, 3],
+  ],
+  enfermaria: [
+    [-3, -2, 2, 4],
+    [3, -2, 2, 4],
+  ],
+  lavanderia: [
+    [-3.5, -2, 2, 5],
+    [3.5, -2, 2, 5],
+  ],
+  isolamento: [
+    [-3, -1, 1.5, 3],
+    [3, -1, 1.5, 3],
+  ],
+});
 const clear = (p, room) =>
   Math.abs(p.x) < 5.8 &&
   Math.abs(p.z) < 8 &&
@@ -212,15 +241,18 @@ async function aimAtEnemy(id, region) {
     return;
   }
   const wanted = region === "3" ? "legL" : region === "2" ? "body" : "head";
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < 64; i++) {
     const s = await state();
     if (s.enemies[id].dead) return;
+    if (s.rayHit?.id === id && s.rayHit.region === wanted) return;
     const target = s.aimTargets.find((t) => t.id === id && t.region === wanted);
     assert.ok(target, "Hitbox exists");
     await lookAt(target.position);
     const after = await state();
     if (after.rayHit?.id === id && after.rayHit.region === wanted) return;
   }
+  const finalAim = await state();
+  if (finalAim.rayHit?.id === id && finalAim.rayHit.region === wanted) return;
   throw Error("Could not align real reticle with " + id + " " + wanted);
 }
 async function shoot(id, region = "1", count = 2) {
@@ -248,123 +280,242 @@ async function shoot(id, region = "1", count = 2) {
 }
 try {
   await page.goto(base, { waitUntil: "networkidle" });
-  await page.waitForFunction(() => !!window.limiar);
-  await page.screenshot({ path: out + "/01-menu.png" });
-  assert.equal((await state()).preferences.mode, "shoulder");
-  await page.locator("#options").click();
-  await page.locator("#opt-mode").selectOption(gameMode);
-  await page.locator("#opt-quality").selectOption("low");
-  await page.locator("#options-back").click();
-  await page.locator("#new").click();
-  assert.equal((await state()).preferences.mode, gameMode);
-  await page.screenshot({ path: out + "/00-" + gameMode + ".png" });
-  await note("start");
-  await moveTo(-3, 2);
-  await tap("e");
-  assert.equal((await state()).mode, "document");
-  await page.screenshot({ path: out + "/02-documento.png" });
-  await tap("Escape");
-  await moveTo(3, 2);
-  await tap("e");
-  assert.equal((await state()).reserve, 24);
-  await tap("Tab");
-  assert.equal((await state()).mode, "inventory");
-  await page.screenshot({ path: out + "/03-inventario.png" });
-  await tap("Tab");
-  await moveTo(1, -6.6);
-  if (gameMode === "tank") assert.equal((await state()).camera, 1);
-  await moveTo(0, -6.9);
-  await tap("e");
-  await page.waitForFunction(() => window.limiar.transition);
-  await page.waitForTimeout(800);
-  await page.screenshot({ path: out + "/04-porta.png" });
   await page.waitForFunction(
-    () => window.limiar.room === "corredor" && !window.limiar.transition,
-    { timeout: 15000 },
+    () => window.limiar?.asset.status === "ready",
+    null,
+    { timeout: 60000 },
   );
-  await note("corredor");
-  // Neutralize first enemy using the actual assisted aim, not state mutation.
-  await moveTo(0, 3);
-  await shoot("errante01", "3", 2);
-  let st = await state();
-  assert.equal(st.enemies.errante01.crawl, true);
-  await page.screenshot({ path: out + "/05-combate.png" });
-  if (gameMode === "shoulder") await moveTo(0, 5.7);
-  await shoot("errante01", "1", 2);
-  assert.equal((await state()).enemies.errante01.dead, true);
-  await travel(-5, 4, "segura");
-  await moveTo(0, -2);
-  await tap("e");
-  await page.waitForTimeout(150);
-  assert.ok(await page.evaluate(() => localStorage.getItem("limiar-save-v1")));
-  await page.screenshot({ path: out + "/06-sala-segura.png" });
-  await tap("Escape");
-  await page.locator("#load").click();
-  assert.equal((await state()).room, "segura");
-  await travel(5, 4, "corredor");
-  await travel(5, -3, "arquivo");
-  await moveTo(0, 3);
-  await shoot("errante02", "1", 2);
-  if (!(await state()).enemies.errante02.dead) await shoot("errante02", "1", 2);
-  await moveTo(0, -5.7);
-  await tap("e");
-  assert.equal((await state()).mode, "puzzle");
-  for (let i = 0; i < 3; i++) await page.locator("#hour").click();
-  await page.locator("#minute").click();
-  await page.screenshot({ path: out + "/07-relogio.png" });
-  await page.locator("#solve").click();
-  assert.equal((await state()).flags.chave, true);
-  await travel(-5, 4, "corredor");
-  await travel(0, -7, "gerador");
-  await moveTo(-4, 5);
-  await tap("e");
-  assert.equal((await state()).flags.fusivel, true);
-  await moveTo(1, 4);
-  await shoot("errante03", "1", 2);
-  if (!(await state()).enemies.errante03.dead) await shoot("errante03", "1", 2);
-  await moveTo(4, -5);
-  await tap("e");
-  assert.equal((await state()).flags.energia, true);
-  await note("power restored");
-  await travel(0, -7, "atrio");
-  await page.screenshot({ path: out + "/08-chefe.png" });
-  await moveTo(-4, 6);
-  await tap("e");
-  await moveTo(-4.8, 4);
-  await moveTo(-4.8, -5.6);
-  await moveTo(0, -5.5);
-  await tap("e");
-  await shoot("porteiro", "2", 5);
-  await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading, {
-    timeout: 15000,
-  });
-  await tap("h");
-  // Complete using repeated electrical traps if ammunition is low; no puzzle requires bullets.
-  for (let i = 0; i < 8 && !(await state()).flags.boss; i++) {
-    const before = (await state()).hp;
+  if (process.env.RESUME_SAVE) {
+    await page.locator("#load").click();
+    assert.equal((await state()).room, "posto");
+    assert.ok((await state()).flags.pulseira);
+    assert.ok((await state()).flags.boss);
+    await note("resume-real-gravador");
+  } else {
+    await page.screenshot({ path: out + "/01-menu.png" });
+    assert.equal((await state()).asset.status, "ready");
+    assert.equal((await state()).preferences.mode, "shoulder");
+    await page.locator("#options").click();
+    await page.locator("#opt-mode").selectOption(gameMode);
+    await page.locator("#opt-quality").selectOption("low");
+    await page.locator("#opt-sensitivity").fill("0.7");
+    await page.locator("#opt-sensitivity").dispatchEvent("input");
+    await page.locator("#options-back").click();
+    await page.locator("#new").click();
+    assert.equal((await state()).preferences.mode, gameMode);
+    await page.screenshot({ path: out + "/00-" + gameMode + ".png" });
+    await note("start");
+    await moveTo(-3, 3.4);
+    await lookAt([-3, 0.25, 2]);
+    assert.ok((await state()).worldObjects.items.includes("carta"));
+    await page.screenshot({ path: out + "/documento-antes.png" });
+    await tap("e");
+    assert.equal((await state()).mode, "document");
+    await page.screenshot({ path: out + "/02-documento.png" });
+    await tap("Escape");
+    assert.ok(!(await state()).worldObjects.items.includes("carta"));
+    assert.ok((await state()).documents.includes("carta"));
+    await page.screenshot({ path: out + "/documento-depois.png" });
+    await moveTo(3, 2);
+    await tap("e");
+    assert.equal((await state()).reserve, 24);
+    await tap("Tab");
+    assert.equal((await state()).mode, "inventory");
+    await page.screenshot({ path: out + "/03-inventario.png" });
+    await tap("Tab");
+    await moveTo(1, -6.6);
+    if (gameMode === "tank") assert.equal((await state()).camera, 1);
+    await moveTo(0, -6.9);
+    await tap("e");
+    await page.waitForFunction(() => window.limiar.transition);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: out + "/04-porta.png" });
+    await page.waitForFunction(
+      () => window.limiar.room === "corredor" && !window.limiar.transition,
+      { timeout: 15000 },
+    );
+    await note("corredor");
+    // Neutralize first enemy using the actual assisted aim, not state mutation.
+    await moveTo(0, 3);
+    await shoot("errante01", "3", 2);
+    let st = await state();
+    assert.equal(st.enemies.errante01.crawl, true);
+    await page.screenshot({ path: out + "/05-combate.png" });
+    if (gameMode === "shoulder") await moveTo(0, 5.7);
+    await shoot("errante01", "1", 2);
+    assert.equal((await state()).enemies.errante01.dead, true);
+    assert.ok((await state()).worldObjects.actors.includes("errante01"));
+    await page.screenshot({ path: out + "/corpo-antes.png" });
+    await page.waitForFunction(
+      () =>
+        window.limiar.enemies.errante01.removed &&
+        !window.limiar.worldObjects.actors.includes("errante01"),
+      { timeout: 10000 },
+    );
+    await page.screenshot({ path: out + "/corpo-depois.png" });
+    assert.ok((await state()).worldObjects.items.includes("cor-bat"));
+    await travel(-5, 4, "segura");
+    await moveTo(0, -2);
+    await tap("e");
+    await page.waitForTimeout(150);
+    assert.ok(
+      await page.evaluate(() => localStorage.getItem("limiar-save-v1")),
+    );
+    await page.screenshot({ path: out + "/06-sala-segura.png" });
+    await tap("Escape");
+    await page.locator("#load").click();
+    assert.equal((await state()).room, "segura");
+    await travel(5, 4, "corredor");
+    await travel(5, -3, "arquivo");
+    await moveTo(0, 3);
+    await shoot("errante02", "1", 2);
+    if (!(await state()).enemies.errante02.dead)
+      await shoot("errante02", "1", 2);
     await moveTo(0, -5.7);
     await tap("e");
-    await shoot("porteiro", "2", 4);
-    if ((await state()).ammo === 0) {
-      await tap("r");
-      await page.waitForFunction(() => !window.limiar.reloading, {
-        timeout: 15000,
-      });
-    }
-    if ((await state()).hp < 65) await tap("h");
-    if ((await state()).flags.boss) break;
-    await moveTo(4.8, -5.6);
-    await moveTo(4.8, 5.8);
-    await moveTo(-4.8, 5.8);
+    assert.equal((await state()).mode, "puzzle");
+    for (let i = 0; i < 3; i++) await page.locator("#hour").click();
+    await page.locator("#minute").click();
+    await page.screenshot({ path: out + "/07-relogio.png" });
+    await page.locator("#solve").click();
+    assert.equal((await state()).flags.chave, true);
+    await travel(-5, 4, "corredor");
+    await travel(0, -7, "gerador");
+    await moveTo(-4, 5);
+    await tap("e");
+    assert.equal((await state()).flags.fusivel, true);
+    await moveTo(1, 4);
+    await shoot("errante03", "1", 2);
+    if (!(await state()).enemies.errante03.dead)
+      await shoot("errante03", "1", 2);
+    await moveTo(4, -5);
+    await tap("e");
+    assert.equal((await state()).flags.energia, true);
+    await note("power restored");
+    await travel(0, -7, "atrio");
+    await page.screenshot({ path: out + "/08-chefe.png" });
+    await moveTo(-4, 6);
+    await tap("e");
+    await moveTo(-4.8, 4);
     await moveTo(-4.8, -5.6);
-    await moveTo(0, -5.7);
-    if ((await state()).hp <= 0)
-      throw Error("Boss killed player from " + before);
+    await moveTo(0, -5.5);
+    await tap("e");
+    await shoot("porteiro", "2", 5);
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading, {
+      timeout: 15000,
+    });
+    await tap("h");
+    // Complete using repeated electrical traps if ammunition is low; no puzzle requires bullets.
+    for (let i = 0; i < 8 && !(await state()).flags.boss; i++) {
+      const before = (await state()).hp;
+      await moveTo(0, -5.7);
+      await tap("e");
+      await shoot("porteiro", "2", 4);
+      if ((await state()).ammo === 0) {
+        await tap("r");
+        await page.waitForFunction(() => !window.limiar.reloading, {
+          timeout: 15000,
+        });
+      }
+      if ((await state()).hp < 65) await tap("h");
+      if ((await state()).flags.boss) break;
+      await moveTo(4.8, -5.6);
+      await moveTo(4.8, 5.8);
+      await moveTo(-4.8, 5.8);
+      await moveTo(-4.8, -5.6);
+      await moveTo(0, -5.7);
+      if ((await state()).hp <= 0)
+        throw Error("Boss killed player from " + before);
+    }
+    assert.equal((await state()).flags.boss, true);
+    await page.waitForFunction(() => window.limiar.enemies.porteiro.removed, {
+      timeout: 10000,
+    });
+    await page.screenshot({ path: out + "/09-atrio-liberado.png" });
+    await travel(5, 4, "escadaria");
+    await page.screenshot({ path: out + "/10-patamar.png" });
+    await moveTo(3, 4);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await moveTo(0, 3);
+    await tap("e");
+    await tap("Escape");
+    await travel(0, -7, "internacao");
+    await moveTo(0, 4.5);
+    await shoot("enfermeiro01", "1", 4);
+    assert.ok((await state()).enemies.enfermeiro01.dead);
+    await page.screenshot({ path: out + "/11-internacao.png" });
+    await moveTo(4, 5);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await travel(5, -3, "enfermaria");
+    await moveTo(0, 4.5);
+    await shoot("enfermeiro02", "1", 4);
+    await moveTo(0, 3);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(0, -5);
+    await tap("e");
+    assert.ok((await state()).flags.pulseira);
+    await page.screenshot({ path: out + "/12-enfermaria.png" });
+    await travel(-5, 4, "internacao");
+    await travel(-5, 4, "posto");
+    await moveTo(-4, 4);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(-3, 0);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await moveTo(1, 1);
+    await tap("e");
+    await tap("h");
+    await tap("b");
+    await moveTo(0, -2);
+    await tap("e");
+    await page.screenshot({ path: out + "/13-posto-seguro.png" });
+    await page.context().storageState({ path: out + "/checkpoint-save.json" });
+    await tap("Escape");
+    await page.locator("#load").click();
+    assert.equal((await state()).room, "posto");
+    assert.ok((await state()).flags.pulseira);
+    assert.ok((await state()).enemies.enfermeiro01.removed);
+    assert.ok(!(await state()).worldObjects.items.includes("posto-doc"));
   }
-  await page.waitForTimeout(1700);
-  assert.equal((await state()).flags.boss, true);
-  await page.screenshot({ path: out + "/09-conclusao.png" });
+  await travel(5, 4, "internacao");
+  await travel(0, -7, "lavanderia");
+  await moveTo(0, 4.5);
+  await shoot("febril01", "3", 2);
+  if (!(await state()).enemies.febril01.dead) await shoot("febril01", "2", 2);
+  await moveTo(0, 4);
+  await tap("e");
+  await tap("Escape");
+  await moveTo(4, 5);
+  await tap("e");
+  await tap("r");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  await moveTo(0, -6);
+  await moveTo(4, -6);
+  await tap("e");
+  assert.equal((await state()).mode, "puzzle");
+  await page.locator("#valve-1").click();
+  assert.ok(!(await state()).flags.valve1);
+  for (const n of [3, 1, 2]) await page.locator("#valve-" + n).click();
+  assert.ok((await state()).flags.pressao);
+  await page.screenshot({ path: out + "/14-lavanderia.png" });
+  await travel(0, -7, "isolamento");
+  await moveTo(0, 4.5);
+  await shoot("febril02", "3", 2);
+  if (!(await state()).enemies.febril02.dead) await shoot("febril02", "2", 2);
+  await page.screenshot({ path: out + "/15-isolamento.png" });
+  await moveTo(0, -5.6);
+  await tap("e");
+  assert.equal((await state()).mode, "win");
+  assert.ok((await state()).flags.final);
+  await page.screenshot({ path: out + "/16-novo-final.png" });
   await note("complete");
   await page.locator("#explore").click();
   await page.keyboard.press("v");
@@ -372,10 +523,14 @@ try {
   await page.keyboard.press("v");
   assert.equal((await state()).preferences.mode, gameMode);
   await page.reload();
-  await page.waitForFunction(() => !!window.limiar);
+  await page.waitForFunction(
+    () => window.limiar?.asset.status === "ready",
+    null,
+    { timeout: 60000 },
+  );
   assert.equal((await state()).preferences.mode, gameMode);
   await page.locator("#load").click();
-  assert.equal((await state()).room, "segura");
+  assert.equal((await state()).room, "posto");
   assert.equal((await state()).preferences.mode, gameMode);
   assert.deepEqual(errors, []);
   assert.deepEqual(responses, []);

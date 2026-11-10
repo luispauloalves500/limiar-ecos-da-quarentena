@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LIMIAR · QA de zumbis</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body {
+        margin: 0;
+        background: #07100d;
+        color: #e1e8d7;
+        font: 14px monospace;
+      }
+      #scene {
+        height: 100vh;
+      }
+      #tools {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 3;
+        padding: 12px;
+        background: #08100de8;
+        border: 1px solid #68806d;
+        max-width: 94vw;
+      }
+      select,
+      button {
+        background: #243b30;
+        color: #eee;
+        padding: 6px;
+        border: 1px solid #78917e;
+      }
+      small {
+        display: block;
+        margin: 8px 0;
+      }
+      #status {
+        max-width: 80vw;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene"></div>
+    <div id="tools">
+      <b>Galeria técnica — não altera seu jogo/saves</b
+      ><small
+        >Mesma sala, controles de QA e modelo procedural anterior para
+        comparação.</small
+      ><label
+        >Modelo
+        <select id="model">
+          <option value="asset">GLB otimizado</option>
+          <option value="procedural">Procedural anterior</option>
+        </select></label
+      >
+      <label
+        >Quantidade
+        <select id="count">
+          <option>1</option>
+          <option>4</option>
+          <option>6</option>
+        </select></label
+      >
+      <label
+        >Câmera
+        <select id="mode">
+          <option value="shoulder">Ombro</option>
+          <option value="tank">Tank</option>
+        </select></label
+      >
+      <label
+        >Qualidade
+        <select id="quality">
+          <option value="low">Baixo</option>
+          <option value="medium" selected>Médio</option>
+          <option value="high">Alto</option>
+        </select></label
+      ><small></small
+      ><label
+        >Animação
+        <select id="pose">
+          <option>Idle</option>
+          <option>Walking</option>
+          <option>Running</option>
+          <option>AttackBite</option>
+          <option>HitTorso</option>
+          <option>HitHead</option>
+          <option>LightStun</option>
+          <option>LegFall</option>
+          <option>Crawl</option>
+          <option>CrawlAttack</option>
+          <option>Death</option>
+          <option>DeathHead</option>
+        </select></label
+      >
+      <button id="lookaway">OLHAR PARA TRÁS</button>
+      <button id="restart">REINICIAR CENA</button>
+      <span id="status">Carregando…</span>
+    </div>
+    <script type="module" src="/src/zombie-qa.ts"></script>
+  </body>
+</html>

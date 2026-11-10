@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Helena — QA de animação</title>
+    <style>
+      body {
+        margin: 0;
+        background: #101817;
+        color: #dedac9;
+        font: 14px system-ui;
+      }
+      canvas {
+        display: block;
+      }
+      aside {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 14px;
+        background: #11201eee;
+        max-width: 280px;
+      }
+      select {
+        padding: 6px;
+        margin: 4px;
+        background: #253732;
+        color: white;
+      }
+      small {
+        display: block;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <aside>
+      <strong>Helena · galeria técnica 0.3.0</strong>
+      <div>
+        <select id="pose">
+          <option>PlayerIdle</option>
+          <option>Walking</option>
+          <option>Running</option>
+          <option>Sneaky_Walk_inplace</option>
+          <option>Aim</option>
+          <option>WalkAim</option>
+          <option>Fire</option>
+          <option>Reload</option>
+          <option>Flashlight</option>
+          <option>Hit</option>
+          <option>InjuredWalk</option>
+          <option>Grabbed</option>
+          <option>BreakFree</option>
+          <option>QuickTurn</option>
+          <option>Interact</option>
+          <option>Door</option>
+          <option>PlayerDeath</option></select
+        ><select id="mode">
+          <option value="shoulder">Ombro</option>
+          <option value="tank">Tank</option></select
+        ><select id="quality">
+          <option value="medium">Médio</option>
+          <option value="low">Baixo</option>
+          <option value="high">Alto</option>
+        </select>
+      </div>
+      <small
+        >Galeria encenada, sem alterações no save ou na progressão. Os clips são
+        os mesmos do jogo.</small
+      >
+      <pre id="status">Carregando…</pre>
+    </aside>
+    <script type="module" src="/src/player-qa.ts"></script>
+  </body>
+</html>

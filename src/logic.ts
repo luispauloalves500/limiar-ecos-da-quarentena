@@ -7,6 +7,8 @@ import {
   type RoomId,
   type Vec,
   type Door,
+  type EnemyKind,
+  type Pickup,
 } from "./world";
 export type Region = "head" | "body" | "legL" | "legR";
 export type Enemy = Vec & {
@@ -14,12 +16,18 @@ export type Enemy = Vec & {
   room: RoomId;
   hp: number;
   boss: boolean;
+  kind: EnemyKind;
+  deathAt: number;
+  removed: boolean;
   left: number;
   right: number;
   crawl: boolean;
   dead: boolean;
   headGone: boolean;
-  state: "chase" | "windup" | "recover" | "stun";
+  lastHit?: Region;
+  hitSerial?: number;
+  lightStunned?: boolean;
+  state: "chase" | "windup" | "recover" | "stun" | "charge";
   timer: number;
   exposure: number;
   lightCooldown: number;
@@ -30,6 +38,7 @@ export type Enemy = Vec & {
 };
 export type GameState = {
   version: 1;
+  contentVersion?: 3;
   room: RoomId;
   player: Vec & { hp: number; yaw: number };
   ammo: number;
@@ -51,7 +60,10 @@ export function newGame(): GameState {
       enemies[e.id] = {
         ...e,
         room: r.id,
-        hp: e.boss ? 560 : 70,
+        hp: enemyStats(e.kind || (e.boss ? "B01" : "E01")).hp,
+        kind: e.kind || (e.boss ? "B01" : "E01"),
+        deathAt: 0,
+        removed: false,
         boss: !!e.boss,
         left: 42,
         right: 42,
@@ -69,6 +81,7 @@ export function newGame(): GameState {
       };
   return {
     version: 1,
+    contentVersion: 3,
     room: "recepcao",
     player: { x: 0, z: 5, hp: 100, yaw: Math.PI },
     ammo: 12,
@@ -91,6 +104,9 @@ export function damage(
   lightBonus = false,
 ) {
   if (e.dead) return { damage: 0, critical: false };
+  e.lightStunned = false;
+  e.lastHit = region;
+  e.hitSerial = (e.hitSerial || 0) + 1;
   const mult = region === "head" ? 1.8 : region === "body" ? 1 : 0.8;
   let amount = 22 * mult;
   let critical = false;
@@ -102,7 +118,7 @@ export function damage(
   }
   e.hp = Math.max(0, e.hp - amount);
   if (e.hp === 0) {
-    e.dead = true;
+    killEnemy(e);
     e.headGone = !e.boss && region === "head" && critical;
     e.timer = 0;
     return { damage: amount, critical };
@@ -139,13 +155,14 @@ export function applyLight(e: Enemy, dt: number, lit: boolean, focus: boolean) {
   if (lit) {
     e.hp = Math.max(0, e.hp - (focus ? 2 : 0.8) * dt);
     if (e.hp === 0) {
-      e.dead = true;
+      killEnemy(e);
       e.timer = 0;
     }
     if (e.exposure >= 65 && e.lightCooldown === 0 && !e.dead) {
       e.state = "stun";
       e.timer = 1;
       e.lightCooldown = 7;
+      e.lightStunned = true;
       e.exposure = 25;
       return true;
     }
@@ -187,6 +204,7 @@ export function parseSave(raw: string): GameState {
   if (
     !s ||
     s.version !== 1 ||
+    (s.contentVersion !== undefined && s.contentVersion !== 3) ||
     !Object.hasOwn(rooms, s.room) ||
     !s.player ||
     !finite(s.player.hp, 1, 100) ||
@@ -210,14 +228,37 @@ export function parseSave(raw: string): GameState {
     !s.enemies
   )
     throw Error("Save inválido ou versão incompatível");
+  const legacy = s.contentVersion !== 3;
   for (const [id, base] of Object.entries(initial.enemies)) {
+    if (
+      !s.enemies[id] &&
+      legacy &&
+      !["errante01", "errante02", "errante03", "porteiro"].includes(id)
+    )
+      s.enemies[id] = { ...base };
+    const raw = s.enemies[id];
+    if (raw) {
+      raw.kind ??= base.kind;
+      if (raw.deathAt === undefined) {
+        raw.deathAt = 0;
+        raw.removed = raw.dead;
+      }
+    }
     const e = s.enemies[id];
     if (
       !e ||
       e.id !== id ||
       e.room !== base.room ||
       e.boss !== base.boss ||
-      !finite(e.hp, 0, base.boss ? 560 : 70) ||
+      !finite(e.hp, 0, enemyStats(base.kind).hp) ||
+      e.kind !== base.kind ||
+      (e.hitSerial !== undefined && !finite(e.hitSerial, 0, 1e9)) ||
+      (e.lastHit !== undefined &&
+        !["head", "body", "legL", "legR"].includes(e.lastHit)) ||
+      (e.lightStunned !== undefined && typeof e.lightStunned !== "boolean") ||
+      !finite(e.deathAt, 0, 1e15) ||
+      typeof e.removed !== "boolean" ||
+      (!e.dead && e.removed) ||
       !finite(e.x, -6.3, 6.3) ||
       !finite(e.z, -8.5, 8.5) ||
       !finite(e.left, 0, 42) ||
@@ -226,7 +267,7 @@ export function parseSave(raw: string): GameState {
       e.dead !== (e.hp === 0) ||
       typeof e.crawl !== "boolean" ||
       typeof e.headGone !== "boolean" ||
-      !["chase", "windup", "recover", "stun"].includes(e.state) ||
+      !["chase", "windup", "recover", "stun", "charge"].includes(e.state) ||
       ![
         e.timer,
         e.exposure,
@@ -239,6 +280,9 @@ export function parseSave(raw: string): GameState {
     )
       throw Error("Estado de inimigo inválido");
   }
+  s.contentVersion = 3;
+  s.items = [...new Set([...s.items, ...s.docs])];
+  updateCorpses(s);
   return s;
 }
 export function writeSave(
@@ -275,4 +319,68 @@ export class InputLatch {
     this.key = "";
     this.vector = { x: 0, z: 0 };
   }
+}
+
+export const CORPSE_LIFETIME_MS = 5000;
+export function enemyStats(kind: EnemyKind) {
+  return {
+    E01: { hp: 70, speed: 1.05, damage: 15, windup: 0.7, recover: 1.1 },
+    E02: { hp: 85, speed: 0.92, damage: 18, windup: 1, recover: 1.8 },
+    E04: { hp: 65, speed: 1.15, damage: 16, windup: 0.6, recover: 1.1 },
+    B01: { hp: 560, speed: 1.2, damage: 20, windup: 1.2, recover: 1.6 },
+  }[kind];
+}
+export function killEnemy(e: Enemy, now = Date.now()) {
+  if (e.dead) return;
+  e.hp = 0;
+  e.dead = true;
+  e.deathAt = now;
+  e.removed = false;
+  e.timer = 0;
+}
+export function corpseOpacity(e: Enemy, now = Date.now()) {
+  if (!e.dead) return 1;
+  if (e.removed) return 0;
+  return Math.max(
+    0,
+    Math.min(1, (CORPSE_LIFETIME_MS - (now - e.deathAt)) / 500),
+  );
+}
+export function updateCorpses(s: GameState, now = Date.now()) {
+  for (const e of Object.values(s.enemies))
+    if (e.dead && now - e.deathAt >= CORPSE_LIFETIME_MS) e.removed = true;
+}
+export function isCollected(s: GameState, id: string) {
+  return s.items.includes(id) || s.docs.includes(id);
+}
+export function collect(s: GameState, i: Pickup) {
+  if (isCollected(s, i.id)) return false;
+  s.items.push(i.id);
+  if (i.kind === "document") s.docs.push(i.id);
+  if (i.kind === "ammo") s.reserve += 12;
+  if (i.kind === "battery") s.batteries++;
+  if (i.kind === "herb") s.kits++;
+  if (i.kind === "fuse" || i.kind === "key") s.flags[i.id] = true;
+  return true;
+}
+export function turnValve(s: GameState, n: number) {
+  if (s.flags.pressao) return true;
+  const stage = s.flags.valve2 ? 2 : s.flags.valve1 ? 1 : 0;
+  if (n !== [3, 1, 2][stage]) {
+    s.flags.valve1 = false;
+    s.flags.valve2 = false;
+    return false;
+  }
+  if (stage === 0) s.flags.valve1 = true;
+  if (stage === 1) s.flags.valve2 = true;
+  if (stage === 2) s.flags.pressao = true;
+  return true;
+}
+export function enemyPattern(e: Enemy, d: number) {
+  if (e.crawl) return { charge: false, feint: false, range: 0.9 };
+  return {
+    charge: e.kind === "E04" && d > 1.3,
+    feint: e.kind === "E02",
+    range: e.kind === "E04" ? 5 : e.kind === "E02" ? 1.8 : 1.25,
+  };
 }

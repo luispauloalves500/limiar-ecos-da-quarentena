@@ -1,84 +1,58 @@
-# Evidências de validação — 0.2.0
+# QA — LIMIAR 0.3.0
 
-## Ambiente e escopo
+## Escopo e ambiente
 
-10/11/2026, horário de São Paulo (UTC−3). Linux x86_64 virtualizado, Node.js 24.22.1, Chromium headless 158.0.8127.18 com **SwiftShader por software**. Não representa GPU desktop dedicada. Playthroughs, perfis visuais e probe comparativo em 1280 × 800.
+Validação em Linux, Node 24, Chromium headless 158.0.8127.18 / ANGLE SwiftShader, viewport 1280×800. Trata-se de GPU por software, não certificação de notebook/celular/GPU física. Interface e fluxo são desktop. Relatório histórico da atualização anterior: [QA-v020.md](QA-v020.md). O GDD inteiro não foi entregue/certificado.
 
-O [QA anterior](QA-v010.md) é histórico, não certifica esta atualização. A campanha completa e as matrizes integrais do GDD continuam fora do escopo.
+## Gates automatizados
 
-## Gates reais
+- `npm ci`, lint ESLint, TypeScript `--noEmit`, `npm test`, build de produção e audit.
+- **131 testes em cinco arquivos**: lógica de combate/luz/save/portas, câmeras/controles/preferências/raycast, expansão e coleta/cadáver, clips/clone skeletal do zumbi e clips/máscaras de Helena.
+- Cobertura inclui limites de 4,5/5 s, relógio real em menus/saves, remoção permanente de todos os tipos inclusive chefe/rastejo, migração dos saves anteriores, coletáveis de todas as categorias, acesso às salas novas e puzzle 3→1→2 com reset por erro.
+- Arquitetura dos assets: clips válidos com tempos/valores finitos, in-place sem modificar os originais, SkeletonUtils com ossos independentes/geometria compartilhada, máscaras superiores/inferiores sem sobreposição, convergência do apoio esquerdo sem deslocar arma/collider, abaixar quadril na morte e voltar à mira após recarga.
+- Aviso conhecido do Vite: chunk compartilhado Three.js/loader/decoder/render maior que 500 KB. Não foi ocultado elevando limite. `audit` sem vulnerabilidades no momento da execução final, não garantia permanente.
 
-- Instalação limpa com `npm ci`; `npm run lint` e `npm run typecheck` aprovados.
-- `npm test`: **72 testes em dois arquivos**, todos aprovados. Preservados dano localizado/crítico, integridade independente das pernas, chefe, bateria em diferentes taxas de atualização, exposição, transações de portas, rollback, estado de sala, save/backup e input latch.
-- Novos testes: padrões/preferências versionadas, sensibilidade/inversão, perfis; movimento relativo e diagonal normalizada; tank independente do corte; yaw/pitch e meia-volta; raycast regional, erro real de mira, oclusão por parede/cobertura da arma e hitboxes invisíveis; colisão do boom; troca/restauração de bump sem perder textura de cor; movimento varrido e separação entre chefe e jogadora.
-- `npm run build`: aprovado; JS **616,58 kB / 161,30 kB gzip**, CSS 6,50 kB. O aviso de chunk maior que 500 kB permanece explícito. Não foi mascarado aumentando o limite.
-- `npm audit`: **zero vulnerabilidades** no lockfile testado.
+## Playthrough real (não galeria)
 
-## Playthroughs completos
+`GAME_MODE=shoulder npm run smoke` e `GAME_MODE=tank npm run smoke`. Usa somente teclado/mouse e cópias diagnósticas somente leitura: não define HP, itens, inimigos, flags ou posição. Bot de ombro alinha a retícula física pelas setas e só atira quando o raycast retorna a região desejada; tank usa a seleção regional projetada para esse modo. O bot usa sensibilidade 0,7 pelo menu e assistência desligada; confere o raycast antes/depois de olhar para não perder um alvo que já estava alinhado. Captura de mouse é exercitada separadamente pelo smoke de UI.
 
-`GAME_MODE=shoulder npm run smoke` e `GAME_MODE=tank npm run smoke` usam comandos de teclado/UI reais, sem atribuir HP, posição, munição, flags ou estado de inimigos. O diagnóstico `window.limiar` retorna cópias somente leitura. O bot de ombro alinha a **retícula física** usando a alternativa de setas; não substitui o raycast por alvo automático. Captura de mouse real é verificada separadamente.
+**PASSOU nos dois modos, em expedições novas completas:** ombro 359,2 s; tank 474,8 s. Ambos visitaram as 12 salas, concluíram isolamento com `flags.final=true` e 100 HP, depois recarregaram a gravação real no segundo posto. Zero erros JS, warnings ou HTTP em ambos. Resumo versionado: [campaign-qa-v030.json](campaign-qa-v030.json).
 
-A rota de ambos: documento/munição/inventário → corredor e combate E01 → duas balas na perna e confirmação de rastejo → eliminação → posto seguro com save/load pela UI → arquivo/E01/relógio 03:15/chave → manutenção/E01/fusível/energia → átrio/trava/combate B01 → conclusão. Depois da vitória, alterna V nos dois sentidos, recarrega a página, verifica preferência e carrega o save seguro sem sobrescrever a preferência.
+Rota exercitada: recepção/documento → corredor/E01 com queda em perna/rastejo/morte → rádio seguro/save → arquivo/relógio 03:15/chave → manutenção/fusível/energia → átrio/B01/trava → patamar → internação/E02 → enfermaria203/E02/pulseira → posto seguro/save/load → lavanderia/E04/pressão → isolamento/E04/terminal/final → troca V e recarregar o save do segundo posto. A abertura/cinemática de porta bloqueia input; ida/volta e reentrada são verificadas.
 
-| Modo | Resultado | Tempo de automação | HP na vitória | Flags |
-|---|---|---:|---:|---|
-| Ombro | aprovado | 247.76 s | 76 | chave, fusível, energia e B01 |
-| Tank | aprovado | 267.53 s | 100 | chave, fusível, energia e B01 |
+Antes/depois comprovados por estado **e** render: corpo ainda existe após morrer e não está no mapa de atores após cinco segundos; munição/bateria não somem junto. Documento, seu beacon e interação saem imediatamente, continuam no arquivo e não reaparecem após reentrada/save. B01 também é removido depois de cinco segundos, sem exceção de progressão. Novos itens/chaves/documentos seguem a mesma fonte de verdade.
 
-Zero erros JavaScript, avisos de console ou respostas HTTP 4xx/5xx nos playthroughs aprovados. Os relatórios completos estão na box em `/workspace/limiar-v020-smoke/{shoulder,tank}/report.json`. O último estado do relatório é o save seguro recarregado; o evento **complete** é a evidência da vitória. O tempo de automação não é a duração prometida de uma partida humana.
+Após o refinamento visual final da pegada de duas mãos, a campanha de ombro foi revalidada em duas etapas: expedição nova até o segundo gravador e retomada do **save genuíno, intocado** para lavanderia/isolamento/final. A retomada passou em 70,2 s, final com 68 HP e zero erros JS/warnings/HTTP, seguida de reload no posto. Nenhum HP, inventário ou flag foi fabricado. Tentativas do bot mirando a cabeça pequena do rastejador falharam; o teste final usa tiros legítimos no torso após derrubar a perna. Isso é limite da automação, não prova de playthrough fresco completo após esse último ajuste visual.
 
-### Problemas encontrados e corrigidos
+Saídas: `/workspace/limiar-v030-smoke/final-tank` (pass completo), `/workspace/limiar-v030-smoke/final-shoulder` (evidências e checkpoint, último report é tentativa falha de alinhamento do bot), `/workspace/limiar-v030-smoke/resumed-shoulder` (retomada final aprovada). O resumo versionado preserva os passes completos anteriores e distingue a retomada. Tentativas não são contadas como passes. Screenshots selecionados em [screenshots/v030](screenshots/v030/README.md).
 
-- O cookie de SpotLight precisa de RGB radial, não apenas alpha: corrigido e comparação lanterna ligada/desligada confirmou iluminação real.
-- A lanterna dentro do peito era obstruída pela própria sombra: deslocada para fora do corpo.
-- O rastejador girado a partir dos pés ficava enterrado: corrigidos pivô/posição e limite inferior de pitch para permitir tiro próximo.
-- A investida do chefe podia atravessar mobiliário/terminar dentro da jogadora: movimento subdividido e separação física, com dois testes de regressão. Não se reduziu HP/dano dos inimigos para passar.
-- Em software lento, esperar apenas tempo de relógio não assegura cooldown simulado: o bot aguarda arma pronta, recarga e consumo real de munição.
+## Galerias e modelo recebido
 
-## Mouse, preferências e perfis
+`npm run smoke:zombie`: ambos os modos, andando/correndo/atacando/rastejando/morrendo, todos os clips adicionais, remoção pós-morte, bone head hitbox, seis clones, LOD, geometrias/materiais compartilhados, somente duas requisições GLB e mixers parados fora do quadro. Zero erros/warnings de console na execução validada.
 
-`npm run smoke:published` (local por padrão, `GAME_URL` para remoto): inicia em ombro, muda sensibilidade/inversão, verifica pointer lock e mudança real de yaw pelo mouse, V sem pausa indevida, Z tank, C troca de ombro, mapa/inventário, tiro J/K consumindo munição, reload de página e preferência persistida. Renderiza **Baixo/Médio/Alto**; confirma ausência de erros/avisos. O playthrough completo foi feito no **Baixo**; Médio/Alto receberam smoke de UI/render/controles, não três campanhas completas por perfil.
+`npm run smoke:player`: ambos os modos, andando/mirando/atirando/recarregando, valida todos os 17 clips (3 recebidos +14 criados), 66 ossos, arma acompanhando mão, uma única requisição GLB, zero erros/warnings. As poses de tiro/recarga são amostradas em tempos definidos **somente na galeria**, para a imagem não perder um recoil de 0,22 s em SwiftShader. Não são screenshots alegadamente espontâneos da campanha; o jogo usa os mesmos clips sem amostragem forçada.
 
-### Capturas da build
+Evidências: `/workspace/limiar-v030-smoke/zombie/` e `/workspace/limiar-v030-smoke/player/`. Página da galeria de Helena foi revisada visualmente: corrigido um container canvas incorreto que podia passar sem erro JS mas produzir imagem vazia. Somente imagens regeneradas com cena visível são aceitas.
 
-![Ombro — Médio](screenshots/ombro-v020.png)
-![Tank — Médio](screenshots/tank-v020.png)
-![Raycast e rastejador — Baixo](screenshots/combate-v020.png)
+A amostra final isolada com seis zumbis teve 51,08 ms/frame procedural versus 55,78 ms/frame GLB (+9,2%), mediana 50 ms nos dois, e 230 → 104 draw calls. É resultado real de software, não certificação de FPS.
 
-Demais evidências locais: `/workspace/limiar-v020-smoke/ui/` (lanterna ligada/desligada, Alto/Baixo), `shoulder/` e `tank/` (porta, documentos, inventário, puzzle, chefe e conclusão).
+Medições completas antes/depois, res/formato de cada textura, triângulos/ossos/influências, draw calls e limites de autoria: [MODELOS.md](MODELOS.md), [JSON dos assets](asset-optimization-v030.json), [CREDITS.md](CREDITS.md). Comparação dos seis inimigos é isolada no mesmo ambiente, não comparação integral entre builds de campanhas diferentes. A regressão de frametime por skinning não é escondida nem convertida em promessa de FPS.
 
-## Desempenho: medido, não certificado
+## UI e publicação
 
-Snapshot antes da atualização do Pages: [dados brutos](benchmark-v020.json). A base publicada ainda era a 0.1.0 (commit 78094ea); as versões locais são 0.2.0, câmera de ombro.
+`npm run smoke:published` verifica versão 0.3.0, modelos prontos, mouse pointer lock e yaw, V nos dois sentidos, Z, C, mapa/inventário, opções/inversão/sensibilidade, três perfis, tiro, recarga real de Helena, caminhada cautelosa por input real e preferências após reload. O procedimento pós-push repete o smoke contra a URL pública depois de Actions/deployment concluídos. HTTP da página e todos os arquivos de produção (incluindo GLBs) deve ser comparado com o build local e o bundle deve conter 0.3.0. Push sozinho não é aceito como prova de publicação.
 
-| Cena | Amostras em ≥6 s | Mediana | p99 | Frames >100 ms | Draw calls |
-|---|---:|---:|---:|---:|---:|
-| 0.1.0 publicada, câmera fixa | 155 | 33,3 ms | 83,4 ms | 0 | 186 |
-| 0.2.0 ombro, Baixo | 139 | 49,9 ms | 100 ms | 0 | 103 |
-| 0.2.0 ombro, Médio | 44 | 16,8 ms | 450 ms | 18 | 154 |
+Este documento acompanha o commit antes do próprio deploy. O relatório de entrega externo informa URL/Actions/SHA e o resultado HTTP/browser pós-deploy, que não pode ser incluído retroativamente neste mesmo commit sem outro push.
 
-**A mediana isolada do Médio não significa 60 FPS**: somente 44 quadros foram coletados na janela, com 18 intervalos acima de 100 ms. Há custo/regressão em SwiftShader, sobretudo travadas no Médio, não uma meta de desempenho cumprida. A otimização do Baixo desativou cookie/bump e reduziu resolução; mitigou, mas não eliminou o custo frente à cena fixa antiga. A perspectiva preenche mais a tela e as cenas/iluminação não são idênticas; estes números não isolam uma única causa.
+## Correções e limites honestos
 
-O probe `node scripts/benchmark.mjs` compara a publicação vigente e os perfis locais sequencialmente, com a mesma viewport/Chromium por software, sem playthroughs concorrentes. Cada cena fica parada na recepção; 3 s de aquecimento e 6 s de amostras de requestAnimationFrame. Essa amostra curta não é stress test, nem comparação de GPUs, nem pior caso de combate. O nome `base-publicada` é relativo ao momento da execução; após atualizar o Pages, uma nova execução já usará a publicação nova.
-
-Baixo limita a resolução a 60%, desliga sombras/pós/cookie/bump (preserva texturas de cor) e reduz poeira. Médio usa até 90%, sombra 512 e pós; Alto até 115%, sombra 1024 e mais poeira (todos limitados também pelo DPR da tela). Melhoria visual tem custo: não há promessa de 30/60 FPS nem de ausência universal de regressão. Não se mediram VRAM/heap em stress ou hardware real. Prefira Baixo em máquinas limitadas.
-
-## Limites conhecidos e não certificados
-
-- Seis salas, um inimigo comum e B01 adaptado; sem R-18, capítulos posteriores, gamepad/mobile, baú ou armas adicionais.
-- Modelos e texturas continuam low-poly/procedurais; animação não tem mocap/IK. Hitboxes aproximadas, contato/navegação 2D simples.
-- Colisão de câmera é boom + margem, não cápsula varrida completa; pode aproximar/ocultar Helena em cantos apertados. Tank usa cutaway intencional de teto e paredes.
-- Glow econômico de cinco amostras; sem SSAO/SSR/GI ou pós de produção AAA. O Baixo não mostra sombra/cookie.
-- A mira de tank continua assistida por região; apenas ombro usa a retícula física. Assistência leve de ombro é opcional, desligada por padrão.
-- As 100 travessias dos testes são de **lógica**, não 100 transições renderizadas com profiling de memória. Saves v1 preservam o formato; preferências têm chave separada.
-- Rota vencedora não certifica todas as situações de game over, agarrão, interrupção, perda de contexto WebGL, browser/device e acessibilidade.
-- Matrizes completas PERF/FLASH/CHASE/HEAD/LEG do GDD não foram certificadas. QA automatizado não substitui avaliação humana de conforto da câmera, arte, som e balanceamento.
-
-## Publicação
-
-O workflow oficial só publica após lint, tipos, testes e build. Push não é evidência de deployment. A verificação final inclui sucesso do run/deployment, GET do HTML/bundle/CSS com versão 0.2.0 e smoke curto contra a URL pública. Para repetir:
-
-```sh
-GAME_URL=https://luispauloalves500.github.io/limiar-ecos-da-quarentena/ \
-SMOKE_OUT=/workspace/limiar-v020-smoke/published npm run smoke:published
-```
+- O bot de QA inicialmente tentava um destino arredondado sobre a margem de uma lavadora; a rota de teste foi corrigida para o corredor central e a face norte. Não foram desligadas colisões ou reduzidos danos para passar.
+- Painel de pressão foi afastado da porta e sai das interações após solucionar; antes interceptava E e impedia chegar ao novo final.
+- E04 tem investida contínua anunciada, não teleporte instantâneo. Perna derrubada cancela corrida. E02 usa recuo curto antes do agarrão.
+- Doze salas, três tipos comuns e B01 adaptado. Não há oito capítulos, R-18, B02 completo, 64 salas nem campanha de pediatria; o final é gancho.
+- Modelos fornecidos são otimizados, mas autoria/licença original não foi verificada independentemente. Não são atribuídos como arte nossa nem como licença aberta.
+- Keyframes estilizados: sem IK em runtime/facial/ragdoll (apoio da mão usa CCD no bake), mordida sincronizada/QTE ou carregador físico. Há gesto de abrir porta, não mão geométrica em cada maçaneta. Hitboxes ósseas são caixas aproximadas.
+- Colisão/navegação de atores são 2D simples; decoração periférica repetida não tem toda colisão própria. Camera boom tem margem, não física volumétrica completa; pode ocultar Helena em cantos muito próximos.
+- Salas são definições locais no bundle; só os modelos têm preload assíncrono. Sem streaming de capítulos, gamepad, mobile, PWA, inventário por grade, baú ou outras armas.
+- Relógio do sistema adulterado manualmente pode afetar o timeout de cadáver. Não há servidor autoritativo/save em nuvem.
+- Falha WebGL/context loss, baixa memória, acessibilidade completa, playtest humano prolongado e matriz de hardware real seguem pendentes. `high` é opção, não garantia de desempenho.

@@ -1,5 +1,16 @@
 export type RoomId =
-  "recepcao" | "corredor" | "segura" | "arquivo" | "gerador" | "atrio";
+  | "recepcao"
+  | "corredor"
+  | "segura"
+  | "arquivo"
+  | "gerador"
+  | "atrio"
+  | "escadaria"
+  | "internacao"
+  | "enfermaria"
+  | "lavanderia"
+  | "posto"
+  | "isolamento";
 export type Vec = { x: number; z: number };
 export type Rect = Vec & { w: number; d: number };
 export type Door = {
@@ -13,10 +24,11 @@ export type Door = {
 };
 export type Pickup = Vec & {
   id: string;
-  kind: "ammo" | "herb" | "battery" | "fuse" | "document";
+  kind: "ammo" | "herb" | "battery" | "fuse" | "document" | "key";
   label: string;
   text?: string;
 };
+export type EnemyKind = "E01" | "E02" | "E04" | "B01";
 export type Room = {
   id: RoomId;
   name: string;
@@ -25,7 +37,13 @@ export type Room = {
   safe?: boolean;
   obstacles: Rect[];
   items: Pickup[];
-  enemies: { id: string; x: number; z: number; boss?: boolean }[];
+  enemies: {
+    id: string;
+    x: number;
+    z: number;
+    boss?: boolean;
+    kind?: EnemyKind;
+  }[];
 };
 export const doors: Door[] = [
   {
@@ -78,6 +96,57 @@ export const doors: Door[] = [
     pb: { x: 6, z: 4 },
     key: "boss",
     label: "Atalho da administração",
+  },
+  {
+    id: "D07",
+    a: "atrio",
+    b: "escadaria",
+    pa: { x: 6, z: 4 },
+    pb: { x: -6, z: 4 },
+    key: "boss",
+    label: "Acesso à internação",
+  },
+  {
+    id: "D08",
+    a: "escadaria",
+    b: "internacao",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    label: "Ala de internação",
+  },
+  {
+    id: "D09",
+    a: "internacao",
+    b: "posto",
+    pa: { x: -6, z: 4 },
+    pb: { x: 6, z: 4 },
+    label: "Posto de enfermagem",
+  },
+  {
+    id: "D10",
+    a: "internacao",
+    b: "enfermaria",
+    pa: { x: 6, z: -3 },
+    pb: { x: -6, z: 4 },
+    label: "Enfermaria 203",
+  },
+  {
+    id: "D11",
+    a: "internacao",
+    b: "lavanderia",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    key: "pulseira",
+    label: "Serviço / lavanderia",
+  },
+  {
+    id: "D12",
+    a: "lavanderia",
+    b: "isolamento",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    key: "pressao",
+    label: "Barreira de isolamento",
   },
 ];
 export const rooms: Record<RoomId, Room> = {
@@ -203,6 +272,159 @@ export const rooms: Record<RoomId, Room> = {
       },
     ],
     enemies: [{ id: "porteiro", x: 0, z: -4, boss: true }],
+  },
+  escadaria: {
+    id: "escadaria",
+    name: "Patamar da internação",
+    subtitle: "CAPÍTULO 2 · AS CAMAS VAZIAS",
+    color: 0x616856,
+    obstacles: [
+      { x: -3, z: -2, w: 2, d: 4 },
+      { x: 3, z: -3, w: 2, d: 3 },
+    ],
+    items: [
+      {
+        id: "esc-doc",
+        kind: "document",
+        label: "Planta de serviço",
+        x: 0,
+        z: 3,
+        text: "Caio não desceu. Foi levado à internação. A pulseira de serviço está no leito 203; abre a lavanderia. Despressurize o circuito antes de cruzar a barreira de isolamento. Um rádio ainda transmite no posto de enfermagem.",
+      },
+      { id: "esc-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 3, z: 4 },
+      { id: "esc-bat", kind: "battery", label: "Bateria +35", x: -3, z: 4 },
+    ],
+    enemies: [],
+  },
+  internacao: {
+    id: "internacao",
+    name: "Corredor de internação",
+    subtitle: "ALA 200 · NÃO SIGA OS PASSOS",
+    color: 0x60756f,
+    obstacles: [
+      { x: -3, z: -1, w: 2, d: 3 },
+      { x: 3, z: 2, w: 1.4, d: 2.5 },
+    ],
+    items: [
+      { id: "int-kit", kind: "herb", label: "Kit médico", x: -4, z: 6 },
+      { id: "int-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
+      {
+        id: "int-doc",
+        kind: "document",
+        label: "Aviso do plantão",
+        x: 1,
+        z: 5,
+        text: "O enfermeiro recua antes de agarrar. Não confunda o passo para trás com fuga: afaste-se ou ilumine para interromper. A criatura de pulseira vermelha corre em linha reta; saia da trajetória e ataque enquanto ela se recompõe.",
+      },
+    ],
+    enemies: [{ id: "enfermeiro01", kind: "E02", x: 1, z: -3 }],
+  },
+  posto: {
+    id: "posto",
+    name: "Posto de enfermagem",
+    subtitle: "REFÚGIO · GRAVAÇÃO E RÁDIO",
+    color: 0x9b7955,
+    safe: true,
+    obstacles: [
+      { x: -3, z: -4, w: 4, d: 1.4 },
+      { x: 3, z: -3, w: 1.5, d: 3 },
+    ],
+    items: [
+      { id: "posto-kit", kind: "herb", label: "Kit médico", x: 1, z: 1 },
+      {
+        id: "posto-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: -3,
+        z: 0,
+      },
+      { id: "posto-bat", kind: "battery", label: "Bateria +35", x: 3, z: 4 },
+      {
+        id: "posto-doc",
+        kind: "document",
+        label: "Último plantão de Lia",
+        x: -4,
+        z: 4,
+        text: "Eu deixei água e um gravador. A pulseira foi presa à cama 203, não a um paciente. O sistema deve ser purgado na ordem RETORNO, ENTRADA, DESCARGA — 3, 1, 2. Se a luz de isolamento ficar âmbar, espere: há alguém vivo do outro lado. — Lia",
+      },
+    ],
+    enemies: [],
+  },
+  enfermaria: {
+    id: "enfermaria",
+    name: "Enfermaria 203",
+    subtitle: "LEITOS INTERDITADOS · O QUE FICOU",
+    color: 0x76867b,
+    obstacles: [
+      { x: -3, z: -2, w: 2, d: 4 },
+      { x: 3, z: -2, w: 2, d: 4 },
+    ],
+    items: [
+      {
+        id: "pulseira",
+        kind: "key",
+        label: "Pulseira de serviço 203",
+        x: 0,
+        z: -5,
+      },
+      { id: "enf-kit", kind: "herb", label: "Kit médico", x: 4, z: 5 },
+      { id: "enf-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: -2, z: 5 },
+      {
+        id: "enf-doc",
+        kind: "document",
+        label: "Prontuário sem nome",
+        x: 0,
+        z: 3,
+        text: "Leito 203. O campo ÓBITO foi apagado três vezes. Caio assinou a transferência para isolamento às 03:16 — um minuto depois do horário oficial de evacuação. Ao fundo da gravação há uma criança contando portas.",
+      },
+    ],
+    enemies: [{ id: "enfermeiro02", kind: "E02", x: 1, z: -2 }],
+  },
+  lavanderia: {
+    id: "lavanderia",
+    name: "Lavanderia de serviço",
+    subtitle: "P02 · CIRCUITO DE PRESSÃO",
+    color: 0x637879,
+    obstacles: [
+      { x: -3.5, z: -2, w: 2, d: 5 },
+      { x: 3.5, z: -2, w: 2, d: 5 },
+    ],
+    items: [
+      {
+        id: "lav-doc",
+        kind: "document",
+        label: "Manômetro de emergência",
+        x: 0,
+        z: 4,
+        text: "Antes de abrir a barreira: 3 RETORNO → 1 ENTRADA → 2 DESCARGA. Ordem incorreta fecha todas as válvulas; repita. O circuito mantém a pressão liberada depois do procedimento. Nunca procure a saída correndo em linha reta diante de um Febril.",
+      },
+      { id: "lav-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
+      { id: "lav-bat", kind: "battery", label: "Bateria +35", x: -4, z: 5 },
+    ],
+    enemies: [{ id: "febril01", kind: "E04", x: 0, z: -4 }],
+  },
+  isolamento: {
+    id: "isolamento",
+    name: "Galeria de isolamento",
+    subtitle: "ÚLTIMA TRANSMISSÃO · PORTA 13",
+    color: 0x6f534e,
+    obstacles: [
+      { x: -3, z: -1, w: 1.5, d: 3 },
+      { x: 3, z: -1, w: 1.5, d: 3 },
+    ],
+    items: [
+      { id: "iso-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 6 },
+      { id: "iso-kit", kind: "herb", label: "Kit médico", x: -4, z: 6 },
+      {
+        id: "iso-doc",
+        kind: "document",
+        label: "Protocolo de selagem",
+        x: 0,
+        z: 5,
+        text: "Terminal no fundo: transmita a fita e sele a barreira. O circuito só aceita a operação quando o movimento no setor cessa. Caio repete: NÃO EXISTE LEITO TREZE. A fita registra uma respiração do lado de dentro.",
+      },
+    ],
+    enemies: [{ id: "febril02", kind: "E04", x: 0, z: -3 }],
   },
 };
 export function endpoint(d: Door, room: RoomId) {
