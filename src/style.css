@@ -475,3 +475,38 @@ blockquote {
   pointer-events: none;
   opacity: 0;
 }
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 25px 0;
+}
+.options-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  color: #b7c4ac;
+}
+.options-grid input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #bfcaac;
+}
+.options-grid select {
+  padding: 12px;
+  background: #152725;
+  color: #d2ddc3;
+  border: 1px solid #6d8672;
+}
+#target.hip {
+  font-size: 14px;
+  border: 0;
+  opacity: 0.5;
+}
+#film {
+  box-shadow: inset 0 0 110px 10px #03080975;
+}
+#overlay {
+  backdrop-filter: none;
+}

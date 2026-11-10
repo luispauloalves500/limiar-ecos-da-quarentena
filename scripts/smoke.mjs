@@ -3,7 +3,8 @@ import { writeFile, mkdir } from "node:fs/promises";
 import assert from "node:assert/strict";
 const base =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
-const out = process.env.SMOKE_OUT || "/workspace/limiar-smoke";
+const gameMode = process.env.GAME_MODE || "shoulder";
+const out = process.env.SMOKE_OUT || `/workspace/limiar-v020-smoke/${gameMode}`;
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -14,7 +15,7 @@ const browser = await chromium.launch({
     "--enable-unsafe-swiftshader",
   ],
 });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [],
   warnings = [],
   responses = [];
@@ -105,22 +106,56 @@ function route(p, goal, room) {
   }
   return [goal];
 }
-function controlsToward(p, goal, zone) {
-  const cx = zone === 0 ? 10 : -10,
-    cz = 16,
-    len = Math.hypot(cx, cz);
-  const f = { x: -cx / len, z: -cz / len },
+function angle(a) {
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
+function controlsToward(p, goal, yaw) {
+  const f = { x: Math.sin(yaw), z: Math.cos(yaw) },
     r = { x: -f.z, z: f.x };
   const dx = goal.x - p.x,
     dz = goal.z - p.z;
   const along = dx * f.x + dz * f.z,
     across = dx * r.x + dz * r.z;
   const keys = [];
-  if (Math.abs(along) > Math.max(0.12, Math.abs(across) * 0.414))
+  if (Math.abs(along) > Math.max(0.1, Math.abs(across) * 0.414))
     keys.push(along > 0 ? "w" : "s");
-  if (Math.abs(across) > Math.max(0.12, Math.abs(along) * 0.414))
+  if (Math.abs(across) > Math.max(0.1, Math.abs(along) * 0.414))
     keys.push(across > 0 ? "d" : "a");
   return keys;
+}
+async function tankFace(yaw) {
+  for (let i = 0; i < 40; i++) {
+    const s = await state(),
+      error = angle(yaw - s.player.yaw);
+    if (Math.abs(error) < 0.08) return;
+    await hold(
+      [error > 0 ? "a" : "d"],
+      Math.min(220, Math.max(25, (Math.abs(error) / 2.1) * 850)),
+    );
+  }
+}
+async function lookAt(position) {
+  const s = await state(),
+    cam = s.cameraPosition,
+    dx = position[0] - cam[0],
+    dy = position[1] - cam[1],
+    dz = position[2] - cam[2];
+  const yaw = Math.atan2(dx, dz),
+    pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  const ye = angle(yaw - s.cameraYaw),
+    pe = pitch - s.cameraPitch,
+    sens = s.preferences.sensitivity;
+  if (Math.abs(ye) > 0.006)
+    await hold(
+      [ye > 0 ? "ArrowLeft" : "ArrowRight"],
+      Math.min(180, Math.max(15, (Math.abs(ye) / (1.188 * sens)) * 850)),
+    );
+  if (Math.abs(pe) > 0.006)
+    await hold(
+      [pe > 0 !== s.preferences.invertY ? "ArrowUp" : "ArrowDown"],
+      Math.min(140, Math.max(15, (Math.abs(pe) / (0.792 * sens)) * 850)),
+    );
+  await page.waitForTimeout(60);
 }
 async function moveTo(x, z, tolerance = 0.6) {
   let s = await state();
@@ -136,9 +171,20 @@ async function moveTo(x, z, tolerance = 0.6) {
         throw Error(
           `Movement stuck ${JSON.stringify(s.player)} => ${JSON.stringify(goal)}`,
         );
-      const keys = controlsToward(s.player, goal, s.camera);
+      let keys;
+      if (gameMode === "tank") {
+        await tankFace(Math.atan2(goal.x - s.player.x, goal.z - s.player.z));
+        keys = ["w"];
+      } else keys = controlsToward(s.player, goal, s.cameraYaw);
       if (!keys.length) break;
-      await hold(keys, Math.min(180, Math.max(55, (d / 2.2) * 450)));
+      if (s.room === "atrio") keys.push("Shift");
+      await hold(
+        keys,
+        Math.min(
+          170,
+          Math.max(35, (d / (s.room === "atrio" ? 3.7 : 2.2)) * 450),
+        ),
+      );
     }
   }
 }
@@ -153,20 +199,49 @@ async function travel(x, z, to) {
   await page.waitForTimeout(400);
   await note("door → " + to);
 }
-async function aimAtEnemy(id) {
-  let s = await state();
-  const e = s.enemies[id];
-  const k = controlsToward(s.player, e, s.camera);
-  await hold(k, 80);
+async function aimAtEnemy(id, region) {
   await page.keyboard.down("j");
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(180);
+  if (gameMode === "tank") {
+    const s = await state(),
+      e = s.enemies[id];
+    await page.keyboard.up("j");
+    await tankFace(Math.atan2(e.x - s.player.x, e.z - s.player.z));
+    await page.keyboard.down("j");
+    await page.waitForTimeout(100);
+    return;
+  }
+  const wanted = region === "3" ? "legL" : region === "2" ? "body" : "head";
+  for (let i = 0; i < 32; i++) {
+    const s = await state();
+    if (s.enemies[id].dead) return;
+    const target = s.aimTargets.find((t) => t.id === id && t.region === wanted);
+    assert.ok(target, "Hitbox exists");
+    await lookAt(target.position);
+    const after = await state();
+    if (after.rayHit?.id === id && after.rayHit.region === wanted) return;
+  }
+  throw Error("Could not align real reticle with " + id + " " + wanted);
 }
 async function shoot(id, region = "1", count = 2) {
   await tap(region);
-  await aimAtEnemy(id);
   for (let i = 0; i < count; i++) {
+    if ((await state()).enemies[id].dead || (await state()).ammo === 0) break;
+    await page.waitForFunction(() => window.limiar.weaponReady, {
+      timeout: 10000,
+    });
+    await aimAtEnemy(id, region);
+    await page.waitForFunction(() => window.limiar.aiming, { timeout: 10000 });
+    const before = (await state()).ammo;
     await tap("k");
-    await page.waitForTimeout(450);
+    await page.waitForFunction(
+      (before) => window.limiar.ammo < before,
+      before,
+      { timeout: 10000 },
+    );
+    await page.waitForFunction(() => window.limiar.weaponReady, {
+      timeout: 10000,
+    });
   }
   await page.keyboard.up("j");
   await note("shoot " + id);
@@ -175,7 +250,14 @@ try {
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForFunction(() => !!window.limiar);
   await page.screenshot({ path: out + "/01-menu.png" });
+  assert.equal((await state()).preferences.mode, "shoulder");
+  await page.locator("#options").click();
+  await page.locator("#opt-mode").selectOption(gameMode);
+  await page.locator("#opt-quality").selectOption("low");
+  await page.locator("#options-back").click();
   await page.locator("#new").click();
+  assert.equal((await state()).preferences.mode, gameMode);
+  await page.screenshot({ path: out + "/00-" + gameMode + ".png" });
   await note("start");
   await moveTo(-3, 2);
   await tap("e");
@@ -190,7 +272,7 @@ try {
   await page.screenshot({ path: out + "/03-inventario.png" });
   await tap("Tab");
   await moveTo(1, -6.6);
-  assert.equal((await state()).camera, 1);
+  if (gameMode === "tank") assert.equal((await state()).camera, 1);
   await moveTo(0, -6.9);
   await tap("e");
   await page.waitForFunction(() => window.limiar.transition);
@@ -207,6 +289,7 @@ try {
   let st = await state();
   assert.equal(st.enemies.errante01.crawl, true);
   await page.screenshot({ path: out + "/05-combate.png" });
+  if (gameMode === "shoulder") await moveTo(0, 5.7);
   await shoot("errante01", "1", 2);
   assert.equal((await state()).enemies.errante01.dead, true);
   await travel(-5, 4, "segura");
@@ -251,19 +334,23 @@ try {
   await moveTo(-4.8, -5.6);
   await moveTo(0, -5.5);
   await tap("e");
-  await shoot("porteiro", "1", 5);
+  await shoot("porteiro", "2", 5);
   await tap("r");
-  await page.waitForTimeout(1300);
+  await page.waitForFunction(() => !window.limiar.reloading, {
+    timeout: 15000,
+  });
   await tap("h");
   // Complete using repeated electrical traps if ammunition is low; no puzzle requires bullets.
   for (let i = 0; i < 8 && !(await state()).flags.boss; i++) {
     const before = (await state()).hp;
     await moveTo(0, -5.7);
     await tap("e");
-    await shoot("porteiro", "1", 4);
+    await shoot("porteiro", "2", 4);
     if ((await state()).ammo === 0) {
       await tap("r");
-      await page.waitForTimeout(1300);
+      await page.waitForFunction(() => !window.limiar.reloading, {
+        timeout: 15000,
+      });
     }
     if ((await state()).hp < 65) await tap("h");
     if ((await state()).flags.boss) break;
@@ -279,6 +366,17 @@ try {
   assert.equal((await state()).flags.boss, true);
   await page.screenshot({ path: out + "/09-conclusao.png" });
   await note("complete");
+  await page.locator("#explore").click();
+  await page.keyboard.press("v");
+  assert.notEqual((await state()).preferences.mode, gameMode);
+  await page.keyboard.press("v");
+  assert.equal((await state()).preferences.mode, gameMode);
+  await page.reload();
+  await page.waitForFunction(() => !!window.limiar);
+  assert.equal((await state()).preferences.mode, gameMode);
+  await page.locator("#load").click();
+  assert.equal((await state()).room, "segura");
+  assert.equal((await state()).preferences.mode, gameMode);
   assert.deepEqual(errors, []);
   assert.deepEqual(responses, []);
   console.log("SMOKE PASS");
@@ -293,6 +391,7 @@ try {
     JSON.stringify(
       {
         base,
+        gameMode,
         browser: browser.version(),
         errors,
         warnings,

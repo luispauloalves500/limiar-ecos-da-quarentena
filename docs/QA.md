@@ -1,64 +1,84 @@
-# Evidências de validação — 0.1.0
+# Evidências de validação — 0.2.0
 
-## Ambiente
+## Ambiente e escopo
 
-- 10/11/2026, horário de São Paulo (UTC−3).
-- Box Linux x86_64 virtualizada (KVM), 8 vCPUs Intel Xeon.
-- Node.js 24.22.1; Chromium headless 158.0.8127.18, renderização **SwiftShader por software**, viewport 1440 × 900. Não equivale a uma GPU dedicada de referência.
+10/11/2026, horário de São Paulo (UTC−3). Linux x86_64 virtualizado, Node.js 24.22.1, Chromium headless 158.0.8127.18 com **SwiftShader por software**. Não representa GPU desktop dedicada. Playthroughs, perfis visuais e probe comparativo em 1280 × 800.
 
-## Resultados locais
+O [QA anterior](QA-v010.md) é histórico, não certifica esta atualização. A campanha completa e as matrizes integrais do GDD continuam fora do escopo.
 
-- `npm ci`: instalação limpa reproduzida com lockfile.
-- `npm run lint`: aprovado, sem erros.
-- `npm run typecheck`: aprovado.
-- `npm test`: **45 testes aprovados**. Incluem dano por região, crítico, imunidade do chefe a morte aleatória, pernas independentes, prioridade de morte, combo luminoso, bateria 30/60/120 Hz, exposição/cooldown, grafo, bloqueios, **100 travessias na lógica** preservando estado, requests duplicados, rollback por falha, readiness, saves corrompidos/backup e input latch.
-- `npm run build`: aprovado. Bundle principal inclui Three.js (~578 kB não comprimido, ~150 kB gzip); há um aviso de chunk maior que 500 kB. Não foi ocultado como se fosse um orçamento cumprido.
-- `npm audit`: **0 vulnerabilidades**, incluindo desenvolvimento, após override de `minimatch` 11.0.1+ para corrigir advisory transitório do lint.
+## Gates reais
 
-## Playthrough automatizado real
+- Instalação limpa com `npm ci`; `npm run lint` e `npm run typecheck` aprovados.
+- `npm test`: **72 testes em dois arquivos**, todos aprovados. Preservados dano localizado/crítico, integridade independente das pernas, chefe, bateria em diferentes taxas de atualização, exposição, transações de portas, rollback, estado de sala, save/backup e input latch.
+- Novos testes: padrões/preferências versionadas, sensibilidade/inversão, perfis; movimento relativo e diagonal normalizada; tank independente do corte; yaw/pitch e meia-volta; raycast regional, erro real de mira, oclusão por parede/cobertura da arma e hitboxes invisíveis; colisão do boom; troca/restauração de bump sem perder textura de cor; movimento varrido e separação entre chefe e jogadora.
+- `npm run build`: aprovado; JS **616,58 kB / 161,30 kB gzip**, CSS 6,50 kB. O aviso de chunk maior que 500 kB permanece explícito. Não foi mascarado aumentando o limite.
+- `npm audit`: **zero vulnerabilidades** no lockfile testado.
 
-`npm run smoke` executou uma partida pela interface e teclado, **sem mutar o estado do jogo ou inserir cheats**:
+## Playthroughs completos
 
-1. Iniciou, leu documento, coletou munição e abriu/fechou inventário.
-2. Atravessou uma zona de câmera e uma porta cinematográfica.
-3. Atirou duas vezes na perna do E01, confirmou rastejo e depois morte.
-4. Visitou o posto seguro, salvou no gravador e carregou a gravação pela UI.
-5. Retornou ao corredor, entrou no arquivo, neutralizou E01 e ajustou o puzzle 03:15.
-6. Abriu manutenção com a chave, coletou e instalou o fusível.
-7. Entrou no átrio, contornou obstáculos, usou a trava e a pistola e concluiu B01.
-8. Confirmou `mode=win`, HP 76 e flags de chave, fusível, energia e chefe concluídas.
+`GAME_MODE=shoulder npm run smoke` e `GAME_MODE=tank npm run smoke` usam comandos de teclado/UI reais, sem atribuir HP, posição, munição, flags ou estado de inimigos. O diagnóstico `window.limiar` retorna cópias somente leitura. O bot de ombro alinha a **retícula física** usando a alternativa de setas; não substitui o raycast por alvo automático. Captura de mouse real é verificada separadamente.
 
-**Resultado:** aprovado em 197,7 s de execução de automação; zero erros JavaScript, zero erros de console e zero respostas HTTP 4xx/5xx. Isso é uma rota automatizada eficiente, **não uma promessa de duração da experiência humana**.
+A rota de ambos: documento/munição/inventário → corredor e combate E01 → duas balas na perna e confirmação de rastejo → eliminação → posto seguro com save/load pela UI → arquivo/E01/relógio 03:15/chave → manutenção/E01/fusível/energia → átrio/trava/combate B01 → conclusão. Depois da vitória, alterna V nos dois sentidos, recarrega a página, verifica preferência e carrega o save seguro sem sobrescrever a preferência.
 
-O playthrough identificou um aviso da versão atual do Three.js sobre `PCFSoftShadowMap`; o código foi ajustado para `PCFShadowMap`, que era o fallback efetivamente usado. Depois dessa troca, um segundo smoke curto verificou a build final com mouse real (RMB + LMB), corrida com Shift, mapa, inventário, pausa, áudio e resolução, exigindo **zero avisos e zero erros**.
+| Modo | Resultado | Tempo de automação | HP na vitória | Flags |
+|---|---|---:|---:|---|
+| Ombro | aprovado | 247.76 s | 76 | chave, fusível, energia e B01 |
+| Tank | aprovado | 267.53 s | 100 | chave, fusível, energia e B01 |
 
-As primeiras tentativas da automação falharam ao roçar mobília e ao tentar atravessar o chefe em linha reta; o roteamento do teste foi corrigido para respeitar os obstáculos e contornar as colunas. Não se desligou colisão nem se enfraqueceu o inimigo para fazer o teste passar.
+Zero erros JavaScript, avisos de console ou respostas HTTP 4xx/5xx nos playthroughs aprovados. Os relatórios completos estão na box em `/workspace/limiar-v020-smoke/{shoulder,tank}/report.json`. O último estado do relatório é o save seguro recarregado; o evento **complete** é a evidência da vitória. O tempo de automação não é a duração prometida de uma partida humana.
 
-### Capturas
+### Problemas encontrados e corrigidos
 
-![Menu](screenshots/menu.png)
-![Combate com rastejador](screenshots/combate.png)
-![Porta cinematográfica](screenshots/porta.png)
-![Conclusão da fatia vertical](screenshots/conclusao.png)
+- O cookie de SpotLight precisa de RGB radial, não apenas alpha: corrigido e comparação lanterna ligada/desligada confirmou iluminação real.
+- A lanterna dentro do peito era obstruída pela própria sombra: deslocada para fora do corpo.
+- O rastejador girado a partir dos pés ficava enterrado: corrigidos pivô/posição e limite inferior de pitch para permitir tiro próximo.
+- A investida do chefe podia atravessar mobiliário/terminar dentro da jogadora: movimento subdividido e separação física, com dois testes de regressão. Não se reduziu HP/dano dos inimigos para passar.
+- Em software lento, esperar apenas tempo de relógio não assegura cooldown simulado: o bot aguarda arma pronta, recarga e consumo real de munição.
 
-## Desempenho: não certificado
+## Mouse, preferências e perfis
 
-Na janela final de 600 amostras de render do playthrough por software: mediana **50,0 ms**, p99 **183,4 ms**, **37 frames acima de 100 ms**. O contador no menu final chegou a 6 FPS (backdrop/overlay incluído). O último quadro tinha 218 draw calls e 3.064 triângulos. Esses números são observações da box sem GPU, não metas cumpridas; o protótipo **não está certificado a 30 ou 60 FPS**. Não foram medidos heap/VRAM em stress nem hardware desktop real. A opção de resolução na pausa ajuda a ajustar o custo visual, mas não é um scaler dinâmico completo.
+`npm run smoke:published` (local por padrão, `GAME_URL` para remoto): inicia em ombro, muda sensibilidade/inversão, verifica pointer lock e mudança real de yaw pelo mouse, V sem pausa indevida, Z tank, C troca de ombro, mapa/inventário, tiro J/K consumindo munição, reload de página e preferência persistida. Renderiza **Baixo/Médio/Alto**; confirma ausência de erros/avisos. O playthrough completo foi feito no **Baixo**; Médio/Alto receberam smoke de UI/render/controles, não três campanhas completas por perfil.
 
-## O que estes testes não demonstram
+### Capturas da build
 
-- As 100 travessias são teste de unidade da transação, **não 100 travessias renderizadas com profiling de memória**.
-- O caminho de derrota existe, mas o playthrough vencedor não valida todas as situações de game over/agarrão/reload.
-- Rollback foi testado com loader rejeitado; não houve campanha com pacotes remotos, queda de rede ou perda de contexto WebGL.
-- Matrizes PERF01–15, FLASH01–20, CHASE01–24, HEAD/LEG e QA completas do GDD **não foram certificadas**.
-- R-18, capítulos posteriores, PWA/offline, gamepad/mobile, baú e armas adicionais não existem nesta entrega.
-- O smoke não substitui avaliação humana de arte, som, conforto de câmera, acessibilidade e balanceamento.
+![Ombro — Médio](screenshots/ombro-v020.png)
+![Tank — Médio](screenshots/tank-v020.png)
+![Raycast e rastejador — Baixo](screenshots/combate-v020.png)
+
+Demais evidências locais: `/workspace/limiar-v020-smoke/ui/` (lanterna ligada/desligada, Alto/Baixo), `shoulder/` e `tank/` (porta, documentos, inventário, puzzle, chefe e conclusão).
+
+## Desempenho: medido, não certificado
+
+Snapshot antes da atualização do Pages: [dados brutos](benchmark-v020.json). A base publicada ainda era a 0.1.0 (commit 78094ea); as versões locais são 0.2.0, câmera de ombro.
+
+| Cena | Amostras em ≥6 s | Mediana | p99 | Frames >100 ms | Draw calls |
+|---|---:|---:|---:|---:|---:|
+| 0.1.0 publicada, câmera fixa | 155 | 33,3 ms | 83,4 ms | 0 | 186 |
+| 0.2.0 ombro, Baixo | 139 | 49,9 ms | 100 ms | 0 | 103 |
+| 0.2.0 ombro, Médio | 44 | 16,8 ms | 450 ms | 18 | 154 |
+
+**A mediana isolada do Médio não significa 60 FPS**: somente 44 quadros foram coletados na janela, com 18 intervalos acima de 100 ms. Há custo/regressão em SwiftShader, sobretudo travadas no Médio, não uma meta de desempenho cumprida. A otimização do Baixo desativou cookie/bump e reduziu resolução; mitigou, mas não eliminou o custo frente à cena fixa antiga. A perspectiva preenche mais a tela e as cenas/iluminação não são idênticas; estes números não isolam uma única causa.
+
+O probe `node scripts/benchmark.mjs` compara a publicação vigente e os perfis locais sequencialmente, com a mesma viewport/Chromium por software, sem playthroughs concorrentes. Cada cena fica parada na recepção; 3 s de aquecimento e 6 s de amostras de requestAnimationFrame. Essa amostra curta não é stress test, nem comparação de GPUs, nem pior caso de combate. O nome `base-publicada` é relativo ao momento da execução; após atualizar o Pages, uma nova execução já usará a publicação nova.
+
+Baixo limita a resolução a 60%, desliga sombras/pós/cookie/bump (preserva texturas de cor) e reduz poeira. Médio usa até 90%, sombra 512 e pós; Alto até 115%, sombra 1024 e mais poeira (todos limitados também pelo DPR da tela). Melhoria visual tem custo: não há promessa de 30/60 FPS nem de ausência universal de regressão. Não se mediram VRAM/heap em stress ou hardware real. Prefira Baixo em máquinas limitadas.
+
+## Limites conhecidos e não certificados
+
+- Seis salas, um inimigo comum e B01 adaptado; sem R-18, capítulos posteriores, gamepad/mobile, baú ou armas adicionais.
+- Modelos e texturas continuam low-poly/procedurais; animação não tem mocap/IK. Hitboxes aproximadas, contato/navegação 2D simples.
+- Colisão de câmera é boom + margem, não cápsula varrida completa; pode aproximar/ocultar Helena em cantos apertados. Tank usa cutaway intencional de teto e paredes.
+- Glow econômico de cinco amostras; sem SSAO/SSR/GI ou pós de produção AAA. O Baixo não mostra sombra/cookie.
+- A mira de tank continua assistida por região; apenas ombro usa a retícula física. Assistência leve de ombro é opcional, desligada por padrão.
+- As 100 travessias dos testes são de **lógica**, não 100 transições renderizadas com profiling de memória. Saves v1 preservam o formato; preferências têm chave separada.
+- Rota vencedora não certifica todas as situações de game over, agarrão, interrupção, perda de contexto WebGL, browser/device e acessibilidade.
+- Matrizes completas PERF/FLASH/CHASE/HEAD/LEG do GDD não foram certificadas. QA automatizado não substitui avaliação humana de conforto da câmera, arte, som e balanceamento.
 
 ## Publicação
 
-O workflow `.github/workflows/pages.yml` só publica após lint, tipos, testes e build aprovados. A verificação final da URL pública e do bundle é feita após o deployment, separadamente do push. Reproduza a validação curta com:
+O workflow oficial só publica após lint, tipos, testes e build. Push não é evidência de deployment. A verificação final inclui sucesso do run/deployment, GET do HTML/bundle/CSS com versão 0.2.0 e smoke curto contra a URL pública. Para repetir:
 
 ```sh
 GAME_URL=https://luispauloalves500.github.io/limiar-ecos-da-quarentena/ \
-SMOKE_OUT=/workspace/limiar-published-smoke npm run smoke:published
+SMOKE_OUT=/workspace/limiar-v020-smoke/published npm run smoke:published
 ```

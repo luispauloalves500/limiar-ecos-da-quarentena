@@ -1,56 +1,52 @@
-# LIMIAR: Ecos da Quarentena
+# LIMIAR: Ecos da Quarentena — 0.2.0
 
-**Protótipo jogável 0.1.0** de terror e sobrevivência original, inspirado no GDD v1.6 fornecido pelo autor. Helena Duarte procura o irmão Caio no hospital fictício de Santa Avelina, onde o composto A-13 alterou os pacientes.
+Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
-[Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [Documento de concepção](docs/GDD-LIMIAR-v1.6.md)
+[Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-> Esta entrega é uma **fatia vertical curta e experimental**, não o jogo completo de 8–12 horas. O GDD descreve a visão futura e não uma lista de recursos já entregues. Desktop com teclado/mouse e WebGL 2. Não há rastreamento, contas, compras ou servidor de jogo.
+## Novo na 0.2.0
 
-## O que funciona
+- **Sobre o ombro por padrão:** câmera atrás do ombro direito, mouse com pointer lock, pitch limitado, sensibilidade/inversão Y, movimento relativo à câmera, rotação corporal suave, mira com zoom e troca de ombro. Colisão do boom contra paredes, teto e móveis impede a câmera de atravessar superfícies; em distâncias muito curtas Helena é ocultada para evitar obstruir o quadro.
+- **Tank secundário:** câmeras fixas com corte por zona, W/S no eixo corporal, A/D girando e meia-volta em Z. Não é apenas a câmera antiga com controles modernos. Troca em V ou nas opções; preferência persiste separadamente do save.
+- **Mira física sobre o ombro:** retícula central gera raycast contra hitboxes transformadas de cabeça, torso e cada perna. A superfície mais próxima vence, com teste adicional entre arma e impacto para impedir tiros através da cobertura. 1/2/3 só seleciona região no tank. Assistência de cone mínimo é opcional e começa desligada.
+- **Hospital fechado e mais sombrio:** quatro paredes, teto e tubulação; modo tank usa cutaway para tornar o interior visível. Materiais PBR com texturas Canvas de azulejo sujo, ferrugem, umidade e manchas; macas com colchões/grades, estantes, monitores, quadros, sinalização, bolsas de soro e decals de sangue.
+- Lanterna SpotLight, cookie procedural e sombra nos perfis Médio/Alto; falloff convencional no Baixo. Luzes práticas garantem navegação com lanterna desligada e oscilam sutilmente. Neblina, poeira, ACES/sRGB e pós leve com glow de cinco amostras, vinheta, granulação e aberração cromática discreta.
+- Personagens articulados com cápsulas, ombros/cotovelos/joelhos, rosto/cabelo, roupa/equipamento e animação procedural de respiração, marcha, mira, recuo e reação. Flash de disparo, partículas de sangue/impacto e núcleo do chefe com feedback visual de vulnerabilidade.
+- Perfis **Baixo / Médio / Alto** controlam resolução, sombras, pós e poeira. Não é uma garantia de FPS em hardware desconhecido.
 
-- Seis salas interligadas: recepção, corredor leste, posto de rádio, arquivo clínico, sala do gerador e átrio das catracas; rota principal, retorno e atalho final.
-- Duas câmeras fixas por sala, com retenção do vetor mundial enquanto a mesma direção fica pressionada. Piso, obstáculos e portas delimitam o percurso.
-- Portas 3D em uma cena cinematográfica separada, transição bidirecional transacional, bloqueio de input, proteção na chegada e preservação de itens, estado de inimigos e puzzle.
-- Helena low-poly animada proceduralmente, pistola 9 mm com carregador de 12, munição finita, recarga, mira assistida e seleção de cabeça/tronco/perna esquerda.
-- Três instâncias de E01, com telegráfico, perseguição com navegação em grade, reação, morte, crítico craniano de 8%, dano de cabeça 1,8×, integridade separada de pernas e rastejo por incapacidade funcional. A pistola não amputa pernas.
-- Cadáveres ficam visíveis até a saída; os meshes são descartados ao trocar de sala e os mortos não reaparecem. Não há loot de cadáver nem coleta duplicada.
-- Lanterna de exploração/foco, consumo de bateria por tempo, baterias coletáveis, exposição, lentidão e atordoamento com cooldown. Luz e tiros são barrados pelos mesmos obstáculos lógicos.
-- Saúde, kits médicos, inventário simplificado e documentos legíveis em português, mapa, pausa, derrota e carregamento.
-- P01 simplificado: relógio 03:15, chave de manutenção, fusível e restauração da energia.
-- **B01 simplificado**, com 560 HP, golpe de área, investida anunciada, maior agressividade na segunda fase e armadura vulnerável temporariamente pela trava elétrica. O circuito recarregável também causa dano: não é obrigatório ter munição para concluir.
-- Final curto da fatia vertical, continuação da exploração e liberação do atalho.
-- Gravação manual ilimitada no posto de rádio usando localStorage; schema v1 validado e backup do slot anterior. Áudio sintetizado com WebAudio, silenciável. Resolução de renderização alternável na pausa.
-- Simulação em passo fixo de 60 Hz; diagnósticos locais somente leitura em `window.limiar` para reprodução de testes.
+## Conteúdo preservado
+
+Seis salas, portas cinematográficas bidirecionais e estado persistente; pistola de 12 tiros com reserva finita; três E01 com crítico craniano de 8%, dano de cabeça 1,8×, integridade de cada perna e rastejo funcional; lanterna/baterias/exposição/atordoamento; saúde e kits; documentos; inventário simplificado; mapa; relógio 03:15, chave e fusível; gravador com save/load versionado; chefe B01 adaptado com 560 HP, ataques anunciados, núcleo vulnerável e trava elétrica recarregável que evita softlock por falta de balas. Conclusão curta e atalho após vencer.
+
+Os saves **v1 da 0.1.0 permanecem compatíveis**. O modo de câmera e as opções ficam em `limiar-preferences-v1`, não substituem o slot `limiar-save-v1`. Armazenamento é local a este navegador/domínio. O jogo não envia saves/telemetria a servidores.
 
 ## Controles
 
-| Ação | Tecla |
+| Ação | Controle |
 |---|---|
-| Mover / correr | WASD / Shift |
-| Interagir / guardar documento | E |
-| Mirar | Segurar botão direito ou J |
-| Disparar | Botão esquerdo ou K, mirando |
-| Região: cabeça / tronco / perna | 1 / 2 / 3 |
-| Alternar alvo | T |
-| Recarregar pistola | R |
-| Lanterna / foco intenso | F / segurar Q mirando |
-| Usar bateria / kit médico | B / H |
+| Alternar ombro / tank | V ou Opções |
+| Ombro: controlar visão | Clique na cena para capturar mouse; Esc libera/pausa |
+| Ombro: mover / correr | WASD relativo à câmera / Shift |
+| Alternativa sem captura de mouse | Setas para olhar; RMB arrastado também gira |
+| Trocar ombro direito/esquerdo | C |
+| Tank: avançar/recuar / girar | W/S / A/D |
+| Tank: meia-volta | Z |
+| Mirar / atirar | Segurar RMB ou J / LMB ou K |
+| Tank: cabeça / tronco / perna esquerda | 1 / 2 / 3; T alterna alvo |
+| Interagir / recarregar | E / R |
+| Lanterna / foco | F / segurar Q mirando |
+| Bateria / kit médico | B / H |
 | Inventário / mapa / pausa | Tab / M / Esc |
 
-A movimentação é relativa à câmera: **solte a direção após um corte para recalcular o referencial**. A mira é assistida por cone, distância e visibilidade lógica; ela não exige precisão pixel a pixel. Para mirar uma ameaça, primeiro vire Helena na direção dela. Disparos sem alvo gastam munição. Durante uma porta, o jogo não recebe comandos de combate, menus ou interação.
+Fechar um menu solta as teclas. No ombro, clique novamente na cena para recapturar o mouse. Durante a porta, movimento, tiros, câmera e menus ficam bloqueados. Use Opções no menu principal ou na pausa para sensibilidade, inversão Y, qualidade e assistência.
 
-## Percurso
+## Rota curta
 
-1. Leia o bilhete e recolha munição na recepção.
-2. Cruze para o corredor e visite o posto de rádio à esquerda. Salve no gravador.
-3. No arquivo, ajuste o relógio para **03:15** e obtenha a chave.
-4. Vá à manutenção pelo fundo do corredor. Pegue o fusível na entrada e instale no painel no fundo à direita.
-5. Entre no átrio. Contorne as colunas, afaste-se dos avisos de ataque e use a trava elétrica no fundo da sala. A janela de núcleo aberto dura quatro segundos; o circuito recarrega em 12 segundos.
-6. Derrote o Porteiro. O atalho retorna à recepção. Para preservar o progresso após explorar, volte ao gravador.
+Leia o bilhete na recepção → corredor → posto de rádio à esquerda (salve no gravador) → arquivo (relógio **03:15**, obtenha a chave) → manutenção (pegue fusível na entrada e instale no fundo à direita) → átrio. Contorne colunas, fuja dos avisos e use a trava no fundo para expor/danificar o Porteiro. O circuito recarrega em 12 s. Após vencer, o atalho volta à recepção. Salve novamente no posto para preservar exploração posterior.
 
-## Executar e validar
+## Executar e testar
 
-Node.js 24 recomendado. Dependências fixadas em `package-lock.json`.
+Node.js 24 recomendado; dependências fixadas no lockfile.
 
 ```sh
 npm ci
@@ -62,38 +58,29 @@ npm run build
 npm run preview -- --port 4173
 ```
 
-Abra `http://localhost:4173/limiar-ecos-da-quarentena/` para a build. O caminho-base de Vite corresponde ao repositório Pages; altere `vite.config.ts` se renomear o projeto.
-
-Smoke de navegador (em outro terminal, com preview ativo):
+Preview: `http://localhost:4173/limiar-ecos-da-quarentena/`. Vite usa a base do repositório Pages. O workflow oficial valida lint, tipos, testes e build antes da publicação.
 
 ```sh
 npx playwright install chromium
-npm run smoke
-npm run smoke:published # validação curta de mouse, corrida e menus
-# Opcional: GAME_URL=https://... SMOKE_OUT=/caminho/evidencias npm run smoke
+GAME_MODE=shoulder npm run smoke
+GAME_MODE=tank npm run smoke
+npm run smoke:published
 ```
 
-O smoke utiliza apenas teclado e interface do jogo, consulta diagnósticos somente leitura e salva screenshots e relatório em `/workspace/limiar-smoke` por padrão. Consulte [QA](docs/QA.md) para resultados e limitações reais. O workflow oficial de Pages valida lint, tipos, testes e build antes de publicar; o smoke local não está incluído na CI.
+Os playthroughs usam somente comandos reais e diagnósticos somente leitura; não alteram HP, inimigos ou progressão. A automação de mira usa as setas acessíveis para alinhar a retícula física; a captura de mouse é exercitada separadamente pelo smoke curto. Evidências padrão: `/workspace/limiar-v020-smoke/shoulder`, `/workspace/limiar-v020-smoke/tank`. `GAME_URL` e `SMOKE_OUT` são configuráveis. Não confundir testes de unidade de 100 passagens com 100 passagens renderizadas em hardware real.
 
-## Estrutura e autoria dos recursos
+## Organização e autoria
 
-- `src/world.ts`: salas, grafo bidirecional, objetos, documentos e colisões.
-- `src/logic.ts`: estado, dano localizado, bateria/exposição, save e transações de portas.
-- `src/render.ts`: cenas Three.js, personagens, cenários, sinais e porta cinematográfica.
-- `src/main.ts`: simulação, controles, HUD, menus e progressão.
-- `src/audio.ts`: osciladores WebAudio originais.
-- `tests/logic.test.ts`: testes de regras e persistência.
+`world.ts`: salas/grafo/colisões; `logic.ts`: dano, luz, save e transações; `controls.ts`: preferências e regras de controles; `aim.ts`: raycast e colisão de câmera; `actors.ts`: modelos/articulações; `art.ts`: texturas/geometria procedural; `post.ts`: pós leve; `render.ts`: cenas/câmeras/efeitos; `main.ts`: coordenação, UI e simulação; `audio.ts`: síntese WebAudio original.
 
-Toda a arte é geometria procedural, materiais e placas Canvas originais; o áudio é sintetizado em código. Não são usados modelos, sons, personagens, cenários ou marcas de Resident Evil, nem downloads de assets com licença incerta. Three.js (MIT) e ferramentas têm suas próprias licenças de dependência. Não é concedida aqui uma licença de terceiros para o GDD fornecido pelo usuário.
+Arte, modelos, placas, texturas, partículas, sons e história implementada são procedurais/originais. Não há assets/personagens/sons/cenários de Resident Evil nem pacotes de licença incerta. Three.js e ferramentas mantêm suas licenças próprias. O GDD fornecido pelo usuário não recebe aqui uma licença de terceiros.
 
-## Ainda não implementado / limites importantes
+## Limitações
 
-- Não representa M2 completo: são **6 salas, 1 arquétipo comum e um chefe simplificado**, não 8 salas/3 arquétipos/60 minutos.
-- Sem os demais capítulos, 64 salas, 18 arquétipos, 7 chefes completos, finais ramificados, aliados ou diálogos dublados.
-- Sem R-18, perseguição de três salas, cenário destrutível, lente A-13, outras armas, faca, esquiva, gamepad, controle tanque ou remapeamento.
-- Inventário é por contadores e flags, sem grade de oito espaços, baú compartilhado ou combinação de itens.
-- Dano localizado por região assistida e linha de visão 2D, **não raycast anatômico pixel a pixel**, física avançada, IK ou animações artísticas finais.
-- Portas têm modelo cinematográfico e transação assíncrona reais, mas as seis definições de sala estão no bundle inicial. Geometria é gerada/descarregada por sala: **não há streaming remoto de capítulos ou scheduler de VRAM**.
-- Sem PWA/service worker ou garantia offline. Save restrito a este navegador/domínio; limpar dados do site apaga a gravação. Sem importação/exportação ou recuperação de backup na UI.
-- O B01 adapta o GDD: a trava elétrica pode causar dano independentemente de colisão prévia e serve de proteção contra softlock por falta de munição. Não implementa todos os quatro padrões/duas fases artísticas da especificação.
-- Não há certificação das matrizes completas PERF/FLASH/CHASE/HEAD/LEG do GDD nem teste de gamepad/mobile. Desempenho em Chromium por software não garante FPS em outros dispositivos. Há um aviso de bundle acima de 500 kB no build (Three.js incluído).
+- São seis salas, um arquétipo comum e B01 simplificado; não são 8 capítulos, 64 salas, 18 arquétipos ou 7 chefes completos. Sem R-18, destruição de cenário, campanha posterior ou finais ramificados.
+- Modelos continuam estilizados low-poly/procedurais, sem escultura, animações capturadas, IK ou ragdolls. Hitboxes aproximam a anatomia; não são malhas anatômicas perfeitas. Contato do personagem ainda usa colisão 2D e navegação simples.
+- Colisão de câmera testa o boom e margem, não uma cápsula física completa. Em cantos muito apertados pode aproximar/ocultar Helena. O tank oculta teto e paredes próximas intencionalmente.
+- Pós é um glow econômico de cinco amostras, não bloom multi-mip/HDR cinematográfico, SSAO, SSR ou iluminação global. Sombras/cookie/bump são desligados no Baixo (texturas de cor permanecem). Queda real de contexto WebGL e hardware fraco ainda precisam de QA adicional.
+- Sem gamepad, remapeamento completo, inventário por grade, baú, outras armas, faca ou esquiva. R-18 não foi acrescentado nesta atualização gráfica.
+- Salas são procedurais e suas definições cabem no bundle inicial; sem streaming remoto de capítulos, PWA/service worker ou garantia offline.
+- Performance e matrizes completas do GDD não estão certificadas. O benchmark SwiftShader teve custo maior que a 0.1.0, sobretudo no Médio; o Baixo mitiga esse custo. SwiftShader não representa GPU real. Consulte medições e escopo efetivamente testado em `docs/QA.md`.

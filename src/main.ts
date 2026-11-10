@@ -2,6 +2,18 @@ import "./style.css";
 import { View } from "./render";
 import { Audio } from "./audio";
 import {
+  VERSION,
+  defaults,
+  PREF_KEY,
+  parsePreferences,
+  savePreferences,
+  relativeMovement,
+  tankMovement,
+  wrapAngle,
+  type CameraMode,
+  type Quality,
+} from "./controls";
+import {
   newGame,
   damage,
   drainBattery,
@@ -21,11 +33,12 @@ import {
   dist,
   clearPoint,
   lineClear,
+  slideMove,
   type Vec,
   type RoomId,
 } from "./world";
 const app = document.querySelector<HTMLDivElement>("#app")!;
-app.innerHTML = `<div id="film"></div><div id="fade"></div><div id="top"><div class="brand">L / E Q <span>PROTÓTIPO 0.1</span></div><div id="location"></div><button id="pause" aria-label="Pausar">Ⅱ</button></div><div id="hud"><div><span class="tiny">HELENA DUARTE</span><b id="health"></b><div class="meter"><i id="healthbar"></i></div></div><div id="objective"></div><div class="equipment"><span id="ammo"></span><span id="battery"></span><small id="region"></small></div></div><div id="prompt"></div><div id="notice" role="status"></div><div id="target">＋</div><div id="threat"></div><div id="doorcaption"></div><div id="overlay"></div><div id="hint">WASD mover · Shift correr · E interagir · RMB/J mirar · LMB/K atirar · 1/2/3 região · F lanterna · Q foco · Tab inventário · M mapa</div>`;
+app.innerHTML = `<div id="film"></div><div id="fade"></div><div id="top"><div class="brand">L / E Q <span>PROTÓTIPO ${VERSION}</span></div><div id="location"></div><button id="pause" aria-label="Pausar">Ⅱ</button></div><div id="hud"><div><span class="tiny">HELENA DUARTE</span><b id="health"></b><div class="meter"><i id="healthbar"></i></div></div><div id="objective"></div><div class="equipment"><span id="ammo"></span><span id="battery"></span><small id="region"></small></div></div><div id="prompt"></div><div id="notice" role="status"></div><div id="target">＋</div><div id="threat"></div><div id="doorcaption"></div><div id="overlay"></div><div id="hint">WASD mover · Shift correr · E interagir · RMB/J mirar · LMB/K atirar · 1/2/3 região · F lanterna · Q foco · Tab inventário · M mapa</div>`;
 const el = (id: string) => document.getElementById(id)!;
 let view: View;
 try {
@@ -35,6 +48,13 @@ try {
     `<section class="panel"><h1>WebGL 2 indisponível</h1><p>Use um navegador desktop atualizado com aceleração gráfica ativada.</p><p>${String(err)}</p></section>`;
   throw err;
 }
+let prefs = { ...defaults };
+try {
+  prefs = parsePreferences(localStorage.getItem(PREF_KEY));
+} catch {
+  /* Local preferences are optional when browser storage is disabled. */
+}
+view.setPreferences(prefs);
 const audio = new Audio();
 let s = newGame();
 const travel = new Travel(),
@@ -43,6 +63,7 @@ let mode:
   | "menu"
   | "play"
   | "pause"
+  | "options"
   | "inventory"
   | "map"
   | "document"
@@ -82,6 +103,7 @@ function buttons(events: Record<string, () => void>) {
     document.getElementById(id)?.addEventListener("click", fn);
 }
 function panel(content: string) {
+  if (document.pointerLockElement) document.exitPointerLock();
   el("overlay").innerHTML = `<section class="panel">${content}</section>`;
   el("overlay").classList.add("visible");
   keys.clear();
@@ -98,13 +120,92 @@ function close() {
   latch.clear();
   last = performance.now();
 }
+function persistPreferences() {
+  view.setPreferences(prefs);
+  try {
+    savePreferences(prefs, localStorage);
+  } catch {
+    announce(
+      "Preferências aplicadas nesta sessão; armazenamento indisponível.",
+    );
+  }
+}
+function switchMode(next?: CameraMode) {
+  prefs.mode = next || (prefs.mode === "shoulder" ? "tank" : "shoulder");
+  persistPreferences();
+  view.syncCamera(s.player);
+  keys.clear();
+  latch.clear();
+  mouseAim = false;
+  targetId = "";
+  if (document.pointerLockElement) document.exitPointerLock();
+  announce(
+    prefs.mode === "shoulder"
+      ? "Câmera sobre o ombro. Clique na cena para controlar o mouse."
+      : "Câmeras fixas / controles tank clássicos.",
+  );
+}
+let optionsReturn = "menu";
+function options() {
+  if (mode !== "options") optionsReturn = mode;
+  mode = "options";
+  panel(
+    `<div class="eyebrow">LIMIAR / ${VERSION}</div><h2>Opções</h2><div class="options-grid"><label>Visão principal<select id="opt-mode"><option value="shoulder" ${prefs.mode === "shoulder" ? "selected" : ""}>Sobre o ombro</option><option value="tank" ${prefs.mode === "tank" ? "selected" : ""}>Tank / câmeras fixas</option></select></label><label>Qualidade<select id="opt-quality">${[
+      ["low", "Baixo"],
+      ["medium", "Médio"],
+      ["high", "Alto"],
+    ]
+      .map(
+        ([v, l]) =>
+          `<option value="${v}" ${prefs.quality === v ? "selected" : ""}>${l}</option>`,
+      )
+      .join(
+        "",
+      )}</select></label><label>Sensibilidade <output id="sensitivity-value">${prefs.sensitivity.toFixed(1)}</output><input id="opt-sensitivity" type="range" min="0.2" max="3" step="0.1" value="${prefs.sensitivity}"></label><label><input id="opt-invert" type="checkbox" ${prefs.invertY ? "checked" : ""}> Inverter eixo Y</label><label><input id="opt-assist" type="checkbox" ${prefs.assist ? "checked" : ""}> Assistência leve (ombro)</label></div><p class="muted">Baixo: resolução 70%, sem sombras/pós. Médio: 90%, sombra 512 e pós leve. Alto: 115%, sombra 1024 e mais poeira. Sem flashes obrigatórios; luzes oscilam apenas sutilmente.</p>${controls()}<button id="options-back" class="primary">VOLTAR</button>`,
+  );
+  (document.getElementById("opt-mode") as HTMLSelectElement).addEventListener(
+    "change",
+    (e) => {
+      switchMode((e.target as HTMLSelectElement).value as CameraMode);
+    },
+  );
+  (
+    document.getElementById("opt-quality") as HTMLSelectElement
+  ).addEventListener("change", (e) => {
+    prefs.quality = (e.target as HTMLSelectElement).value as Quality;
+    persistPreferences();
+  });
+  (
+    document.getElementById("opt-sensitivity") as HTMLInputElement
+  ).addEventListener("input", (e) => {
+    prefs.sensitivity = Number((e.target as HTMLInputElement).value);
+    el("sensitivity-value").textContent = prefs.sensitivity.toFixed(1);
+    persistPreferences();
+  });
+  for (const id of ["invert", "assist"])
+    document.getElementById("opt-" + id)!.addEventListener("change", (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      if (id === "invert") prefs.invertY = checked;
+      else prefs.assist = checked;
+      persistPreferences();
+    });
+  buttons({
+    "options-back": () => {
+      if (optionsReturn === "menu") menu();
+      else {
+        mode = "play";
+        pause();
+      }
+    },
+  });
+}
 function controls() {
-  return `<div class="controls"><p><b>WASD</b> mover em relação à câmera · <b>Shift</b> correr</p><p><b>E</b> interagir · <b>botão direito / J</b> segurar mira · <b>botão esquerdo / K</b> disparar</p><p><b>1 / 2 / 3</b> cabeça / tronco / perna · <b>T</b> alternar alvo · <b>R</b> recarregar</p><p><b>F</b> lanterna · <b>Q</b> foco (mirando) · <b>B</b> bateria · <b>H</b> kit médico</p><p><b>Tab</b> inventário · <b>M</b> mapa · <b>Esc</b> pausa</p></div>`;
+  return `<div class="controls"><p><b>V</b> ombro / tank · <b>Shift</b> correr · <b>E</b> interagir</p><p><b>Ombro:</b> clique na cena para capturar mouse; WASD relativo à câmera; mouse mira; C troca ombro; setas são alternativa ao mouse.</p><p><b>Tank:</b> W/S avança/recua, A/D gira; Z meia-volta; 1/2/3 escolhe cabeça/tronco/perna; T alterna alvo.</p><p><b>RMB / J</b> mirar · <b>LMB / K</b> disparar · <b>R</b> recarregar · <b>F / Q</b> lanterna / foco</p><p><b>B / H</b> bateria / cura · <b>Tab / M / Esc</b> inventário / mapa / pausa</p></div>`;
 }
 function menu() {
   mode = "menu";
   panel(
-    `<div class="eyebrow">SANTA AVELINA / 1998</div><h1>LIMIAR<span>ECOS DA QUARENTENA</span></h1><p class="intro">Um rádio transmite o nome de alguém que não deveria estar vivo.<br>Você veio buscar Caio. O hospital ainda está à espera.</p><div class="actions"><button id="new" class="primary">INICIAR EXPEDIÇÃO <span>→</span></button><button id="load">CONTINUAR DO GRAVADOR</button></div><div class="tag">FATIA VERTICAL EXPERIMENTAL · ARTE 3D E ÁUDIO AUTORAIS</div><p class="muted">Terror e violência estilizada. Desktop / teclado e mouse. Não é a campanha completa do GDD.</p>${controls()}`,
+    `<div class="eyebrow">SANTA AVELINA / 1998</div><h1>LIMIAR<span>ECOS DA QUARENTENA</span></h1><p class="intro">Um rádio transmite o nome de alguém que não deveria estar vivo.<br>Você veio buscar Caio. O hospital ainda está à espera.</p><div class="actions"><button id="new" class="primary">INICIAR EXPEDIÇÃO <span>→</span></button><button id="load">CONTINUAR DO GRAVADOR</button><button id="options">OPÇÕES / CÂMERA</button></div><div class="tag">FATIA VERTICAL EXPERIMENTAL · ARTE 3D E ÁUDIO AUTORAIS</div><p class="muted">Terror e violência estilizada. Desktop / teclado e mouse. Não é a campanha completa do GDD.</p>${controls()}`,
   );
   buttons({
     new: () => {
@@ -114,6 +215,7 @@ function menu() {
       close();
       announce("Caio: “Helena… leia meu bilhete na recepção.”");
     },
+    options,
     load: loadGame,
   });
 }
@@ -145,7 +247,7 @@ function pause() {
   if (mode === "play") {
     mode = "pause";
     panel(
-      `<div class="eyebrow">SINAL INTERROMPIDO</div><h2>Pausa</h2>${controls()}<div class="actions"><button id="resume" class="primary">VOLTAR AO HOSPITAL</button><button id="sound">${audio.muted ? "LIGAR" : "SILENCIAR"} ÁUDIO</button><button id="quality">ALTERNAR RESOLUÇÃO</button><button id="load">CARREGAR GRAVAÇÃO</button><button id="menu">MENU PRINCIPAL</button></div><p class="muted">Salve no gravador do posto de rádio. Não há autosave antes do chefe.</p>`,
+      `<div class="eyebrow">SINAL INTERROMPIDO</div><h2>Pausa</h2>${controls()}<div class="actions"><button id="resume" class="primary">VOLTAR AO HOSPITAL</button><button id="sound">${audio.muted ? "LIGAR" : "SILENCIAR"} ÁUDIO</button><button id="quality">OPÇÕES / CÂMERA / GRÁFICOS</button><button id="load">CARREGAR GRAVAÇÃO</button><button id="menu">MENU PRINCIPAL</button></div><p class="muted">Salve no gravador do posto de rádio. Não há autosave antes do chefe.</p>`,
     );
     buttons({
       resume: close,
@@ -155,14 +257,7 @@ function pause() {
           ? "LIGAR ÁUDIO"
           : "SILENCIAR ÁUDIO";
       },
-      quality: () => {
-        view.renderer.setPixelRatio(
-          view.renderer.getPixelRatio() > 1
-            ? 1
-            : Math.min(window.devicePixelRatio, 1.5),
-        );
-        announce("Resolução de renderização alterada.");
-      },
+      quality: options,
       load: loadGame,
       menu,
     });
@@ -401,6 +496,7 @@ async function changeRoom(id: string) {
       view.load(id, s);
     });
     if (ok) {
+      view.syncCamera(s.player);
       invulnerable = 1.3;
       announce(rooms[s.room].name);
       audio.tone(80, 0.25);
@@ -463,14 +559,21 @@ function fire() {
   s.ammo--;
   shotCooldown = 0.42;
   audio.shot();
-  const e = getTarget();
+  const shot = prefs.mode === "shoulder" ? view.shot(s) : undefined;
+  const e =
+    prefs.mode === "shoulder"
+      ? shot
+        ? s.enemies[shot.id]
+        : undefined
+      : getTarget();
+  const hitRegion = shot?.region || region;
+  view.shotFx(
+    s,
+    shot?.point || (e ? view.hitPosition(e.id, hitRegion) : view.wallImpact()),
+    !!e,
+  );
   if (e) {
-    const result = damage(
-      e,
-      e.crawl && region === "head" ? "head" : region,
-      Math.random,
-      e.exposure >= 25,
-    );
+    const result = damage(e, hitRegion, Math.random, e.exposure >= 25);
     announce(
       e.dead
         ? result.critical
@@ -482,7 +585,7 @@ function fire() {
             : "Armadura fechada. Use a trava elétrica."
           : e.crawl
             ? "Perna inutilizada. Ele ainda se move."
-            : region === "head"
+            : hitRegion === "head"
               ? "Impacto na cabeça."
               : "Impacto confirmado.",
     );
@@ -507,6 +610,7 @@ function bossWin() {
 function hitPlayer(amount: number) {
   if (invulnerable > 0 || mode !== "play" || travel.active) return;
   s.player.hp = Math.max(0, s.player.hp - amount);
+  view.hurtTime = 0.35;
   invulnerable = 1.3;
   reloadTime = 0;
   audio.tone(75, 0.4, 0.8, "triangle");
@@ -519,6 +623,7 @@ function hitPlayer(amount: number) {
       `<div class="eyebrow">FIM DA TRANSMISSÃO</div><h2>O hospital ficou em silêncio.</h2><p>Observe os sinais de ataque. Recuar e poupar munição também é sobreviver.</p><div class="actions"><button id="load" class="primary">CARREGAR GRAVAÇÃO</button><button id="restart">RECOMEÇAR EXPEDIÇÃO</button></div>`,
     );
     buttons({
+      options,
       load: loadGame,
       restart: () => {
         s = newGame();
@@ -535,10 +640,12 @@ function moveBody(
   dz: number,
   r: number,
   enemyCheck = false,
+  avoidPlayer = false,
 ) {
   const obs = rooms[s.room].obstacles;
   const ok = (q: Vec) =>
     clearPoint(q, obs, r) &&
+    (!avoidPlayer || dist(q, s.player) > (r > 0.5 ? 1.05 : 0.55)) &&
     (!enemyCheck ||
       Object.values(s.enemies).every(
         (e) =>
@@ -546,8 +653,7 @@ function moveBody(
           e.dead ||
           dist(e, q) > (e.crawl ? 0.42 : e.boss ? 0.8 : 0.6),
       ));
-  if (ok({ x: p.x + dx, z: p.z })) p.x += dx;
-  if (ok({ x: p.x, z: p.z + dz })) p.z += dz;
+  slideMove(p, dx, dz, ok);
 }
 // Small deterministic navigation grid; no geometry or combat tick depends on render rate.
 function pathDirection(e: Vec, p: Vec): Vec {
@@ -602,7 +708,8 @@ function tickEnemy(e: Enemy, dt: number) {
     s.battery > 0 &&
     d < (focus ? 8 : 9) &&
     dot > (focus ? 0.94 : 0.8) &&
-    lineClear(s.player, e, rooms[s.room].obstacles);
+    lineClear(s.player, e, rooms[s.room].obstacles) &&
+    view.illuminates(e.id, focus);
   if (applyLight(e, dt, lit, focus)) audio.tone(320, 0.2);
   if (e.dead) return;
   if (e.timer > 0) e.timer -= dt;
@@ -619,7 +726,7 @@ function tickEnemy(e: Enemy, dt: number) {
           lineClear(e, s.player, rooms[s.room].obstacles) &&
           d < 5 &&
           (s.player.x - e.x) * e.dx + (s.player.z - e.z) * e.dz > 0;
-        moveBody(e, e.dx * 2.8, e.dz * 2.8, 0.6);
+        moveBody(e, e.dx * 2.8, e.dz * 2.8, 0.6, false, true);
         if (hit && dist(e, s.player) < 2) hitPlayer(24);
       } else {
         if (
@@ -657,6 +764,8 @@ function tickEnemy(e: Enemy, dt: number) {
       (dir.x / len) * speed * dt,
       (dir.z / len) * speed * dt,
       e.boss ? 0.6 : 0.3,
+      false,
+      true,
     );
   }
 }
@@ -679,33 +788,40 @@ function tick(dt: number) {
   s.battery = drainBattery(s.battery, dt, s.light, aiming && keys.has("KeyQ"));
   const x = Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
     z = Number(keys.has("KeyW")) - Number(keys.has("KeyS"));
-  const key = x || z ? `${x},${z}` : "";
-  const v = latch.get(key, () => {
-    const cx = view.camera.position.x,
-      cz = view.camera.position.z,
-      len = Math.hypot(cx, cz),
-      fx = -cx / len,
-      fz = -cz / len;
-    const vx = fx * z - fz * x,
-      vz = fz * z + fx * x;
-    const l = Math.hypot(vx, vz);
-    return { x: vx / l, z: vz / l };
-  });
-  moving = !!key;
+  if (prefs.mode === "shoulder") {
+    const lookX =
+      Number(keys.has("ArrowRight")) - Number(keys.has("ArrowLeft"));
+    const lookY = Number(keys.has("ArrowDown")) - Number(keys.has("ArrowUp"));
+    if (lookX || lookY) view.look(lookX * dt * 540, lookY * dt * 360);
+  }
+  let v: Vec;
+  if (prefs.mode === "tank") {
+    const tank = tankMovement(z, x, s.player.yaw, dt);
+    s.player.yaw = tank.yaw;
+    v = tank.vector;
+  } else v = relativeMovement(x, z, view.yaw);
+  moving = Math.hypot(v.x, v.z) > 0.01;
   if (moving) {
     const speed =
       (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 3.7 : 2.2) *
       (aiming ? 0.4 : 1) *
       (s.player.hp <= 30 ? 0.88 : 1);
     moveBody(s.player, v.x * speed * dt, v.z * speed * dt, 0.3, true);
-    if (!aiming) s.player.yaw = Math.atan2(v.x, v.z);
+    if (prefs.mode === "shoulder" && !aiming) {
+      const desired = Math.atan2(v.x, v.z);
+      s.player.yaw = wrapAngle(
+        s.player.yaw +
+          wrapAngle(desired - s.player.yaw) * (1 - Math.exp(-dt * 15)),
+      );
+    }
     stepTime -= dt;
     if (stepTime <= 0) {
       audio.tone(65, 0.04, 0.09, "triangle");
       stepTime = keys.has("ShiftLeft") ? 0.25 : 0.43;
     }
   }
-  if (aiming) {
+  if (aiming && prefs.mode === "shoulder") s.player.yaw = view.yaw;
+  else if (aiming && prefs.mode === "tank" && !x) {
     const e = getTarget();
     if (e) s.player.yaw = Math.atan2(e.x - s.player.x, e.z - s.player.z);
   } else targetId = "";
@@ -723,7 +839,7 @@ function hud() {
   el("battery").textContent =
     `LUZ ${s.light ? "ON" : "OFF"}  ${Math.ceil(s.battery)}%  [${s.batteries}]`;
   el("region").textContent =
-    `${reloadTime > 0 ? "RECARREGANDO…" : aiming ? "MIRA: " + (region === "head" ? "CABEÇA" : region === "body" ? "TRONCO" : "PERNA ESQUERDA") : "R recarregar · H curar"}`;
+    `${reloadTime > 0 ? "RECARREGANDO…" : aiming ? (prefs.mode === "shoulder" ? "MIRA LIVRE / RETÍCULA" : "MIRA: " + (region === "head" ? "CABEÇA" : region === "body" ? "TRONCO" : "PERNA ESQUERDA")) : "R recarregar · H curar"}`;
   el("objective").textContent = s.flags.boss
     ? "ATALHO ADMINISTRATIVO LIBERADO"
     : s.flags.energia
@@ -736,25 +852,32 @@ function hud() {
   el("top").style.opacity = travel.active ? "0" : "1";
   el("hud").style.opacity = travel.active ? "0" : "1";
   el("hint").style.opacity = mode === "play" && !travel.active ? "1" : "0";
-  const e =
-    aiming && mode === "play" && !travel.active ? getTarget() : undefined;
-  if (e) {
-    const v = view.project(
-      e,
-      e.crawl
-        ? 0.6
-        : region === "head"
-          ? e.boss
-            ? 2.6
-            : 1.75
-          : region === "body"
-            ? 1.1
-            : 0.4,
-    );
-    el("target").style.display = v.z < 1 ? "block" : "none";
-    el("target").style.left = (v.x * 0.5 + 0.5) * innerWidth + "px";
-    el("target").style.top = (-v.y * 0.5 + 0.5) * innerHeight + "px";
-  } else el("target").style.display = "none";
+  if (prefs.mode === "shoulder") {
+    const show = mode === "play" && !travel.active;
+    el("target").style.display = show ? "block" : "none";
+    el("target").style.left = "50%";
+    el("target").style.top = "50%";
+    el("target").classList.toggle("hip", !aiming);
+    el("target").style.color =
+      aiming && view.shot(s, false) ? "#deb68d" : "#c7d1ba";
+  } else {
+    el("target").classList.remove("hip");
+    const e =
+      aiming && mode === "play" && !travel.active ? getTarget() : undefined;
+    if (e) {
+      const pos = view.hitPosition(e.id, region);
+      const v = pos?.project(view.camera);
+      el("target").style.display = v && v.z < 1 ? "block" : "none";
+      if (v) {
+        el("target").style.left = (v.x * 0.5 + 0.5) * innerWidth + "px";
+        el("target").style.top = (-v.y * 0.5 + 0.5) * innerHeight + "px";
+      }
+    } else el("target").style.display = "none";
+  }
+  el("hint").textContent =
+    prefs.mode === "shoulder"
+      ? "OMBRO · Clique para capturar mouse · WASD / Shift · RMB/J mirar · LMB/K atirar · E interagir · C ombro · V tank · Esc pausa"
+      : "TANK · W/S avançar/recuar · A/D girar · Z meia-volta · 1/2/3 região · E interagir · V ombro · Esc pausa";
   const threat = Object.values(s.enemies).find(
     (e) => e.room === s.room && !e.dead && e.state === "windup",
   );
@@ -769,11 +892,24 @@ function hud() {
       : "";
 }
 window.addEventListener("keydown", (e) => {
-  if (["Tab", "Space", "ArrowUp", "ArrowDown"].includes(e.code))
+  if (
+    [
+      "Tab",
+      "Space",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+    ].includes(e.code)
+  )
     e.preventDefault();
   if (e.repeat) return;
   if (travel.active) return;
   if (mode !== "play") {
+    if (mode === "options" && e.code === "Escape") {
+      document.getElementById("options-back")?.click();
+      return;
+    }
     if (
       (e.code === "Escape" ||
         (mode === "inventory" && e.code === "Tab") ||
@@ -786,6 +922,13 @@ window.addEventListener("keydown", (e) => {
   }
   keys.add(e.code);
   if (e.code === "Escape") pause();
+  if (e.code === "KeyV") switchMode();
+  if (e.code === "KeyC") {
+    prefs.shoulder = prefs.shoulder === 1 ? -1 : 1;
+    persistPreferences();
+  }
+  if (e.code === "KeyZ" && prefs.mode === "tank")
+    s.player.yaw = wrapAngle(s.player.yaw + Math.PI);
   if (e.code === "Tab") inventory();
   if (e.code === "KeyM") map();
   if (e.code === "KeyE") nearest()?.run();
@@ -825,9 +968,47 @@ window.addEventListener("mousedown", (e) => {
   )
     return;
   audio.start();
+  if (
+    prefs.mode === "shoulder" &&
+    !document.pointerLockElement &&
+    e.button === 0
+  ) {
+    try {
+      const lock = view.renderer.domElement.requestPointerLock();
+      lock?.catch(() =>
+        announce(
+          "Mouse não capturado. Use setas para olhar ou arraste com botão direito.",
+        ),
+      );
+    } catch {
+      announce("Use setas para olhar ou arraste com botão direito.");
+    }
+    return;
+  }
   if (e.button === 2) mouseAim = true;
   if (e.button === 0) fire();
 });
+window.addEventListener("mousemove", (e) => {
+  if (
+    mode === "play" &&
+    !travel.active &&
+    prefs.mode === "shoulder" &&
+    (document.pointerLockElement || e.buttons === 2)
+  )
+    view.look(e.movementX, e.movementY);
+});
+document.addEventListener("pointerlockchange", () => {
+  if (
+    !document.pointerLockElement &&
+    mode === "play" &&
+    !travel.active &&
+    prefs.mode === "shoulder"
+  )
+    pause();
+});
+document.addEventListener("pointerlockerror", () =>
+  announce("Captura de mouse indisponível. As setas continuam disponíveis."),
+);
 window.addEventListener("mouseup", (e) => {
   if (e.button === 2) mouseAim = false;
 });
@@ -902,6 +1083,17 @@ function frame(now: number) {
 // Read-only diagnostics for reproducible smoke tests; no gameplay shortcuts.
 Object.defineProperty(window, "limiar", {
   get: () => ({
+    weaponReady: shotCooldown <= 0 && reloadTime <= 0,
+    reloading: reloadTime > 0,
+    aiming,
+    version: VERSION,
+    preferences: { ...prefs },
+    cameraYaw: view.yaw,
+    cameraPitch: view.pitch,
+    cameraPosition: view.camera.position.toArray(),
+    aimTargets: view.aimTargets(s),
+    rayHit: view.shot(s, false),
+    pointerLocked: !!document.pointerLockElement,
     room: s.room,
     hp: s.player.hp,
     player: { ...s.player },

@@ -247,3 +247,17 @@ export function inward(p: Vec): Vec {
     z: p.z === 8 ? 6.5 : p.z === -8 ? -6.5 : p.z,
   };
 }
+
+/** Swept, axis-separated movement prevents a fast charge from tunneling through furniture or actors. */
+export function slideMove(
+  p: Vec,
+  dx: number,
+  dz: number,
+  canOccupy: (q: Vec) => boolean,
+) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12));
+  for (let i = 0; i < steps; i++) {
+    if (canOccupy({ x: p.x + dx / steps, z: p.z })) p.x += dx / steps;
+    if (canOccupy({ x: p.x, z: p.z + dz / steps })) p.z += dz / steps;
+  }
+}

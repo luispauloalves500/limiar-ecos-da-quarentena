@@ -1,0 +1,43 @@
+{
+  "browser": "158.0.8127.18",
+  "viewport": "1280x800",
+  "renderer": "SwiftShader",
+  "results": [
+    {
+      "name": "base-publicada",
+      "url": "https://luispauloalves500.github.io/limiar-ecos-da-quarentena/",
+      "quality": null,
+      "reportedVersion": "legado sem campo de versão",
+      "samples": 155,
+      "medianMs": 33.30000000000018,
+      "p99Ms": 83.39999999999964,
+      "over100ms": 0,
+      "drawCalls": 186,
+      "triangles": 2798
+    },
+    {
+      "name": "0.2-baixo",
+      "url": "http://127.0.0.1:4173/limiar-ecos-da-quarentena/",
+      "quality": "low",
+      "reportedVersion": "0.2.0",
+      "samples": 139,
+      "medianMs": 49.899999999999636,
+      "p99Ms": 100,
+      "over100ms": 0,
+      "drawCalls": 103,
+      "triangles": 3642
+    },
+    {
+      "name": "0.2-medio",
+      "url": "http://127.0.0.1:4173/limiar-ecos-da-quarentena/",
+      "quality": "medium",
+      "reportedVersion": "0.2.0",
+      "samples": 44,
+      "medianMs": 16.799999999999272,
+      "p99Ms": 450,
+      "over100ms": 18,
+      "drawCalls": 154,
+      "triangles": 4732
+    }
+  ]
+}

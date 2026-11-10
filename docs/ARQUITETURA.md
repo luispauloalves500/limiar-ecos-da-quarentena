@@ -37,3 +37,11 @@ Geometrias, materiais e texturas Canvas de uma sala são descartados com `dispos
 3. Animações artísticas, raycast anatômico, baú e inventário por espaços.
 4. Loader de pacotes reais com orçamentos, testes de contexto WebGL e falhas de rede.
 5. Só então expandir arquétipos, R-18 e campanha, com as matrizes do GDD medidas em hardware definido.
+
+# Atualização 0.2.0
+
+A visão padrão agora é sobre o ombro. `controls.ts` separa preferências versionadas e funções puras de movimento/olhar. `aim.ts` resolve o raio central contra hitboxes físicas do ator e obstáculos, além de bloquear a linha do cano à superfície e encurtar o boom da câmera. O tank usa yaw corporal, independente de cortes; o antigo InputLatch permanece apenas como utilitário legado testado, não como o controle tank atual.
+
+O save de gameplay continua v1 compatível. Opções ficam em chave própria e podem falhar por restrições de armazenamento sem impedir a sessão. `actors.ts`, `art.ts` e `post.ts` isolam arte e efeitos da coordenação. Texturas Canvas compartilhadas recebem marca de recurso persistente para não serem descartadas na troca de sala; geometrias e materiais específicos são liberados. Há apenas uma sombra dinâmica da lanterna nos perfis Médio/Alto, atualizada em intervalos controlados; o Baixo dispensa sombra/pós.
+
+As salas são fechadas no ombro. O tank oculta teto e paredes próximas por cutaway, sem alterar o grafo, inimigos ou estado persistente. A câmera suavizada é revalidada contra paredes após interpolar; a proximidade extrema oculta Helena para evitar obstrução. A linha de luz considera também o cone tridimensional e obstáculos físicos.

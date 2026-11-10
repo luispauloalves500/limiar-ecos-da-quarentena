@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const url =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
-const out = process.env.SMOKE_OUT || "/workspace/limiar-published-smoke";
+const out = process.env.SMOKE_OUT || "/workspace/limiar-v020-smoke/ui";
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -14,8 +14,8 @@ const browser = await chromium.launch({
     "--enable-unsafe-swiftshader",
   ],
 });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-const errors = [],
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } }),
+  errors = [],
   warnings = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => {
@@ -25,44 +25,98 @@ page.on("console", (m) => {
 page.on("response", (r) => {
   if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`);
 });
-let result = {};
+const state = () => page.evaluate(() => window.limiar);
+let result = {},
+  metrics = [];
+const shot = async (name) => {
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: out + "/" + name + ".png" });
+  const s = await state();
+  metrics.push({
+    name,
+    preferences: s.preferences,
+    fps: s.fps,
+    frameMs: s.frameMs,
+    drawCalls: s.drawCalls,
+    triangles: s.triangles,
+  });
+};
 try {
   await page.goto(url, { waitUntil: "networkidle" });
+  assert.equal((await state()).version, "0.2.0");
+  assert.equal((await state()).preferences.mode, "shoulder");
+  await page.locator("#options").click();
+  await page.locator("#opt-sensitivity").fill("1.4");
+  await page.locator("#opt-sensitivity").dispatchEvent("input");
+  await page.locator("#opt-invert").check();
+  assert.equal((await state()).preferences.invertY, true);
+  await page.locator("#opt-invert").uncheck();
+  await page.locator("#opt-sensitivity").fill("1");
+  await page.locator("#opt-sensitivity").dispatchEvent("input");
+  await page.locator("#options-back").click();
   await page.locator("#new").click();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: out + "/jogando.png" });
-  const before = await page.evaluate(() => window.limiar.player);
-  await page.keyboard.down("Shift");
-  await page.keyboard.down("w");
-  await page.waitForTimeout(900);
-  await page.keyboard.up("w");
-  await page.keyboard.up("Shift");
-  const after = await page.evaluate(() => window.limiar.player);
-  assert.ok(Math.hypot(after.x - before.x, after.z - before.z) > 1.5);
-  await page.mouse.move(700, 400);
-  await page.mouse.down({ button: "right" });
-  await page.waitForTimeout(150);
-  await page.mouse.click(700, 400);
-  await page.mouse.up({ button: "right" });
-  assert.equal(await page.evaluate(() => window.limiar.ammo), 11);
+  await shot("01-ombro-medio");
+  await page.keyboard.press("f");
+  await shot("02-sem-lanterna");
+  await page.keyboard.press("f");
+  const start = (await state()).cameraYaw;
+  await page.mouse.click(640, 400);
+  await page.waitForFunction(() => window.limiar.pointerLocked);
+  await page.mouse.move(740, 400);
+  await page.mouse.move(760, 420);
+  await page.waitForTimeout(200);
+  assert.notEqual((await state()).cameraYaw, start);
+  await page.keyboard.press("v");
+  await page.waitForTimeout(200);
+  assert.equal((await state()).mode, "play");
+  assert.equal((await state()).preferences.mode, "tank");
+  await shot("03-tank-medio");
+  const yaw = (await state()).player.yaw;
+  await page.keyboard.press("z");
+  assert.ok(Math.abs((await state()).player.yaw - yaw) > 3);
+  await page.keyboard.press("v");
+  assert.equal((await state()).preferences.mode, "shoulder");
+  await page.keyboard.press("c");
+  assert.equal((await state()).preferences.shoulder, -1);
   await page.keyboard.press("m");
-  assert.equal(await page.evaluate(() => window.limiar.mode), "map");
-  await page.screenshot({ path: out + "/mapa.png" });
+  assert.equal((await state()).mode, "map");
   await page.keyboard.press("m");
   await page.keyboard.press("Tab");
-  assert.equal(await page.evaluate(() => window.limiar.mode), "inventory");
+  assert.equal((await state()).mode, "inventory");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Escape");
-  assert.equal(await page.evaluate(() => window.limiar.mode), "pause");
-  await page.locator("#sound").click();
   await page.locator("#quality").click();
+  await page.locator("#opt-quality").selectOption("low");
+  await page.locator("#options-back").click();
   await page.locator("#resume").click();
-  assert.equal(await page.evaluate(() => window.limiar.mode), "play");
-  await page.waitForTimeout(500);
-  result = await page.evaluate(() => window.limiar);
+  await shot("04-ombro-baixo");
+  await page.keyboard.down("j");
+  await page.waitForFunction(() => window.limiar.aiming);
+  await page.waitForTimeout(350);
+  await page.keyboard.press("k");
+  await page.waitForFunction(() => window.limiar.ammo === 11);
+  await page.keyboard.up("j");
+  await page.keyboard.press("Escape");
+  await page.locator("#quality").click();
+  await page.locator("#opt-quality").selectOption("high");
+  await page.locator("#options-back").click();
+  await page.locator("#resume").click();
+  await shot("05-ombro-alto");
+  await page.keyboard.press("Escape");
+  await page.locator("#quality").click();
+  await page.locator("#opt-mode").selectOption("tank");
+  await page.locator("#opt-quality").selectOption("medium");
+  await page.locator("#options-back").click();
+  await page.locator("#resume").click();
+  await page.reload();
+  await page.waitForFunction(() => !!window.limiar);
+  assert.equal((await state()).preferences.mode, "tank");
+  assert.equal((await state()).preferences.quality, "medium");
+  assert.equal((await state()).preferences.shoulder, -1);
+  result = await state();
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
-  console.log("PUBLISHED/UI SMOKE PASS", url);
+  console.log("V020 UI / POINTER LOCK / PROFILES PASS", url);
 } catch (e) {
   errors.push(String(e));
   process.exitCode = 1;
@@ -72,7 +126,7 @@ try {
   await writeFile(
     out + "/report.json",
     JSON.stringify(
-      { url, browser: browser.version(), errors, warnings, result },
+      { url, browser: browser.version(), errors, warnings, result, metrics },
       null,
       2,
     ),
