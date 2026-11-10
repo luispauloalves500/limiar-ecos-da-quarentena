@@ -1,3 +1,4 @@
+import { validateAmbientSave } from "./environment-logic";
 import {
   rooms,
   doors,
@@ -51,6 +52,7 @@ export type GameState = {
   docs: string[];
   flags: Record<string, boolean>;
   enemies: Record<string, Enemy>;
+  ambience?: import("./environment-logic").AmbientSave;
   time: number;
 };
 export function newGame(): GameState {
@@ -94,6 +96,7 @@ export function newGame(): GameState {
     docs: [],
     flags: {},
     enemies,
+    ambience: { impacts: {}, broken: [] },
     time: 0,
   };
 }
@@ -280,6 +283,7 @@ export function parseSave(raw: string): GameState {
     )
       throw Error("Estado de inimigo inválido");
   }
+  s.ambience = validateAmbientSave(s.ambience);
   s.contentVersion = 3;
   s.items = [...new Set([...s.items, ...s.docs])];
   updateCorpses(s);

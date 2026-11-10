@@ -227,3 +227,29 @@ describe("enquadramento de ombro", () => {
   it("trocar ombro espelha o deslocamento", () =>
     expect(shoulderOffset(true, -1)).toBe(-shoulderOffset(true, 1)));
 });
+
+describe("volume de câmera 0.4", () => {
+  it("sonda lateral impede a borda da câmera de atravessar um poste", () => {
+    const wall = new T.Mesh(
+      new T.BoxGeometry(0.2, 2, 0.2),
+      new T.MeshBasicMaterial(),
+    );
+    wall.position.set(0.16, 0, -2);
+    wall.updateMatrixWorld(true);
+    const safe = cameraCollision(new T.Vector3(), new T.Vector3(0, 0, -4), [
+      wall,
+    ]);
+    expect(safe.z).toBeGreaterThan(-1.8);
+  });
+  it("ombro direito permanece limpo e à esquerda em ambas as distâncias", () => {
+    for (const aim of [false, true]) {
+      const c = new T.PerspectiveCamera(aim ? 52 : 62, 1.6, 0.06, 65);
+      c.position.set(shoulderOffset(aim, 1), 1.67, aim ? 1.95 : 2.75);
+      c.lookAt(c.position.clone().add(new T.Vector3(0, 0, -1)));
+      c.updateMatrixWorld();
+      const x = new T.Vector3(0, 1.4, 0).project(c).x;
+      expect(x).toBeLessThan(-0.2);
+      expect(x).toBeGreaterThan(-0.8);
+    }
+  });
+});

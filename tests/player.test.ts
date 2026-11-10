@@ -80,3 +80,36 @@ it("apoio da mão esquerda converge sem mover quadril/arma direita", () => {
   expect(right.position.toArray()).toEqual([-0.25, -0.25, 0.25]);
   expect(root.position.length()).toBe(0);
 });
+
+describe("pose procedural estável 0.4", () => {
+  it("não acumula pitch/IK quando o mixer omite tracks constantes", async () => {
+    const { PoseRestore } = await import("../src/player-clips");
+    const root = new T.Group(),
+      bone = new T.Bone();
+    bone.name = "Spine2";
+    root.add(bone);
+    const q = new T.Quaternion().setFromEuler(new T.Euler(0.15, 0, 0));
+    const clip = new T.AnimationClip("constant", 2, [
+      new T.QuaternionKeyframeTrack(
+        "Spine2.quaternion",
+        [0, 2],
+        [...q.toArray(), ...q.toArray()],
+      ),
+    ]);
+    const mixer = new T.AnimationMixer(root);
+    mixer.clipAction(clip).play();
+    const cache = new PoseRestore([bone]);
+    const delta = new T.Quaternion().setFromEuler(new T.Euler(0.06, 0, 0));
+    for (let i = 0; i < 600; i++) {
+      cache.restore();
+      mixer.update(1 / 60);
+      cache.capture();
+      bone.quaternion.premultiply(delta);
+    }
+    expect(bone.quaternion.angleTo(delta.clone().multiply(q))).toBeLessThan(
+      0.001,
+    );
+    cache.restore();
+    expect(bone.quaternion.angleTo(q)).toBeLessThan(0.001);
+  });
+});

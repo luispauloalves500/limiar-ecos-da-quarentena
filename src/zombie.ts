@@ -275,7 +275,13 @@ class Rig {
     this.mesh.castShadow = quality === "high" && distance < 7;
     if (!visible && !e.dead) return;
     this.throttle += dt;
-    if (distance > 9 && this.throttle < 1 / 12 && !e.dead && !preview) return;
+    if (
+      distance > (quality === "low" ? 4.8 : 9) &&
+      this.throttle < 1 / (quality === "low" ? 12 : 20) &&
+      !e.dead &&
+      (!preview || preview === "Walking" || preview === "Running")
+    )
+      return;
     dt = Math.min(0.25, this.throttle);
     this.throttle = 0;
     this.elapsed += dt;

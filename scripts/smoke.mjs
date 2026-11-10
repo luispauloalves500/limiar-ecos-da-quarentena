@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const base =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
 const gameMode = process.env.GAME_MODE || "shoulder";
-const out = process.env.SMOKE_OUT || `/workspace/limiar-v030-smoke/${gameMode}`;
+const out = process.env.SMOKE_OUT || `/workspace/limiar-v040-smoke/${gameMode}`;
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -32,6 +32,7 @@ page.on("response", (r) => {
 });
 const state = () => page.evaluate(() => window.limiar);
 const log = [];
+const roomImages = new Set();
 const note = async (name) => {
   const s = await state();
   console.log(name, s.room, s.player, s.flags);
@@ -227,6 +228,10 @@ async function travel(x, z, to) {
   );
   await page.waitForTimeout(400);
   await note("door → " + to);
+  if (!roomImages.has(to)) {
+    roomImages.add(to);
+    await page.screenshot({ path: out + "/sala-" + to + ".png" });
+  }
 }
 async function aimAtEnemy(id, region) {
   await page.keyboard.down("j");
@@ -244,18 +249,33 @@ async function aimAtEnemy(id, region) {
   for (let i = 0; i < 64; i++) {
     const s = await state();
     if (s.enemies[id].dead) return;
-    if (s.rayHit?.id === id && s.rayHit.region === wanted) return;
+    if (
+      s.rayHit?.id === id &&
+      (s.rayHit.region === wanted || (wanted === "body" && s.enemies[id].crawl))
+    )
+      return;
     const target = s.aimTargets.find((t) => t.id === id && t.region === wanted);
     assert.ok(target, "Hitbox exists");
     await lookAt(target.position);
     const after = await state();
-    if (after.rayHit?.id === id && after.rayHit.region === wanted) return;
+    if (
+      after.rayHit?.id === id &&
+      (after.rayHit.region === wanted ||
+        (wanted === "body" && after.enemies[id].crawl))
+    )
+      return;
   }
   const finalAim = await state();
-  if (finalAim.rayHit?.id === id && finalAim.rayHit.region === wanted) return;
+  if (
+    finalAim.rayHit?.id === id &&
+    (finalAim.rayHit.region === wanted ||
+      (wanted === "body" && finalAim.enemies[id].crawl))
+  )
+    return;
   throw Error("Could not align real reticle with " + id + " " + wanted);
 }
 async function shoot(id, region = "1", count = 2) {
+  if ((await state()).hp < 65) await tap("h");
   await tap(region);
   for (let i = 0; i < count; i++) {
     if ((await state()).enemies[id].dead || (await state()).ammo === 0) break;
@@ -304,7 +324,19 @@ try {
     await page.locator("#new").click();
     assert.equal((await state()).preferences.mode, gameMode);
     await page.screenshot({ path: out + "/00-" + gameMode + ".png" });
+    await page.screenshot({ path: out + "/sala-recepcao.png" });
+    roomImages.add("recepcao");
     await note("start");
+    if (gameMode === "shoulder") {
+      await page.keyboard.down("j");
+      await page.waitForTimeout(300);
+      for (let i = 0; i < 20; i++) await lookAt([5.7, 1.8, 0]);
+      await page.keyboard.press("k");
+      await page.waitForTimeout(300);
+      await page.keyboard.up("j");
+      assert.ok((await state()).environment.glassBroken);
+      await page.screenshot({ path: out + "/vidro-quebrado-recepcao.png" });
+    }
     await moveTo(-3, 3.4);
     await lookAt([-3, 0.25, 2]);
     assert.ok((await state()).worldObjects.items.includes("carta"));
@@ -365,7 +397,23 @@ try {
     await tap("Escape");
     await page.locator("#load").click();
     assert.equal((await state()).room, "segura");
+    if (gameMode === "shoulder")
+      assert.ok((await state()).ambientState.broken.includes("recepcao"));
     await travel(5, 4, "corredor");
+    if (gameMode === "shoulder") {
+      await travel(0, 7, "recepcao");
+      assert.ok(
+        (await state()).environment.glassBroken,
+        "Glass remains absent after actual save/load/reentry",
+      );
+      assert.ok(
+        (await state()).environment.decals > 0,
+        "Impact restored in actual world",
+      );
+      await lookAt([5.7, 1.8, 0]);
+      await page.screenshot({ path: out + "/vidro-persistente-reentrada.png" });
+      await travel(0, -7, "corredor");
+    }
     await travel(5, -3, "arquivo");
     await moveTo(0, 3);
     await shoot("errante02", "1", 2);

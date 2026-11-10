@@ -132,7 +132,24 @@ export function label(text: string, color = "#bdd1b4", width = 2.5) {
   g.fillStyle = color;
   g.font = "bold 27px monospace";
   g.textAlign = "center";
-  g.fillText(text, 256, 60);
+  if (g.measureText(text).width <= 472) g.fillText(text, 256, 60);
+  else {
+    g.font = "bold 21px monospace";
+    const lines: string[] = [];
+    let line = "";
+    for (const word of text.split(" ")) {
+      const candidate = line ? line + " " + word : word;
+      if (g.measureText(candidate).width > 472 && line) {
+        lines.push(line);
+        line = word;
+      } else line = candidate;
+    }
+    if (line) lines.push(line);
+    const step = lines.length > 2 ? 25 : 29;
+    lines.forEach((l, i) =>
+      g.fillText(l, 256, 60 - ((lines.length - 1) * step) / 2 + i * step, 472),
+    );
+  }
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
   return new T.Mesh(

@@ -1,0 +1,214 @@
+{
+  "method": "Same six-zombie gallery, Low, shoulder, 1280x800 viewport, 768x480 buffer, SwiftShader; 3s warmup+8s sample, sequential runs. 0.4 includes room-life graphics and changed shoulder composition. Procedural Helena constant; not a full gameplay/player/audio comparison.",
+  "baselineCommit": "1467982fe509ab5ae5aecf970e6fc2af1d445376",
+  "baselineVersion": "0.3.0",
+  "candidateVersion": "0.4.0",
+  "baseline": {
+    "browser": "158.0.8127.18",
+    "renderer": "SwiftShader",
+    "viewport": "1280x800",
+    "benchmark": [
+      {
+        "model": "procedural",
+        "count": 6,
+        "quality": "low",
+        "mode": "shoulder",
+        "samples": 144,
+        "meanMs": 55.84930555549343,
+        "medianMs": 50,
+        "p99Ms": 116.69999999999709,
+        "over100ms": 8,
+        "drawCalls": 230,
+        "triangles": 16258,
+        "uniqueGeometries": 0,
+        "uniqueMaterials": 0,
+        "uniqueSkeletons": 0,
+        "animations": [
+          {
+            "id": "qa-0",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-1",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-2",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-3",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-4",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-5",
+            "state": "procedural"
+          }
+        ]
+      },
+      {
+        "model": "asset",
+        "count": 6,
+        "quality": "low",
+        "mode": "shoulder",
+        "samples": 125,
+        "meanMs": 64.50799999997614,
+        "medianMs": 66.60000000000582,
+        "p99Ms": 133.3000000000029,
+        "over100ms": 14,
+        "drawCalls": 104,
+        "triangles": 32542,
+        "uniqueGeometries": 2,
+        "uniqueMaterials": 2,
+        "uniqueSkeletons": 12,
+        "animations": [
+          {
+            "id": "qa-0",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 173
+          },
+          {
+            "id": "qa-1",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 173
+          },
+          {
+            "id": "qa-2",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 173
+          },
+          {
+            "id": "qa-3",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 173
+          },
+          {
+            "id": "qa-4",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 173
+          },
+          {
+            "id": "qa-5",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 173
+          }
+        ]
+      }
+    ]
+  },
+  "candidate": {
+    "browser": "158.0.8127.18",
+    "renderer": "SwiftShader",
+    "viewport": "1280x800",
+    "benchmark": [
+      {
+        "model": "procedural",
+        "count": 6,
+        "quality": "low",
+        "mode": "shoulder",
+        "samples": 152,
+        "meanMs": 52.82171052629622,
+        "medianMs": 50,
+        "p99Ms": 133.3000000000029,
+        "over100ms": 3,
+        "drawCalls": 253,
+        "triangles": 17300,
+        "uniqueGeometries": 0,
+        "uniqueMaterials": 0,
+        "uniqueSkeletons": 0,
+        "animations": [
+          {
+            "id": "qa-0",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-1",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-2",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-3",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-4",
+            "state": "procedural"
+          },
+          {
+            "id": "qa-5",
+            "state": "procedural"
+          }
+        ]
+      },
+      {
+        "model": "asset",
+        "count": 6,
+        "quality": "low",
+        "mode": "shoulder",
+        "samples": 134,
+        "meanMs": 59.80746268656714,
+        "medianMs": 50.09999999999127,
+        "p99Ms": 116.80000000000291,
+        "over100ms": 12,
+        "drawCalls": 127,
+        "triangles": 33584,
+        "uniqueGeometries": 2,
+        "uniqueMaterials": 2,
+        "uniqueSkeletons": 12,
+        "animations": [
+          {
+            "id": "qa-0",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 88
+          },
+          {
+            "id": "qa-1",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 88
+          },
+          {
+            "id": "qa-2",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 88
+          },
+          {
+            "id": "qa-3",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 88
+          },
+          {
+            "id": "qa-4",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 88
+          },
+          {
+            "id": "qa-5",
+            "state": "Walking",
+            "lod": 1,
+            "updates": 88
+          }
+        ]
+      }
+    ]
+  },
+  "assetMeanChangePercent": -7.286750966408406,
+  "limitations": "Short software GPU samples; historical 55.78ms measurement from another session is not used as a direct baseline. No hardware FPS guarantee."
+}

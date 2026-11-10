@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const base =
     process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/",
-  out = process.env.SMOKE_OUT || "/workspace/limiar-v030-smoke/player";
+  out = process.env.SMOKE_OUT || "/workspace/limiar-v040-smoke/player";
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
     headless: true,

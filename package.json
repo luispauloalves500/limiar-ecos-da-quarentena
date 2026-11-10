@@ -1,6 +1,6 @@
 {
   "name": "limiar-ecos-da-quarentena",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Fatia vertical original de terror e sobrevivência em câmeras fixas",
@@ -16,7 +16,8 @@
     "smoke:published": "node scripts/published-smoke.mjs",
     "smoke:zombie": "node scripts/zombie-smoke.mjs",
     "smoke:player": "node scripts/player-smoke.mjs",
-    "verify:published": "node scripts/verify-published.mjs"
+    "verify:published": "node scripts/verify-published.mjs",
+    "smoke:environment": "node scripts/environment-smoke.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"

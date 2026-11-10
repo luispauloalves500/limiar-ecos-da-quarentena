@@ -8,6 +8,8 @@ import {
   maskedClip,
   playerDurations,
   bakeSupportGrip,
+  supportGrip,
+  PoseRestore,
 } from "./player-clips";
 import type { Actor } from "./actors";
 import type { Quality } from "./controls";
@@ -133,6 +135,7 @@ export type PlayerFrame = {
   light: boolean;
   pitch: number;
   yawDelta: number;
+  aimPoint?: T.Vector3;
 };
 const looping = new Set([
   "PlayerIdle",
@@ -163,6 +166,9 @@ export class PlayerAnimator {
   preview = "";
   previewAt: number | undefined;
   state = "PlayerIdle";
+  aimPoint = new T.Vector3();
+  poseRestore: PoseRestore;
+  gunBind = new T.Quaternion();
   quality: Quality = "medium";
   constructor(public root: T.Group) {
     let mesh: T.SkinnedMesh | undefined;
@@ -175,6 +181,11 @@ export class PlayerAnimator {
         o.material = material("medium");
       }
     });
+    this.poseRestore = new PoseRestore(
+      ["Spine2", "LeftArm", "RightArm", "LeftForeArm", "RightForeArm"].map(
+        (n) => this.bones.get(n)!,
+      ),
+    );
     this.mesh = mesh!;
     for (const b of bones) {
       const bone = this.bones.get(b.short)!;
@@ -204,10 +215,10 @@ export class PlayerAnimator {
     };
     this.gun = new T.Group();
     this.gun.add(
-      box(0.065, 0.25, 0.07, steel, 0, -0.12, 0),
-      box(0.06, 0.085, 0.11, grip, 0, -0.02, -0.04),
+      box(0.065, 0.07, 0.25, steel, 0, 0, 0.12),
+      box(0.06, 0.11, 0.085, grip, 0, -0.055, 0.02),
     );
-    this.barrel.position.set(0, -0.26, 0);
+    this.barrel.position.set(0, 0, 0.26);
     this.gun.add(this.barrel);
     this.lamp = new T.Group();
     const bulb = new T.MeshStandardMaterial({
@@ -229,8 +240,10 @@ export class PlayerAnimator {
       const b = this.bones.get(hand)!;
       item.quaternion.copy(b.getWorldQuaternion(new T.Quaternion()).invert());
       item.position.set(0, -0.035, 0.015).applyQuaternion(item.quaternion);
+      if (hand === "RightHand") item.rotateX(Math.PI / 2);
       b.add(item);
     }
+    this.gunBind.copy(this.gun.quaternion);
   }
   trigger(name: string) {
     this.event = name;
@@ -252,6 +265,8 @@ export class PlayerAnimator {
     return this.actions.get(key)!;
   }
   update(dt: number, f: PlayerFrame, quality: Quality) {
+    this.poseRestore.restore();
+    this.gun.quaternion.copy(this.gunBind);
     this.time += dt;
     if (this.event && this.time >= this.until) {
       if (this.event === "Grabbed") this.trigger("BreakFree");
@@ -320,6 +335,7 @@ export class PlayerAnimator {
       });
       this.mixer.update(0);
     }
+    this.poseRestore.capture();
     if (
       (f.aiming || ["Aim", "WalkAim", "Fire"].includes(this.preview)) &&
       f.hp > 0 &&
@@ -347,6 +363,46 @@ export class PlayerAnimator {
             .multiply(b.parentRotation),
         );
       }
+    // Solve the real gameplay aim, not only a staged gallery pose. Keep the
+    // shoulder and elbow anatomical, and converge the barrel on the reticle.
+    if (
+      f.aimPoint &&
+      (f.aiming || upper === "Fire") &&
+      upper !== "Reload" &&
+      f.hp > 0
+    ) {
+      this.aimPoint.copy(f.aimPoint);
+      const actor = this.root.parent || this.root;
+      actor.updateMatrixWorld(true);
+      const right = this.bones.get("RightHand")!;
+      const handTarget = actor.localToWorld(
+        new T.Vector3(-0.19, 1.43 + Math.sin(f.pitch) * 0.35, 0.44),
+      );
+      supportGrip(
+        this.root,
+        this.bones.get("RightArm")!,
+        this.bones.get("RightForeArm")!,
+        right,
+        handTarget,
+        3,
+      );
+      const handPos = right.getWorldPosition(new T.Vector3());
+      const q = new T.Quaternion().setFromRotationMatrix(
+        new T.Matrix4().lookAt(f.aimPoint, handPos, new T.Vector3(0, 1, 0)),
+      );
+      this.gun.quaternion.copy(
+        right.getWorldQuaternion(new T.Quaternion()).invert().multiply(q),
+      );
+      const support = this.gun.localToWorld(new T.Vector3(0.015, -0.03, 0.025));
+      supportGrip(
+        this.root,
+        this.bones.get("LeftArm")!,
+        this.bones.get("LeftForeArm")!,
+        this.bones.get("LeftHand")!,
+        support,
+        3,
+      );
+    }
     this.gun.visible = upper !== "Interact" && upper !== "Door";
     this.lamp.visible = f.light;
     this.mesh.castShadow = quality === "high";
@@ -372,6 +428,13 @@ export class PlayerAnimator {
       model: "supplied",
       position: this.root.getWorldPosition(new T.Vector3()).toArray(),
       gun: this.barrel.getWorldPosition(new T.Vector3()).toArray(),
+      aimPoint: this.aimPoint.toArray(),
+      gunDirection: new T.Vector3(0, 0, 1)
+        .applyQuaternion(this.barrel.getWorldQuaternion(new T.Quaternion()))
+        .toArray(),
+      barrelDirection: this.barrel
+        .getWorldQuaternion(new T.Quaternion())
+        .toArray(),
       hand: this.bones
         .get("RightHand")!
         .getWorldPosition(new T.Vector3())

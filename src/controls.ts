@@ -1,5 +1,5 @@
 import type { Vec } from "./world";
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 export type CameraMode = "shoulder" | "tank";
 export type Quality = "low" | "medium" | "high";
 export type Preferences = {
@@ -10,6 +10,7 @@ export type Preferences = {
   invertY: boolean;
   assist: boolean;
   shoulder: 1 | -1;
+  ambience: "auto" | "off" | Quality;
 };
 export const PREF_KEY = "limiar-preferences-v1";
 export const defaults: Preferences = {
@@ -20,6 +21,7 @@ export const defaults: Preferences = {
   invertY: false,
   assist: false,
   shoulder: 1,
+  ambience: "auto",
 };
 export function parsePreferences(raw: string | null): Preferences {
   try {
@@ -38,6 +40,9 @@ export function parsePreferences(raw: string | null): Preferences {
       invertY: p.invertY === true,
       assist: p.assist === true,
       shoulder: p.shoulder === -1 ? -1 : 1,
+      ambience: ["off", "low", "medium", "high"].includes(p.ambience)
+        ? p.ambience
+        : "auto",
     };
   } catch {
     return { ...defaults };
@@ -94,5 +99,5 @@ export const profiles = {
 } as const;
 
 export function shoulderOffset(aiming: boolean, side: number) {
-  return (aiming ? 0.92 : 0.85) * side;
+  return (aiming ? 0.67 : 0.72) * side;
 }

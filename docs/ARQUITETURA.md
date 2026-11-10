@@ -63,3 +63,14 @@ Hitboxes dos inimigos são caixas invisíveis presas a Head, Spine2, UpLeg/Leg, 
 As páginas `qa-zombies.html` e `qa-player.html` são galerias técnicas encenadas separadas, sem acesso ao save do jogo. Não devem ser confundidas com o playthrough real de `scripts/smoke.mjs`.
 
 O apoio da mão esquerda da pistola foi refinado com um solver CCD executado apenas no bake dos keyframes próprios Aim/WalkAim/Fire, durante preload. Os quaternions resultantes viram tracks normais; não se roda IK por frame, não se desloca a arma/mão direita nem o collider, e não se altera os clips recebidos.
+
+
+## Ambiente 0.4.0
+
+`environment-logic.ts` mantém temas das 12 salas, densidade, reivindicação idempotente de eventos, integração amortecida e validação dos impactos/vidros no save v1. O novo campo opcional `ambience` migra saves anteriores para arrays vazios, sem apagar a progressão. Máximo de 16 marcas por sala e 12 vidros quebrados. Eventos usam flags com prefixo `ambient:`; a primeira execução é consumida no save. Sem servidor/telemetria.
+
+`Environment` vive e é descartado junto à sala do `View`; compartilha geometria por instancing/merge dentro dela. Pontos são animados no vertex shader. Matriz estática não é recalculada por frame; rotores, objetos reativos e eventos optam explicitamente por movimento. Vidro é decoração penetrável ao primeiro tiro: não bloqueia navegação nem é um novo sistema balístico. Objetos reativos têm física 2D com limites/fricção, não colisões rígidas universais; posições não são salvas.
+
+A mira de Helena no gameplay (não apenas na galeria) agora resolve mão direita/suporte com CCD curto e alinha +Z da pistola ao ponto do raycast central. A geometria da arma foi orientada nesse eixo. Colisão de câmera usa cinco sondas e margem de 34 cm; não substitui física volumétrica completa.
+
+`Audio` cria três fontes posicionais da sala atual, panners HRTF/inverse distance, reverb sintético por categoria de sala e passos por superfície. Fontes/grafo anterior são interrompidos/desconectados ao trocar de sala. Sons de eventos são originais sintetizados, estilizados.

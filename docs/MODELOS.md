@@ -1,3 +1,5 @@
+> Atualização 0.4.0: assets/LODs são os mesmos; a mira de gameplay agora inclui CCD limitado em runtime e orientação da arma à retícula, além do bake descrito abaixo. A antiga afirmação de ausência de IK por frame aplica-se somente à 0.3.0. Limitação de mixer no Baixo começa a 4,8 m (12 Hz), inclusive Walking/Running na galeria.
+
 # Modelos, animações e orçamento — 0.3.0
 
 ## Proveniência
@@ -55,7 +57,7 @@ Cada instância mantém dois rigs em CPU para troca rápida; isso não equivale 
 
 ## Benchmark comparativo (não certificação de FPS)
 
-`npm run smoke:zombie`, Chromium 158 / SwiftShader, viewport 1280×800 (buffer Baixo 896×560), Baixo, ombro, mesma galeria de isolamento com seis inimigos, 3 s de aquecimento + 8 s amostrados por caso. Comparação isolada do boneco procedural anterior com o GLB otimizado na mesma sala/renderizador; a Helena procedural é constante nessa galeria. **Não é comparação integral das versões publicadas 0.2 e 0.3**, nem benchmark do original de 104 mil triângulos, nem GPU física.
+`npm run smoke:zombie`, Chromium 158 / SwiftShader, viewport 1280×800 (buffer Baixo 768×480; correção documental do percentual antigo), Baixo, ombro, mesma galeria de isolamento com seis inimigos, 3 s de aquecimento + 8 s amostrados por caso. Comparação isolada do boneco procedural anterior com o GLB otimizado na mesma sala/renderizador; a Helena procedural é constante nessa galeria. **Não é comparação integral das versões publicadas 0.2 e 0.3**, nem benchmark do original de 104 mil triângulos, nem GPU física.
 
 | Seis inimigos | Média ms/frame | Mediana | p99 | Draws da cena | Triângulos da cena |
 |---|---:|---:|---:|---:|---:|

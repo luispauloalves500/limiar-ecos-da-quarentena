@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const url =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
-const out = process.env.SMOKE_OUT || "/workspace/limiar-v030-smoke/ui";
+const out = process.env.SMOKE_OUT || "/workspace/limiar-v040-smoke/ui";
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -43,7 +43,7 @@ const shot = async (name) => {
 };
 try {
   await page.goto(url, { waitUntil: "networkidle" });
-  assert.equal((await state()).version, "0.3.0");
+  assert.equal((await state()).version, "0.4.0");
   assert.equal((await state()).preferences.mode, "shoulder");
   await page.locator("#options").click();
   await page.locator("#opt-sensitivity").fill("1.4");
@@ -92,13 +92,52 @@ try {
   await page.locator("#opt-quality").selectOption("low");
   await page.locator("#options-back").click();
   await page.locator("#resume").click();
+  // Restore the default shoulder AND inward spawn after intentionally testing
+  // mirrored shoulder/quick-turn. Do not present the wall-facing stress pose as
+  // the default gameplay framing.
+  await page.keyboard.press("c");
+  await page.keyboard.press("Escape");
+  await page.locator("#menu").click();
+  await page.locator("#new").click();
+  await page.waitForTimeout(500);
+  assert.equal((await state()).preferences.shoulder, 1);
+  assert.ok(
+    (await state()).playerScreen[0] < -0.2 &&
+      (await state()).playerScreen[0] > -0.85,
+  );
   await shot("04-ombro-baixo");
   await page.keyboard.down("j");
   await page.waitForFunction(() => window.limiar.aiming);
   await page.waitForTimeout(350);
+  const poseStart = await state();
+  await page.waitForTimeout(4500);
+  const poseEnd = await state();
+  assert.ok(
+    Math.hypot(
+      ...poseStart.playerAnimation.gun.map(
+        (x, i) => x - poseEnd.playerAnimation.gun[i],
+      ),
+    ) < 0.1,
+    "Sustained aim does not fold over constant tracks",
+  );
+  await page.screenshot({ path: out + "/helena-mira-sustentada.png" });
   await page.keyboard.press("k");
   await page.waitForFunction(() => window.limiar.ammo === 11);
   await shot("player-tiro-real");
+  const framed = await state();
+  assert.ok(framed.playerScreen[0] < -0.2 && framed.playerScreen[0] > -0.85);
+  assert.equal(framed.playerAnimation.upper, "Aim");
+  const expected = framed.playerAnimation.aimPoint.map(
+    (x, i) => x - framed.playerAnimation.gun[i],
+  );
+  const length = Math.hypot(...expected);
+  assert.ok(
+    expected.reduce(
+      (a, x, i) => a + (x / length) * framed.playerAnimation.gunDirection[i],
+      0,
+    ) > 0.995,
+    "Physical barrel converges on reticle",
+  );
   await page.keyboard.up("j");
   await page.keyboard.press("r");
   await page.waitForFunction(
@@ -135,11 +174,11 @@ try {
   );
   assert.equal((await state()).preferences.mode, "tank");
   assert.equal((await state()).preferences.quality, "medium");
-  assert.equal((await state()).preferences.shoulder, -1);
+  assert.equal((await state()).preferences.shoulder, 1);
   result = await state();
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
-  console.log("V030 UI / MODELS / POINTER LOCK / PROFILES PASS", url);
+  console.log("V040 UI / MODELS / POINTER LOCK / PROFILES PASS", url);
 } catch (e) {
   errors.push(String(e));
   process.exitCode = 1;

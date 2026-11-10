@@ -1,3 +1,4 @@
+import { Vector3 } from "three";
 import { preloadPlayer, playerDiagnostics, disposePlayerCache } from "./player";
 import { preloadZombie, zombieDiagnostics } from "./zombie";
 import {
@@ -172,7 +173,20 @@ function options() {
       )
       .join(
         "",
-      )}</select></label><label>Sensibilidade <output id="sensitivity-value">${prefs.sensitivity.toFixed(1)}</output><input id="opt-sensitivity" type="range" min="0.2" max="3" step="0.1" value="${prefs.sensitivity}"></label><label><input id="opt-invert" type="checkbox" ${prefs.invertY ? "checked" : ""}> Inverter eixo Y</label><label><input id="opt-assist" type="checkbox" ${prefs.assist ? "checked" : ""}> Assistência leve (ombro)</label></div><p class="muted">Baixo: resolução 70%, sem sombras/pós. Médio: 90%, sombra 512 e pós leve. Alto: 115%, sombra 1024 e mais poeira. Sem flashes obrigatórios; luzes oscilam apenas sutilmente.</p>${controls()}<button id="options-back" class="primary">VOLTAR</button>`,
+      )}</select></label><label>Vida do ambiente<select id="opt-ambience">${[
+      ["auto", "Seguir qualidade"],
+      ["off", "Sem efeitos cosméticos"],
+      ["low", "Baixa"],
+      ["medium", "Média"],
+      ["high", "Alta"],
+    ]
+      .map(
+        ([v, l]) =>
+          `<option value="${v}" ${prefs.ambience === v ? "selected" : ""}>${l}</option>`,
+      )
+      .join(
+        "",
+      )}</select></label><label>Sensibilidade <output id="sensitivity-value">${prefs.sensitivity.toFixed(1)}</output><input id="opt-sensitivity" type="range" min="0.2" max="3" step="0.1" value="${prefs.sensitivity}"></label><label><input id="opt-invert" type="checkbox" ${prefs.invertY ? "checked" : ""}> Inverter eixo Y</label><label><input id="opt-assist" type="checkbox" ${prefs.assist ? "checked" : ""}> Assistência leve (ombro)</label></div><p class="muted">Baixo: resolução 60%, sem sombras/pós. Médio: 90%, sombra 512 e pós leve. Alto: 115%, sombra 1024 e mais poeira. Sem flashes obrigatórios; luzes oscilam apenas sutilmente.</p>${controls()}<button id="options-back" class="primary">VOLTAR</button>`,
   );
   (document.getElementById("opt-mode") as HTMLSelectElement).addEventListener(
     "change",
@@ -200,6 +214,11 @@ function options() {
       else prefs.assist = checked;
       persistPreferences();
     });
+  document.getElementById("opt-ambience")?.addEventListener("change", (e) => {
+    prefs.ambience = (e.target as HTMLSelectElement)
+      .value as typeof prefs.ambience;
+    persistPreferences();
+  });
   buttons({
     "options-back": () => {
       if (optionsReturn === "menu") menu();
@@ -610,11 +629,26 @@ function fire() {
         : undefined
       : getTarget();
   const hitRegion = shot?.region || region;
-  view.shotFx(
-    s,
-    shot?.point || (e ? view.hitPosition(e.id, hitRegion) : view.wallImpact()),
-    !!e,
-  );
+  const origin =
+    prefs.mode === "shoulder"
+      ? view.camera.position
+      : view.playerAnimation?.barrel.getWorldPosition(new Vector3()) ||
+        new Vector3(s.player.x, 1.35, s.player.z);
+  const direction =
+    prefs.mode === "shoulder"
+      ? view.camera.getWorldDirection(new Vector3())
+      : new Vector3(Math.sin(s.player.yaw), 0, Math.cos(s.player.yaw));
+  const impact =
+    shot?.point ||
+    (e
+      ? view.hitPosition(e.id, hitRegion)
+      : prefs.mode === "shoulder"
+        ? view.wallImpact()
+        : view.directionImpact(origin, direction));
+  if (prefs.mode === "tank" && impact)
+    direction.copy(impact).sub(origin).normalize();
+  view.environment?.shot(s, origin, direction, impact, !e);
+  view.shotFx(s, impact, !!e);
   if (e) {
     const result = damage(e, hitRegion, Math.random, e.exposure >= 25);
     announce(
@@ -633,7 +667,7 @@ function fire() {
               : "Impacto confirmado.",
     );
     if (e.boss && e.dead) bossWin();
-  } else announce("Disparo sem alvo. Alinhe Helena com uma ameaça visível.");
+  } else announce("Impacto no cenário. A munição foi consumida.");
 }
 function bossWin() {
   if (s.flags.boss) return;
@@ -925,7 +959,7 @@ function tick(dt: number) {
     }
     stepTime -= dt;
     if (stepTime <= 0) {
-      audio.tone(65, 0.04, 0.09, "triangle");
+      audio.step(s.room, s.player);
       stepTime = keys.has("ShiftLeft") ? 0.25 : 0.43;
     }
   }
@@ -1175,6 +1209,7 @@ function frame(now: number) {
     cautious: keys.has("AltLeft"),
     reloading: reloadTime > 0,
   };
+  view.environmentActive = mode === "play" && !travel.active;
   view.update(
     s,
     delta,
@@ -1182,6 +1217,27 @@ function frame(now: number) {
     aiming,
     aiming && keys.has("KeyQ"),
   );
+  audio.update(
+    s.room,
+    s.player,
+    view.yaw,
+    delta,
+    mode === "play" && !travel.active,
+  );
+  for (const cue of view.environment?.sounds.splice(0) || []) {
+    audio.environment(cue.kind, cue.x, cue.z);
+    const caption: Record<string, string> = {
+      telefone: "O telefone toca. A linha não deveria funcionar.",
+      sombra: "Uma sombra atravessa o corredor.",
+      radio: "Rádio: ...03:16... deixe o canal aberto...",
+      batidas: "Batidas atrás da parede. Ninguém responde.",
+      maca: "Rodas de maca deslizam na penumbra.",
+      porta: "Uma porta bate ao fundo.",
+      vapor: "A tubulação libera um sopro de vapor.",
+      faíscas: "Faíscas escapam de um fio solto.",
+    };
+    if (caption[cue.kind] && noticeTime <= 0) announce(caption[cue.kind]);
+  }
   hud();
   view.render(
     travel.active && doorTime > 0.25
@@ -1219,6 +1275,12 @@ Object.defineProperty(window, "limiar", {
     asset: zombieDiagnostics(),
     playerAsset: playerDiagnostics(),
     playerAnimation: view.playerAnimation?.diagnostic(),
+    environment: view.environment?.diagnostics(),
+    ambientState: JSON.parse(
+      JSON.stringify(s.ambience || { impacts: {}, broken: [] }),
+    ),
+    audio: { ...audio.spatialDiagnostics },
+    playerScreen: view.project(s.player, 1.3).toArray(),
     preferences: { ...prefs },
     cameraYaw: view.yaw,
     cameraPitch: view.pitch,

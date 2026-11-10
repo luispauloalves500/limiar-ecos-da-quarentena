@@ -173,8 +173,9 @@ export function supportGrip(
   elbow: T.Bone,
   hand: T.Bone,
   target: T.Vector3,
+  iterations = 8,
 ) {
-  for (let i = 0; i < 8; i++)
+  for (let i = 0; i < iterations; i++)
     for (const joint of [elbow, arm]) {
       root.updateMatrixWorld(true);
       const p = joint.getWorldPosition(new T.Vector3()),
@@ -233,4 +234,22 @@ export function bakeSupportGrip(clips: T.AnimationClip[], root: T.Object3D) {
     mixer.uncacheClip(c);
   }
   mixer.uncacheRoot(root);
+}
+
+/** Mixer skips writes for constant tracks. Restore the pre-override pose first,
+ * otherwise procedural pitch/IK accumulates and folds the actor over time. */
+export class PoseRestore {
+  entries: [T.Bone, T.Quaternion][];
+  active = false;
+  constructor(bones: T.Bone[]) {
+    this.entries = bones.map((b) => [b, new T.Quaternion()]);
+  }
+  restore() {
+    if (this.active) this.entries.forEach(([b, q]) => b.quaternion.copy(q));
+    this.active = false;
+  }
+  capture() {
+    this.entries.forEach(([b, q]) => q.copy(b.quaternion));
+    this.active = true;
+  }
 }

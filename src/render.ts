@@ -1,6 +1,8 @@
 import { playerActor, type PlayerAnimator, type PlayerFrame } from "./player";
 import { zombieActor } from "./zombie";
 import { shoulderOffset } from "./controls";
+import { Environment } from "./environment";
+import { themes } from "./environment-logic";
 import { roomDetails } from "./details";
 import { corpseOpacity, isCollected } from "./logic";
 import { surfaceDetail } from "./art";
@@ -24,6 +26,8 @@ export class View {
   scene = new T.Scene();
   camera = new T.PerspectiveCamera(62, 1, 0.06, 65);
   group = new T.Group();
+  environment?: Environment;
+  environmentActive = true;
   player = person();
   playerAnimation?: PlayerAnimator;
   playerAnimationPreview = "";
@@ -80,6 +84,8 @@ export class View {
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.3;
     container.prepend(this.renderer.domElement);
+    this.scene.matrixAutoUpdate = false;
+    this.scene.updateMatrix();
     this.scene.background = new T.Color(0x04090b);
     this.scene.fog = new T.FogExp2(0x071013, 0.055);
     this.scene.add(new T.HemisphereLight(0x77968d, 0x252c28, 0.48));
@@ -194,7 +200,7 @@ export class View {
   applyCutaway() {
     const tank = this.prefs.mode === "tank";
     if (this.scene.fog instanceof T.FogExp2)
-      this.scene.fog.density = tank ? 0.015 : 0.055;
+      this.scene.fog.density = tank ? 0.015 : themes[this.room].fog;
     const ambient = this.scene.children.find(
       (o) => o instanceof T.HemisphereLight,
     ) as T.HemisphereLight | undefined;
@@ -572,6 +578,22 @@ export class View {
     );
     this.group.add(this.dust);
     this.group.add(roomDetails(id));
+    this.environment = new Environment(id, s);
+    this.group.add(this.environment.root);
+    this.practical.forEach((l) => l.color.setHex(themes[id].color));
+    if (this.scene.fog instanceof T.FogExp2)
+      this.scene.fog.color.setHex(themes[id].color).multiplyScalar(0.06);
+    const dynamic = new Set<T.Object3D>([
+      ...this.itemMeshes.values(),
+      this.environment.root,
+    ]);
+    const freeze = (o: T.Object3D) => {
+      if (dynamic.has(o)) return;
+      o.updateMatrix();
+      o.matrixAutoUpdate = false;
+      o.children.forEach(freeze);
+    };
+    freeze(this.group);
     surfaceDetail(this.group, this.prefs.quality !== "low");
     this.syncCamera(s.player);
     this.setCamera(0);
@@ -657,10 +679,10 @@ export class View {
     const pivot = new T.Vector3(p.x, 1.52, p.z);
     const desired = pivot
       .clone()
-      .addScaledVector(dir, aiming ? -1.65 : -2.85)
+      .addScaledVector(dir, aiming ? -1.95 : -2.75)
       .addScaledVector(right, shoulderOffset(aiming, this.prefs.shoulder))
       .add(new T.Vector3(0, 0.15, 0));
-    this.scene.updateMatrixWorld(true);
+    this.scene.updateMatrixWorld();
     const safe = cameraCollision(pivot, desired, this.obstacles);
     if (!this.cameraReady) {
       this.camera.position.copy(safe);
@@ -672,7 +694,7 @@ export class View {
       );
     }
     this.camera.lookAt(this.camera.position.clone().addScaledVector(dir, 10));
-    const fov = aiming ? 48 : 62;
+    const fov = aiming ? 52 : 62;
     this.camera.fov = T.MathUtils.lerp(
       this.camera.fov,
       fov,
@@ -695,6 +717,9 @@ export class View {
     const p = s.player;
     this.player.root.position.set(p.x, 0, p.z);
     this.player.root.rotation.y = p.yaw;
+    this.player.root.visible = true;
+    this.updateCamera(s, dt, aiming);
+    this.camera.updateMatrixWorld();
     if (this.playerAnimation) {
       this.playerAnimation.preview = this.playerAnimationPreview;
       this.playerAnimation.update(
@@ -715,6 +740,20 @@ export class View {
                   Math.cos(this.yaw - p.yaw),
                 )
               : 0,
+          aimPoint:
+            this.prefs.mode === "shoulder"
+              ? this.wallImpact() ||
+                this.camera.position
+                  .clone()
+                  .addScaledVector(
+                    this.camera.getWorldDirection(new T.Vector3()),
+                    12,
+                  )
+              : new T.Vector3(
+                  p.x + Math.sin(p.yaw) * 10,
+                  1.43,
+                  p.z + Math.cos(p.yaw) * 10,
+                ),
           ...this.playerFrame,
         },
         this.prefs.quality,
@@ -728,8 +767,6 @@ export class View {
         this.player.arms.forEach((arm) => (arm.rotation.x -= this.pitch));
       if (this.player.gun) this.player.gun.rotation.x = aiming ? 1.6 : 0;
     }
-    this.player.root.visible = true;
-    this.updateCamera(s, dt, aiming);
     this.camera.updateMatrixWorld();
     this.frustum.setFromProjectionMatrix(
       new T.Matrix4().multiplyMatrices(
@@ -850,6 +887,15 @@ export class View {
             0.02 * Math.sin(this.elapsed * 21);
       l.intensity = l.userData.base * pulse;
     }
+    this.environment?.update(
+      s,
+      dt,
+      this.elapsed,
+      this.camera,
+      this.prefs,
+      this.environmentActive,
+      moving,
+    );
     for (const [id, g] of this.itemMeshes) {
       if (isCollected(s, id)) {
         this.removePickup(id);
@@ -915,6 +961,12 @@ export class View {
       ).intersectObjects(this.obstacles, false).length === 0
     );
   }
+  directionImpact(origin: T.Vector3, direction: T.Vector3) {
+    return new T.Raycaster(origin, direction, 0.02, 20).intersectObjects(
+      this.obstacles,
+      false,
+    )[0]?.point;
+  }
   wallImpact() {
     this.ray.setFromCamera(new T.Vector2(0, 0), this.camera);
     return this.ray.intersectObjects(this.obstacles, false)[0]?.point;
@@ -937,7 +989,7 @@ export class View {
       .flatMap((e) => this.enemyMeshes.get(e.id)?.hitboxes || []);
   }
   shot(s: GameState, assist = this.prefs.assist): ShotHit | undefined {
-    this.scene.updateMatrixWorld(true);
+    this.scene.updateMatrixWorld();
     this.camera.updateMatrixWorld(true);
     this.ray.setFromCamera(new T.Vector2(0, 0), this.camera);
     this.ray.far = 16;

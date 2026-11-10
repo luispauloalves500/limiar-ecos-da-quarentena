@@ -39,23 +39,34 @@ export function cameraCollision(
   pivot: T.Vector3,
   desired: T.Vector3,
   obstacles: T.Object3D[],
-  padding = 0.22,
+  padding = 0.34,
 ) {
   const delta = desired.clone().sub(pivot),
     len = delta.length();
   if (len < 0.001) return desired.clone();
-  const ray = new T.Raycaster(
-    pivot,
-    delta.clone().normalize(),
-    0,
-    len + padding,
-  );
-  const hit = ray.intersectObjects(obstacles, false)[0];
-  if (!hit) return desired.clone();
-  return pivot
-    .clone()
-    .addScaledVector(
-      delta.normalize(),
-      Math.max(0.12, Math.min(len, hit.distance - padding)),
-    );
+  const direction = delta.clone().normalize();
+  const right = new T.Vector3()
+    .crossVectors(direction, new T.Vector3(0, 1, 0))
+    .normalize()
+    .multiplyScalar(0.16);
+  const up = new T.Vector3(0, 0.13, 0);
+  let distance = len;
+  // Five probes approximate the near-plane volume, not just the centre ray.
+  for (const offset of [
+    new T.Vector3(),
+    right,
+    right.clone().negate(),
+    up,
+    up.clone().negate(),
+  ]) {
+    const hit = new T.Raycaster(
+      pivot.clone().add(offset),
+      direction,
+      0,
+      len + padding,
+    ).intersectObjects(obstacles, false)[0];
+    if (hit)
+      distance = Math.min(distance, Math.max(0.12, hit.distance - padding));
+  }
+  return pivot.clone().addScaledVector(direction, distance);
 }
