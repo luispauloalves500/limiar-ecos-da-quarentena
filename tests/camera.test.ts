@@ -253,3 +253,36 @@ describe("volume de câmera 0.4", () => {
     }
   });
 });
+
+it("boom não fica atrás da folha fechada na entrada lateral de sala", () => {
+  const pivot = new T.Vector3(4.6, 1.52, 4),
+    yaw = Math.atan2(-4.6, -4),
+    dir = new T.Vector3(
+      Math.sin(yaw) * Math.cos(-0.06),
+      Math.sin(-0.06),
+      Math.cos(yaw) * Math.cos(-0.06),
+    ),
+    right = new T.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));
+  const desired = pivot
+    .clone()
+    .addScaledVector(dir, -2.75)
+    .addScaledVector(right, 0.72)
+    .add(new T.Vector3(0, 0.15, 0));
+  const wall = new T.Mesh(
+    new T.BoxGeometry(0.22, 4, 17.8),
+    new T.MeshBasicMaterial(),
+  );
+  wall.position.set(6.65, 2, 0);
+  wall.updateMatrixWorld(true);
+  const door = new T.Mesh(
+    new T.BoxGeometry(0.13, 2.65, 1.65),
+    new T.MeshBasicMaterial(),
+  );
+  door.position.set(6, 1.325, 4);
+  door.updateMatrixWorld(true);
+  const old = cameraCollision(pivot, desired, [wall]);
+  expect(old.x).toBeGreaterThan(6.065);
+  const fixed = cameraCollision(pivot, desired, [wall, door]);
+  expect(fixed.x).toBeLessThan(5.94);
+  expect(fixed.distanceTo(pivot)).toBeGreaterThan(0.8);
+});

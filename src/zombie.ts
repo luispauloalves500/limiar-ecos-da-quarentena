@@ -1,3 +1,4 @@
+import { animationVariation } from "./presentation";
 import * as T from "three";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
@@ -154,6 +155,7 @@ class Rig {
   hitboxes: T.Mesh[] = [];
   mixer: T.AnimationMixer;
   stateName = "";
+  variation = { phase: 0, speed: 1 };
   current: T.AnimationAction | undefined;
   actions = new Map<string, T.AnimationAction>();
   tremor: T.AnimationAction;
@@ -168,6 +170,7 @@ class Rig {
     public index: number,
     public enemy: Enemy,
   ) {
+    this.variation = animationVariation(enemy.id);
     const t = templates[index];
     this.root = clone(t.gltf.scene) as T.Group;
     const bones = new Map<string, T.Bone>();
@@ -246,6 +249,10 @@ class Rig {
       this.actions.set(name, next);
     }
     next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1);
+    if (loops.has(name)) {
+      next.time = this.variation.phase * next.getClip().duration;
+      next.setEffectiveTimeScale(this.variation.speed);
+    }
     next.setLoop(
       loops.has(name) ? T.LoopRepeat : T.LoopOnce,
       loops.has(name) ? Infinity : 1,

@@ -1,5 +1,5 @@
 import * as T from "three";
-import { box, label, material as mat, seeded } from "./art";
+import { box, material as mat, seeded } from "./art";
 import { rooms, roomDoors, endpoint, dist, type RoomId } from "./world";
 /** Dense narrative dressing is instanced: repeated props cost one draw per material. */
 export function roomDetails(id: RoomId) {
@@ -25,31 +25,6 @@ export function roomDetails(id: RoomId) {
     if (!sets.has(color)) sets.set(color, []);
     sets.get(color)!.push(dummy.matrix.clone());
   };
-  const captions: Record<RoomId, [string, string]> = {
-    recepcao: ["SENHAS CANCELADAS · 03:15", "A LISTA DE MORTOS NÃO CONFERE"],
-    corredor: ["TRIAGEM / AGUARDE CHAMADA", "MACAS 12–18 · NÃO TRANSPORTAR"],
-    segura: ["CAIO · CANAL 03", "CAFÉ FRIO / ÚLTIMO TURNO"],
-    arquivo: ["REGISTROS 0315 / ÓBITOS", "NOMES RISCADOS À MÃO"],
-    gerador: ["REDE A / CATRACAS", "NILO · NÃO RELIGAR SEM FUSÍVEL"],
-    atrio: ["CONTENÇÃO ADMINISTRATIVA", "INTERNAÇÃO → PULSEIRAS 200"],
-    escadaria: ["PATAMAR 02 / INTERNAÇÃO", "PEGADAS SOBEM, NENHUMA DESCE"],
-    internacao: ["LEITOS 201–209", "PROIBIDO VISITAS / PLANTÃO LIA"],
-    enfermaria: [
-      "203 · TRANSFERIDO 03:16",
-      "PULSEIRA DE SERVIÇO / NÃO DESCARTAR",
-    ],
-    lavanderia: [
-      "3 RETORNO / 1 ENTRADA / 2 DESCARGA",
-      "LENÇÓIS DE ISOLAMENTO · NÃO ABRIR",
-    ],
-    posto: ["LIA · CANAL DE EMERGÊNCIA", "NÃO EXISTE LEITO TREZE"],
-    isolamento: ["PORTA 13 / TRANSMISSOR", "SELE A BARREIRA DEPOIS DO SINAL"],
-  };
-  for (const [i, text] of captions[id].entries()) {
-    const l = label(text, r.safe ? "#e2c797" : "#bac8b0", 3.8);
-    l.position.set(i ? 3.6 : -3.6, 2.6, -8.68);
-    root.add(l);
-  }
   // Shelves/lockers hug the side walls, avoiding every cinematic doorway.
   for (const side of [-1, 1])
     for (const z of [-6, -2, 2, 6]) {

@@ -152,10 +152,12 @@ export function label(text: string, color = "#bdd1b4", width = 2.5) {
   }
   const t = new T.CanvasTexture(c);
   t.colorSpace = T.SRGBColorSpace;
-  return new T.Mesh(
+  const mesh = new T.Mesh(
     new T.PlaneGeometry(width, width / 5.12),
     new T.MeshBasicMaterial({ map: t, side: T.DoubleSide }),
   );
+  mesh.userData.worldLabel = text;
+  return mesh;
 }
 
 // Keep colour textures on Low, but remove per-fragment bump derivatives.

@@ -195,7 +195,7 @@ export class PlayerAnimator {
     root.updateMatrixWorld(true);
     this.mixer = new T.AnimationMixer(root);
     const steel = new T.MeshStandardMaterial({
-        color: 0x303a3c,
+        color: 0x657478,
         metalness: 0.65,
         roughness: 0.38,
       }),
@@ -323,11 +323,23 @@ export class PlayerAnimator {
           .reset()
           .setEffectiveWeight(1)
           .play();
-        if (channel.action) a.crossFadeFrom(channel.action, 0.1, false);
+        if (channel.action) a.crossFadeFrom(channel.action, 0.18, false);
         channel.action = a;
         channel.name = name;
       }
     });
+    if (this.channels[0].action)
+      this.channels[0].action.setEffectiveTimeScale(
+        f.moving
+          ? f.aiming
+            ? 0.45
+            : f.cautious
+              ? 0.68
+              : f.running
+                ? 1.12
+                : 1
+          : 1,
+      );
     this.mixer.update(dt);
     if (this.preview && this.previewAt !== undefined) {
       this.channels.forEach((c) => {
@@ -403,7 +415,68 @@ export class PlayerAnimator {
         3,
       );
     }
-    this.gun.visible = upper !== "Interact" && upper !== "Door";
+    // A held weapon never disappears during a reach/door/reload. The left hand
+    // performs interactions; keep the right at a relaxed, reachable low ready.
+    if (
+      f.hp > 0 &&
+      !f.aiming &&
+      !["Fire", "Reload", "Grabbed", "BreakFree", "Hit"].includes(upper)
+    ) {
+      const actor = this.root.parent || this.root;
+      const target = actor.localToWorld(
+        new T.Vector3(
+          -0.23,
+          0.98 + (f.moving ? Math.sin(this.time * 7) * 0.025 : 0),
+          0.16,
+        ),
+      );
+      supportGrip(
+        this.root,
+        this.bones.get("RightArm")!,
+        this.bones.get("RightForeArm")!,
+        this.bones.get("RightHand")!,
+        target,
+        3,
+      );
+    }
+    if (
+      f.light &&
+      !f.aiming &&
+      !["Reload", "Interact", "Door", "Hit", "Grabbed", "BreakFree"].includes(
+        upper,
+      ) &&
+      f.hp > 0
+    ) {
+      const actor = this.root.parent || this.root;
+      supportGrip(
+        this.root,
+        this.bones.get("LeftArm")!,
+        this.bones.get("LeftForeArm")!,
+        this.bones.get("LeftHand")!,
+        actor.localToWorld(new T.Vector3(0.24, 1.24, 0.35)),
+        3,
+      );
+    }
+    if (!f.aiming && upper !== "Fire") {
+      const actor = this.root.parent || this.root;
+      actor.updateMatrixWorld(true);
+      const q = actor
+        .getWorldQuaternion(new T.Quaternion())
+        .multiply(
+          new T.Quaternion().setFromAxisAngle(
+            new T.Vector3(1, 0, 0),
+            upper === "Reload" ? 0.35 : 1.0,
+          ),
+        );
+      this.gun.quaternion.copy(
+        this.bones
+          .get("RightHand")!
+          .getWorldQuaternion(new T.Quaternion())
+          .invert()
+          .multiply(q),
+      );
+    }
+    this.gun.visible = true;
     this.lamp.visible = f.light;
     this.mesh.castShadow = quality === "high";
     if (this.quality !== quality) {
@@ -435,6 +508,8 @@ export class PlayerAnimator {
       barrelDirection: this.barrel
         .getWorldQuaternion(new T.Quaternion())
         .toArray(),
+      gunVisible: this.gun.visible,
+      gunParent: this.gun.parent?.name,
       hand: this.bones
         .get("RightHand")!
         .getWorldPosition(new T.Vector3())

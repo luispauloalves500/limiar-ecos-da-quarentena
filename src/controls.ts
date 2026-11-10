@@ -1,5 +1,6 @@
+import { level } from "./presentation";
 import type { Vec } from "./world";
-export const VERSION = "0.4.0";
+export const VERSION = "0.5.0";
 export type CameraMode = "shoulder" | "tank";
 export type Quality = "low" | "medium" | "high";
 export type Preferences = {
@@ -11,6 +12,11 @@ export type Preferences = {
   assist: boolean;
   shoulder: 1 | -1;
   ambience: "auto" | "off" | Quality;
+  master: number;
+  music: number;
+  effects: number;
+  voices: number;
+  subtitles: boolean;
 };
 export const PREF_KEY = "limiar-preferences-v1";
 export const defaults: Preferences = {
@@ -22,6 +28,11 @@ export const defaults: Preferences = {
   assist: false,
   shoulder: 1,
   ambience: "auto",
+  master: 0.8,
+  music: 0.65,
+  effects: 0.85,
+  voices: 0.8,
+  subtitles: true,
 };
 export function parsePreferences(raw: string | null): Preferences {
   try {
@@ -29,6 +40,11 @@ export function parsePreferences(raw: string | null): Preferences {
     if (!p || p.version !== 1) return { ...defaults };
     return {
       version: 1,
+      master: level(p.master, defaults.master),
+      music: level(p.music, defaults.music),
+      effects: level(p.effects, defaults.effects),
+      voices: level(p.voices, defaults.voices),
+      subtitles: p.subtitles !== false,
       mode: p.mode === "tank" ? "tank" : "shoulder",
       quality: ["low", "medium", "high"].includes(p.quality)
         ? p.quality
@@ -101,3 +117,6 @@ export const profiles = {
 export function shoulderOffset(aiming: boolean, side: number) {
   return (aiming ? 0.67 : 0.72) * side;
 }
+
+export const quickTurnRequested = (code: string, mode: CameraMode) =>
+  code === "KeyZ" && mode === "tank";

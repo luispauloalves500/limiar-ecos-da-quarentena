@@ -1,6 +1,6 @@
 import * as T from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { box, label, material, seeded } from "./art";
+import { box, material, seeded } from "./art";
 import {
   ambientDensity,
   addImpact,
@@ -86,10 +86,7 @@ export class Environment {
       fixtures.setColorAt(42 + i, new T.Color(0x4e6460));
     }
     this.root.add(fixtures);
-    const story = label(theme.story, "#adad8c", 5.7);
-    story.position.set(6.5, 2.2, -1);
-    story.rotation.y = -Math.PI / 2;
-    this.root.add(story);
+
     // Distinct diagonal drag trail: one merged mesh, no new collision wall.
     const streaks: T.BufferGeometry[] = [];
     for (let i = 0; i < 7; i++) {

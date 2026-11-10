@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const base =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
 const gameMode = process.env.GAME_MODE || "shoulder";
-const out = process.env.SMOKE_OUT || `/workspace/limiar-v040-smoke/${gameMode}`;
+const out = process.env.SMOKE_OUT || `/workspace/limiar-v050-smoke/${gameMode}`;
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -226,7 +226,8 @@ async function travel(x, z, to) {
     to,
     { timeout: 15000 },
   );
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => window.limiar.fade < 0.02);
+  await page.waitForTimeout(600);
   await note("door → " + to);
   if (!roomImages.has(to)) {
     roomImages.add(to);
@@ -322,6 +323,7 @@ try {
     await page.locator("#opt-sensitivity").dispatchEvent("input");
     await page.locator("#options-back").click();
     await page.locator("#new").click();
+    await page.waitForFunction(() => window.limiar.fade === 0);
     assert.equal((await state()).preferences.mode, gameMode);
     await page.screenshot({ path: out + "/00-" + gameMode + ".png" });
     await page.screenshot({ path: out + "/sala-recepcao.png" });

@@ -105,8 +105,8 @@ function pose(name: string, t: number): Pose {
   }
   if (name === "Interact" || name === "Door") {
     p.rot.Spine = [(name === "Interact" ? 0.3 : 0.1) * pulse, 0, 0];
-    p.rot.RightArm = [-1.25 * pulse, 0, 0.1];
-    p.rot.RightForeArm = [-0.3 * pulse, 0, 0];
+    p.rot.LeftArm = [-1.25 * pulse, 0, -0.1];
+    p.rot.LeftForeArm = [-0.3 * pulse, 0, 0];
     p.rot.Head = [0.15 * pulse, 0, 0];
   }
   if (name === "PlayerDeath") {

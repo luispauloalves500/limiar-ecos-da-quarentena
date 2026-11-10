@@ -1,3 +1,6 @@
+import { themes } from "./environment-logic";
+import { shove } from "./gameplay";
+import { transitionOpacity, transitionElapsed } from "./presentation";
 import { Vector3 } from "three";
 import { preloadPlayer, playerDiagnostics, disposePlayerCache } from "./player";
 import { preloadZombie, zombieDiagnostics } from "./zombie";
@@ -15,6 +18,7 @@ import { View } from "./render";
 import { Audio } from "./audio";
 import {
   VERSION,
+  quickTurnRequested,
   defaults,
   PREF_KEY,
   parsePreferences,
@@ -68,10 +72,12 @@ try {
 }
 view.setPreferences(prefs);
 const audio = new Audio();
+audio.configure(prefs);
 let s = newGame();
 const travel = new Travel(),
   latch = new InputLatch();
 let mode:
+  | "credits"
   | "menu"
   | "play"
   | "pause"
@@ -93,8 +99,12 @@ let shotCooldown = 0,
   trapCooldown = 0,
   doorTime = -1,
   doorDuration = 2.6;
+let shoveCooldown = 0,
+  grappleLock = 0,
+  creatureTime = 0;
 let noticeTime = 0;
-let fadeIn = 0;
+let fadeUntil = 0;
+let doorStarted = 0;
 let last = performance.now(),
   acc = 0;
 let moving = false;
@@ -116,6 +126,7 @@ function buttons(events: Record<string, () => void>) {
 }
 function panel(content: string) {
   if (document.pointerLockElement) document.exitPointerLock();
+  el("overlay").classList.remove("title");
   el("overlay").innerHTML = `<section class="panel">${content}</section>`;
   el("overlay").classList.add("visible");
   keys.clear();
@@ -134,6 +145,7 @@ function close() {
 }
 function persistPreferences() {
   view.setPreferences(prefs);
+  audio.configure(prefs);
   try {
     savePreferences(prefs, localStorage);
   } catch {
@@ -186,8 +198,31 @@ function options() {
       )
       .join(
         "",
-      )}</select></label><label>Sensibilidade <output id="sensitivity-value">${prefs.sensitivity.toFixed(1)}</output><input id="opt-sensitivity" type="range" min="0.2" max="3" step="0.1" value="${prefs.sensitivity}"></label><label><input id="opt-invert" type="checkbox" ${prefs.invertY ? "checked" : ""}> Inverter eixo Y</label><label><input id="opt-assist" type="checkbox" ${prefs.assist ? "checked" : ""}> Assistência leve (ombro)</label></div><p class="muted">Baixo: resolução 60%, sem sombras/pós. Médio: 90%, sombra 512 e pós leve. Alto: 115%, sombra 1024 e mais poeira. Sem flashes obrigatórios; luzes oscilam apenas sutilmente.</p>${controls()}<button id="options-back" class="primary">VOLTAR</button>`,
+      )}</select></label><label>Sensibilidade <output id="sensitivity-value">${prefs.sensitivity.toFixed(1)}</output><input id="opt-sensitivity" type="range" min="0.2" max="3" step="0.1" value="${prefs.sensitivity}"></label><label><input id="opt-invert" type="checkbox" ${prefs.invertY ? "checked" : ""}> Inverter eixo Y</label><label><input id="opt-assist" type="checkbox" ${prefs.assist ? "checked" : ""}> Assistência leve (ombro)</label></div><div class="options-grid">${(
+      [
+        ["master", "Volume geral"],
+        ["music", "Música"],
+        ["effects", "Efeitos"],
+        ["voices", "Vozes / respiração"],
+      ] as const
+    )
+      .map(
+        ([id, label]) =>
+          `<label>${label}<input id="opt-${id}" aria-label="${label}" type="range" min="0" max="1" step="0.05" value="${prefs[id]}"></label>`,
+      )
+      .join(
+        "",
+      )}<label><input id="opt-subtitles" type="checkbox" ${prefs.subtitles ? "checked" : ""}> Legendas de sons e rádio</label></div><p class="muted">Baixo: resolução 60%, sem sombras/pós. Médio: 90%, sombra 512 e pós leve. Alto: 115%, sombra 1024 e mais poeira. Sem flashes obrigatórios; luzes oscilam apenas sutilmente.</p>${controls()}<button id="options-back" class="primary">VOLTAR</button>`,
   );
+  for (const id of ["master", "music", "effects", "voices"] as const)
+    el("opt-" + id).addEventListener("input", (e) => {
+      prefs[id] = Number((e.target as HTMLInputElement).value);
+      persistPreferences();
+    });
+  el("opt-subtitles").addEventListener("change", (e) => {
+    prefs.subtitles = (e.target as HTMLInputElement).checked;
+    persistPreferences();
+  });
   (document.getElementById("opt-mode") as HTMLSelectElement).addEventListener(
     "change",
     (e) => {
@@ -230,17 +265,34 @@ function options() {
   });
 }
 function controls() {
-  return `<div class="controls"><p><b>V</b> ombro / tank · <b>Shift</b> correr · <b>Alt</b> cautela · <b>E</b> interagir</p><p><b>Ombro:</b> clique na cena para capturar mouse; WASD relativo à câmera; mouse mira; C troca ombro; setas são alternativa ao mouse.</p><p><b>Tank:</b> W/S avança/recua, A/D gira; Z meia-volta; 1/2/3 escolhe cabeça/tronco/perna; T alterna alvo.</p><p><b>RMB / J</b> mirar · <b>LMB / K</b> disparar · <b>R</b> recarregar · <b>F / Q</b> lanterna / foco</p><p><b>B / H</b> bateria / cura · <b>Tab / M / Esc</b> inventário / mapa / pausa</p></div>`;
+  return `<div class="controls"><p><b>V</b> ombro / tank · <b>Espaço</b> empurrão · <b>Shift</b> correr · <b>Alt</b> cautela · <b>E</b> interagir</p><p><b>Ombro:</b> clique na cena para capturar mouse; WASD relativo à câmera; mouse mira; C troca ombro; setas são alternativa ao mouse.</p><p><b>Tank:</b> W/S avança/recua, A/D gira; Z meia-volta; 1/2/3 escolhe cabeça/tronco/perna; T alterna alvo.</p><p><b>RMB / J</b> mirar · <b>LMB / K</b> disparar · <b>R</b> recarregar · <b>F / Q</b> lanterna / foco</p><p><b>B / H</b> bateria / cura · <b>Tab / M / Esc</b> inventário / mapa / pausa</p></div>`;
 }
 function menu() {
   mode = "menu";
   panel(
-    `<div class="eyebrow">SANTA AVELINA / 1998</div><h1>LIMIAR<span>ECOS DA QUARENTENA</span></h1>${zombieDiagnostics().status === "fallback" || playerDiagnostics().status === "fallback" ? "<p>Modelo indisponível: modo procedural de segurança. Recarregue para tentar novamente.</p>" : ""}<p class="intro">Um rádio transmite o nome de alguém que não deveria estar vivo.<br>Você veio buscar Caio. O hospital ainda está à espera.</p><div class="actions"><button id="new" class="primary">INICIAR EXPEDIÇÃO <span>→</span></button><button id="load">CONTINUAR DO GRAVADOR</button><button id="options">OPÇÕES / CÂMERA</button></div><div class="tag">EXPANSÃO EXPERIMENTAL · MODELOS DO USUÁRIO / ANIMAÇÕES ADICIONAIS PRÓPRIAS</div><p class="muted">Terror e violência estilizada. Desktop / teclado e mouse. Não é a campanha completa do GDD.</p>${controls()}`,
+    `<div class="eyebrow">SANTA AVELINA · 03:15</div><h1>LIMIAR<span>ECOS DA QUARENTENA</span></h1><p class="intro">O sinal ainda está vivo.</p><div class="actions title-actions"><button id="new" class="primary">NOVA EXPEDIÇÃO <span>→</span></button><button id="load">CONTINUAR DO GRAVADOR</button><button id="options">OPÇÕES</button><button id="credits">CRÉDITOS</button></div><p class="muted">${VERSION} · Terror e violência estilizada · Desktop<br>↑ ↓ navegar · Enter escolher · Clique ou tecle para ativar áudio</p>`,
   );
+  el("overlay").classList.add("title");
+  el("new").focus();
   buttons({
+    credits: () => {
+      mode = "credits";
+      panel(
+        `<div class="eyebrow">LIMIAR</div><h2>Créditos</h2><p>Cenários, animações adicionais e áudio procedural originais. Modelos de Helena e zumbi fornecidos pelo usuário; autoria/licença original não verificadas.</p><p>Three.js · Vite · TypeScript. Sem áudio ou arte extraídos de outros jogos.</p><button id="back" class="primary">VOLTAR</button>`,
+      );
+      buttons({ back: menu });
+    },
     new: () => {
       s = newGame();
+      shoveCooldown = 0;
+      grappleLock = 0;
+      shotCooldown = 0;
+      reloadTime = 0;
+      invulnerable = 1.5;
+      moving = false;
+      aiming = false;
       view.load(s.room, s);
+      fadeUntil = performance.now() + 350;
       audio.start();
       close();
       announce("Caio: “Helena… leia meu bilhete na recepção.”");
@@ -258,6 +310,8 @@ function loadGame() {
     }
     const loaded = parseSave(raw);
     s = loaded;
+    shoveCooldown = 0;
+    grappleLock = 0;
     view.load(s.room, s);
     audio.start();
     invulnerable = 1.5;
@@ -307,7 +361,15 @@ function inventory() {
             }</button>`,
         )
         .join("") || "<p>Nenhum documento.</p>"
-    }</div>`,
+    }</div><h3>Diário de campo</h3><div class="fieldnotes">${Object.values(
+      rooms,
+    )
+      .filter((r) => r.id === s.room || s.flags["ambient:" + r.id])
+      .map(
+        (r) =>
+          `<details><summary>${r.name}</summary><p>${themes[r.id].story}</p></details>`,
+      )
+      .join("")}</div>`,
   );
   buttons({
     back: close,
@@ -531,7 +593,9 @@ async function changeRoom(id: string) {
   if (travel.active) return;
   view.playerAnimation?.trigger("Door");
   doorDuration = 2.6;
+  audio.play("door", s.player);
   doorTime = 0;
+  doorStarted = performance.now();
   keys.clear();
   latch.clear();
   mouseAim = false;
@@ -543,7 +607,8 @@ async function changeRoom(id: string) {
     const ok = await travel.go(s, d, async (id: RoomId) => {
       await new Promise<void>((resolve) => {
         const wait = () => {
-          if (doorTime >= doorDuration) resolve();
+          if (transitionElapsed(performance.now(), doorStarted) >= doorDuration)
+            resolve();
           else requestAnimationFrame(wait);
         };
         requestAnimationFrame(wait);
@@ -570,7 +635,7 @@ async function changeRoom(id: string) {
     );
   } finally {
     doorTime = -1;
-    fadeIn = 0.35;
+    fadeUntil = performance.now() + 350;
     el("doorcaption").classList.remove("on");
     keys.clear();
     latch.clear();
@@ -651,6 +716,7 @@ function fire() {
   view.shotFx(s, impact, !!e);
   if (e) {
     const result = damage(e, hitRegion, Math.random, e.exposure >= 25);
+    audio.play(hitRegion === "head" ? "head" : "flesh", e);
     announce(
       e.dead
         ? result.critical
@@ -710,14 +776,23 @@ function finalWin() {
   );
   buttons({ explore: close, menu });
 }
-function hitPlayer(amount: number, grapple = false) {
+function hitPlayer(amount: number, grapple = false, attacker?: Enemy) {
   if (invulnerable > 0 || mode !== "play" || travel.active) return;
   s.player.hp = Math.max(0, s.player.hp - amount);
   view.hurtTime = 0.35;
   view.playerAnimation?.trigger(grapple ? "Grabbed" : "Hit");
+  if (grapple && attacker) {
+    grappleLock = 0.5;
+    s.player.yaw = Math.atan2(attacker.x - s.player.x, attacker.z - s.player.z);
+    attacker.dx =
+      (s.player.x - attacker.x) / Math.max(0.1, dist(attacker, s.player));
+    attacker.dz =
+      (s.player.z - attacker.z) / Math.max(0.1, dist(attacker, s.player));
+    announce("AGARRÃO · Espaço para empurrar e abrir distância.");
+  }
   invulnerable = 1.3;
   reloadTime = 0;
-  audio.tone(75, 0.4, 0.8, "triangle");
+  audio.play("flesh", s.player);
   el("film").classList.add("hurt");
   setTimeout(() => el("film").classList.remove("hurt"), 220);
   if (s.player.hp === 0) {
@@ -833,7 +908,7 @@ function tickEnemy(e: Enemy, dt: number) {
       dist(e, s.player) < 1.5 &&
       lineClear(e, s.player, rooms[s.room].obstacles)
     ) {
-      hitPlayer(stats.damage, e.kind === "E02" && !e.crawl);
+      hitPlayer(stats.damage, e.kind === "E02" && !e.crawl, e);
       e.attack = 2;
     }
     if (e.timer <= 0 || dist(e, old) < 0.001) {
@@ -853,7 +928,7 @@ function tickEnemy(e: Enemy, dt: number) {
           dist(e, s.player) < 1.9 &&
           lineClear(e, s.player, rooms[s.room].obstacles)
         )
-          hitPlayer(stats.damage, e.kind === "E02" && !e.crawl);
+          hitPlayer(stats.damage, e.kind === "E02" && !e.crawl, e);
         e.state = "recover";
         e.timer = stats.recover;
       } else if (e.boss && e.attack === 1) {
@@ -873,6 +948,7 @@ function tickEnemy(e: Enemy, dt: number) {
           hitPlayer(
             e.boss ? (e.hp < 336 ? 28 : 20) : stats.damage,
             e.kind === "E02" && !e.crawl,
+            e,
           );
         e.state = "recover";
         e.timer = stats.recover;
@@ -891,7 +967,7 @@ function tickEnemy(e: Enemy, dt: number) {
     e.dz = (s.player.z - e.z) / Math.max(d, 0.01);
     if (pattern.feint)
       moveBody(e, -e.dx * 0.45, -e.dz * 0.45, 0.3, false, true);
-    audio.tone(e.boss ? 60 : 95, 0.5, 0.4, "triangle");
+    audio.play("grunt", e);
     return;
   }
   if (!e.boss && d > 9 && !aiming) return;
@@ -914,6 +990,8 @@ function tickEnemy(e: Enemy, dt: number) {
 function tick(dt: number) {
   if (mode !== "play" || travel.active) return;
   s.time += dt;
+  shoveCooldown = Math.max(0, shoveCooldown - dt);
+  grappleLock = Math.max(0, grappleLock - dt);
   invulnerable = Math.max(0, invulnerable - dt);
   shotCooldown = Math.max(0, shotCooldown - dt);
   trapCooldown = Math.max(0, trapCooldown - dt);
@@ -942,6 +1020,7 @@ function tick(dt: number) {
     s.player.yaw = tank.yaw;
     v = tank.vector;
   } else v = relativeMovement(x, z, view.yaw);
+  if (grappleLock > 0) v = { x: 0, z: 0 };
   moving = Math.hypot(v.x, v.z) > 0.01;
   if (moving) {
     const speed =
@@ -1025,8 +1104,8 @@ function hud() {
   }
   el("hint").textContent =
     prefs.mode === "shoulder"
-      ? "OMBRO · Clique para capturar mouse · WASD / Shift / Alt cauteloso · RMB/J mirar · LMB/K atirar · E interagir · C ombro · V tank · Esc pausa"
-      : "TANK · W/S avançar/recuar · A/D girar · Z meia-volta · 1/2/3 região · E interagir · V ombro · Esc pausa";
+      ? "OMBRO · Clique para capturar mouse · WASD / Shift / Alt cauteloso · RMB/J mirar · LMB/K atirar · E interagir · Espaço empurrar · C ombro · V tank · Esc pausa"
+      : "TANK · W/S avançar/recuar · A/D girar · Z meia-volta · 1/2/3 região · E interagir · Espaço empurrar · V ombro · Esc pausa";
   const threat = Object.values(s.enemies).find(
     (e) => e.room === s.room && !e.dead && e.state === "windup",
   );
@@ -1036,13 +1115,33 @@ function hud() {
           ? threat.attack === 1
             ? "INVESTIDA — SAIA DA LINHA"
             : "BRAÇO ERGUIDO — AFASTE-SE"
-          : "ROS NADO / AFASTE-SE"
+          : shoveCooldown > 0
+            ? "RECUPERANDO FÔLEGO / RECUAR"
+            : "ROSNADO / ESPAÇO EMPURRAR OU RECUAR"
         ).replace("ROS NADO", "ROSNADO")
       : "";
 }
 window.addEventListener("keydown", (e) => {
+  if (mode === "menu" && !audio.ctx) audio.start();
+  if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(e.code)) {
+    e.preventDefault();
+    const b = [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        "#overlay button:not(:disabled)",
+      ),
+    ];
+    let i = b.indexOf(document.activeElement as HTMLButtonElement);
+    i = (i + (e.code === "ArrowDown" ? 1 : -1) + b.length) % b.length;
+    b[i]?.focus();
+    return;
+  }
+  if (mode === "credits" && e.code === "Escape") {
+    menu();
+    return;
+  }
   if (mode === "play" && e.altKey) e.preventDefault();
   if (
+    (mode === "play" || (mode === "inventory" && e.code === "Tab")) &&
     [
       "Tab",
       "Space",
@@ -1072,14 +1171,25 @@ window.addEventListener("keydown", (e) => {
   }
   keys.add(e.code);
   if (e.code === "Escape") pause();
+  if (e.code === "Space" && shoveCooldown <= 0) {
+    const ids = shove(s);
+    if (ids.length) {
+      shoveCooldown = 3;
+      grappleLock = 0;
+      view.playerAnimation?.trigger("BreakFree");
+      audio.play("shove");
+      announce("Empurrão · abra distância. Recuperação: 3 s.");
+    } else announce("Nenhuma ameaça ao alcance do empurrão.");
+  }
   if (e.code === "KeyV") switchMode();
   if (e.code === "KeyC") {
     prefs.shoulder = prefs.shoulder === 1 ? -1 : 1;
     persistPreferences();
   }
-  if (e.code === "KeyZ" && prefs.mode === "tank")
+  if (quickTurnRequested(e.code, prefs.mode)) {
     s.player.yaw = wrapAngle(s.player.yaw + Math.PI);
-  view.playerAnimation?.trigger("QuickTurn");
+    view.playerAnimation?.trigger("QuickTurn");
+  }
   if (e.code === "Tab") inventory();
   if (e.code === "KeyM") map();
   if (e.code === "KeyE") {
@@ -1107,7 +1217,7 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyR" && reloadTime <= 0) {
     if (s.ammo < 12 && s.reserve > 0) {
       reloadTime = 1.1;
-      audio.tone(190, 0.2);
+      audio.play("reload");
     } else
       announce(
         s.ammo === 12 ? "Carregador cheio." : "Sem cartuchos na reserva.",
@@ -1189,12 +1299,13 @@ el("pause").addEventListener("click", () => {
 });
 function frame(now: number) {
   requestAnimationFrame(frame);
-  const realDelta = (now - last) / 1000;
+  const realDelta = Math.max(0, (now - last) / 1000);
   const delta = Math.min(0.1, realDelta);
   last = now;
   updateCorpses(s);
   if (document.hidden) return;
-  if (doorTime >= 0) doorTime += delta;
+  if (travel.active)
+    doorTime = transitionElapsed(performance.now(), doorStarted);
   if (noticeTime > 0) {
     noticeTime -= delta;
     el("notice").style.opacity = "1";
@@ -1223,7 +1334,28 @@ function frame(now: number) {
     view.yaw,
     delta,
     mode === "play" && !travel.active,
+    Math.max(
+      0,
+      ...Object.values(s.enemies)
+        .filter((e) => e.room === s.room && !e.dead)
+        .map((e) => Math.max(0, 1 - dist(e, s.player) / 9)),
+    ),
+    s.player.hp,
+    mode === "menu" ||
+      mode === "credits" ||
+      (mode === "options" && optionsReturn === "menu"),
   );
+  creatureTime -= delta;
+  if (mode === "play" && !travel.active && creatureTime <= 0) {
+    creatureTime = 2.8;
+    const e = Object.values(s.enemies).find(
+      (e) => e.room === s.room && !e.dead && dist(e, s.player) < 8,
+    );
+    if (e) {
+      audio.play("grunt", e);
+      audio.burst(180, 0.23, 0.08, e);
+    }
+  }
   for (const cue of view.environment?.sounds.splice(0) || []) {
     audio.environment(cue.kind, cue.x, cue.z);
     const caption: Record<string, string> = {
@@ -1236,15 +1368,19 @@ function frame(now: number) {
       vapor: "A tubulação libera um sopro de vapor.",
       faíscas: "Faíscas escapam de um fio solto.",
     };
-    if (caption[cue.kind] && noticeTime <= 0) announce(caption[cue.kind]);
+    if (prefs.subtitles && caption[cue.kind] && noticeTime <= 0)
+      announce(caption[cue.kind]);
   }
+  app.dataset.screen = mode;
   hud();
   view.render(
     travel.active && doorTime > 0.25
       ? Math.min(1, doorTime / doorDuration)
       : undefined,
+    mode === "menu" ||
+      mode === "credits" ||
+      (mode === "options" && optionsReturn === "menu"),
   );
-  fadeIn = Math.max(0, fadeIn - delta);
   const fade = travel.active
     ? doorTime < 0.25
       ? doorTime / 0.25
@@ -1253,7 +1389,7 @@ function frame(now: number) {
         : doorTime > doorDuration - 0.25
           ? (doorTime - doorDuration + 0.25) / 0.25
           : 0
-    : fadeIn / 0.35;
+    : transitionOpacity(performance.now(), fadeUntil);
   el("fade").style.opacity = String(Math.min(1, Math.max(0, fade)));
   fpsFrames++;
   fpsTime += realDelta;
@@ -1268,6 +1404,8 @@ function frame(now: number) {
 // Read-only diagnostics for reproducible smoke tests; no gameplay shortcuts.
 Object.defineProperty(window, "limiar", {
   get: () => ({
+    fade: Number(el("fade").style.opacity || 0),
+    shoveCooldown,
     weaponReady: shotCooldown <= 0 && reloadTime <= 0,
     reloading: reloadTime > 0,
     aiming,
@@ -1279,7 +1417,7 @@ Object.defineProperty(window, "limiar", {
     ambientState: JSON.parse(
       JSON.stringify(s.ambience || { impacts: {}, broken: [] }),
     ),
-    audio: { ...audio.spatialDiagnostics },
+    audio: { ...audio.spatialDiagnostics, levels: { ...audio.levels } },
     playerScreen: view.project(s.player, 1.3).toArray(),
     preferences: { ...prefs },
     cameraYaw: view.yaw,
@@ -1289,6 +1427,7 @@ Object.defineProperty(window, "limiar", {
     rayHit: view.shot(s, false),
     pointerLocked: !!document.pointerLockElement,
     worldObjects: view.worldObjects(),
+    worldLabels: view.worldLabels(),
     collected: [...s.items],
     documents: [...s.docs],
     room: s.room,
@@ -1336,3 +1475,14 @@ window.addEventListener("pagehide", (e) => {
   }
 });
 requestAnimationFrame(frame);
+
+window.addEventListener(
+  "pointerdown",
+  () => {
+    if (!audio.ctx) audio.start();
+  },
+  { capture: true },
+);
+el("overlay").addEventListener("focusin", (e) => {
+  if ((e.target as HTMLElement).tagName === "BUTTON") audio.play("ui");
+});

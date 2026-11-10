@@ -1,0 +1,74 @@
+[
+  {
+    "room": "arquivo",
+    "rgbMean255": 12.235,
+    "sceneWithoutHudMean255": 11.233,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-arquivo.png"
+  },
+  {
+    "room": "atrio",
+    "rgbMean255": 14.456,
+    "sceneWithoutHudMean255": 15.358,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-atrio.png"
+  },
+  {
+    "room": "corredor",
+    "rgbMean255": 13.767,
+    "sceneWithoutHudMean255": 13.38,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-corredor.png"
+  },
+  {
+    "room": "enfermaria",
+    "rgbMean255": 14.223,
+    "sceneWithoutHudMean255": 13.764,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-enfermaria.png"
+  },
+  {
+    "room": "escadaria",
+    "rgbMean255": 15.558,
+    "sceneWithoutHudMean255": 15.276,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-escadaria.png"
+  },
+  {
+    "room": "gerador",
+    "rgbMean255": 13.11,
+    "sceneWithoutHudMean255": 13.874,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-gerador.png"
+  },
+  {
+    "room": "internacao",
+    "rgbMean255": 15.663,
+    "sceneWithoutHudMean255": 16.527,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-internacao.png"
+  },
+  {
+    "room": "isolamento",
+    "rgbMean255": 16.045,
+    "sceneWithoutHudMean255": 17.26,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-isolamento.png"
+  },
+  {
+    "room": "lavanderia",
+    "rgbMean255": 18.805,
+    "sceneWithoutHudMean255": 20.366,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-lavanderia.png"
+  },
+  {
+    "room": "posto",
+    "rgbMean255": 29.636,
+    "sceneWithoutHudMean255": 30.939,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-posto.png"
+  },
+  {
+    "room": "recepcao",
+    "rgbMean255": 16.083,
+    "sceneWithoutHudMean255": 17.351,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-recepcao.png"
+  },
+  {
+    "room": "segura",
+    "rgbMean255": 30.864,
+    "sceneWithoutHudMean255": 32.432,
+    "file": "/workspace/limiar-v050-smoke/shoulder-camera-fixed/sala-segura.png"
+  }
+]

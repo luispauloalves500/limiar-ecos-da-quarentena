@@ -21,7 +21,7 @@ function rebuild() {
     pose = input("pose").value;
   state = newGame();
   state.room = "isolamento";
-  state.player = { x: 0, z: count === 1 ? 3.8 : 6, hp: 100, yaw: Math.PI };
+  state.player = { x: 0, z: count === 1 ? 3.8 : 4.5, hp: 100, yaw: Math.PI };
   state.battery = 100;
   state.enemies = {};
   const base = newGame().enemies.errante01;

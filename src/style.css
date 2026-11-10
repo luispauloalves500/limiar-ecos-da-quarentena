@@ -510,3 +510,90 @@ blockquote {
 #overlay {
   backdrop-filter: none;
 }
+
+/* 0.5 cinematic title: actual 3D corridor remains visible behind typography. */
+#overlay.title {
+  background: linear-gradient(
+    90deg,
+    #030a0df2 0%,
+    #041014b8 40%,
+    #06141812 90%
+  );
+  backdrop-filter: none;
+  padding: 5vh 8%;
+}
+.title .panel {
+  max-width: 580px;
+}
+.title h1 {
+  font-size: clamp(58px, 9vw, 114px);
+  letter-spacing: 0.19em;
+  font-weight: 300;
+  line-height: 1;
+  margin: 28px 0;
+  color: #d5dfca;
+  text-shadow: 0 0 35px #8daba755;
+}
+.title h1 span {
+  font-size: clamp(9px, 1.2vw, 14px);
+  letter-spacing: 0.48em;
+  display: block;
+  line-height: 3;
+}
+.title-actions {
+  display: grid;
+  max-width: 340px;
+  gap: 9px;
+}
+.title-actions button {
+  text-align: left;
+  background: #0a1a20bb;
+  min-height: 44px;
+  border-color: #82a59455;
+}
+.title-actions button:focus-visible,
+button:focus-visible {
+  outline: 2px solid #bdccb0;
+  outline-offset: 3px;
+}
+[data-screen="menu"] #hud,
+[data-screen="menu"] #top,
+[data-screen="menu"] #hint,
+[data-screen="menu"] #prompt,
+[data-screen="credits"] #hud,
+[data-screen="credits"] #top {
+  visibility: hidden;
+}
+.fieldnotes {
+  display: grid;
+  gap: 8px;
+}
+.fieldnotes details {
+  padding: 10px 16px;
+  background: #122b2a88;
+  border-left: 2px solid #61776c;
+}
+.fieldnotes summary {
+  cursor: pointer;
+  color: #bdcbb4;
+}
+.inventory > div {
+  border-radius: 3px;
+  background: linear-gradient(145deg, #31504444, #132c2a33);
+}
+@media (max-width: 700px) {
+  #overlay.title {
+    padding: 4vh 7%;
+  }
+  .title h1 {
+    font-size: 58px;
+  }
+  .title .intro {
+    font-size: 14px;
+  }
+}
+
+.title-actions .primary {
+  background: #b6c6ac;
+  color: #132623;
+}

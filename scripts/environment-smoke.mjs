@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const url =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
-const out = process.env.SMOKE_OUT || "/workspace/limiar-v040-smoke/environment";
+const out = process.env.SMOKE_OUT || "/workspace/limiar-v050-smoke/environment";
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -61,7 +61,7 @@ let result;
 try {
   await page.goto(url, { waitUntil: "networkidle" });
   await page.locator("#new").click();
-  assert.equal((await state()).version, "0.4.0");
+  assert.equal((await state()).version, "0.5.0");
   await page.waitForFunction(
     () => window.limiar.environment.lastEvent === "telefone",
   );

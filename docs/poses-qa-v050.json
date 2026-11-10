@@ -1,0 +1,171 @@
+{
+  "passed": true,
+  "poses": [
+    {
+      "name": "helena-parada-lanterna",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Flashlight"
+    },
+    {
+      "name": "helena-parada-sem-lanterna",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "PlayerIdle"
+    },
+    {
+      "name": "helena-andando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Flashlight"
+    },
+    {
+      "name": "helena-correndo",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Flashlight"
+    },
+    {
+      "name": "helena-mirando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Aim"
+    },
+    {
+      "name": "helena-atirando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Fire"
+    },
+    {
+      "name": "helena-recarregando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Reload"
+    },
+    {
+      "name": "tank-parada",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Flashlight"
+    },
+    {
+      "name": "tank-andando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Flashlight"
+    },
+    {
+      "name": "tank-correndo",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Flashlight"
+    },
+    {
+      "name": "tank-mirando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Aim"
+    },
+    {
+      "name": "tank-atirando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Fire"
+    },
+    {
+      "name": "tank-recarregando",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Reload"
+    },
+    {
+      "name": "helena-interagindo",
+      "room": "recepcao",
+      "hp": 100,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Interact"
+    },
+    {
+      "name": "helena-ferida",
+      "room": "corredor",
+      "hp": 25,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "InjuredWalk"
+    },
+    {
+      "name": "tank-ferida",
+      "room": "corredor",
+      "hp": 25,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "InjuredWalk"
+    },
+    {
+      "name": "helena-gravando",
+      "room": "segura",
+      "hp": 85,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Interact"
+    },
+    {
+      "name": "tank-interagindo-gravador",
+      "room": "segura",
+      "hp": 85,
+      "fade": 0,
+      "gunParent": "mixamorigRightHand",
+      "gunVisible": true,
+      "state": "Interact"
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "responses": [],
+  "method": "Real keyboard/mouse input, readonly diagnostics. HP25 came from five real E01 attacks. No state mutation."
+}

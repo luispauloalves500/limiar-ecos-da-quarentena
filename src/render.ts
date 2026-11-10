@@ -1,3 +1,5 @@
+import { TitleScene } from "./title";
+import { minimumLighting } from "./presentation";
 import { playerActor, type PlayerAnimator, type PlayerFrame } from "./player";
 import { zombieActor } from "./zombie";
 import { shoulderOffset } from "./controls";
@@ -23,6 +25,7 @@ import { person, animate, type Actor } from "./actors";
 import { Post } from "./post";
 export class View {
   renderer: T.WebGLRenderer;
+  title: TitleScene;
   scene = new T.Scene();
   camera = new T.PerspectiveCamera(62, 1, 0.06, 65);
   group = new T.Group();
@@ -83,6 +86,7 @@ export class View {
     this.renderer.shadowMap.type = T.PCFShadowMap;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.3;
+    this.title = new TitleScene(this.wallTex, this.tile);
     container.prepend(this.renderer.domElement);
     this.scene.matrixAutoUpdate = false;
     this.scene.updateMatrix();
@@ -204,7 +208,11 @@ export class View {
     const ambient = this.scene.children.find(
       (o) => o instanceof T.HemisphereLight,
     ) as T.HemisphereLight | undefined;
-    if (ambient) ambient.intensity = tank ? 0.75 : 0.48;
+    if (ambient)
+      ambient.intensity = minimumLighting(
+        rooms[this.room].safe,
+        this.prefs.mode,
+      ).ambient;
     this.ceiling.visible = !tank;
     this.walls.forEach(
       (w, i) =>
@@ -288,9 +296,6 @@ export class View {
       pipe.rotation.z = Math.PI / 2;
       this.ceiling.add(pipe);
     }
-    const sign = label(r.name.toUpperCase(), "#bdcbb2", 3.2);
-    sign.position.set(0, 3.1, -8.7);
-    this.group.add(sign);
     for (const o of r.obstacles) {
       const metal = mat(0x56635b, 0.58, 0.5, this.rust),
         cloth = mat(0xb4b5a0, 0.95, 0, this.wallTex);
@@ -400,15 +405,32 @@ export class View {
       if (Math.abs(p.x) > 5)
         g.rotation.y = p.x > 0 ? -Math.PI / 2 : Math.PI / 2;
       else if (p.z > 0) g.rotation.y = Math.PI;
-      g.add(
-        box(1.65, 2.65, 0.13, mat(0x273d36, 0.65, 0.4, this.rust), 0, 1.325, 0),
+      const slab = box(
+        1.65,
+        2.65,
+        0.13,
+        mat(0x273d36, 0.65, 0.4, this.rust),
+        0,
+        1.325,
+        0,
       );
+      g.add(slab);
+      // The cinematic doorway is a physical occluder too: a camera stopped
+      // only by the outer wall could sit BEHIND the closed leaf and see black.
+      this.obstacles.push(slab);
       g.add(box(0.6, 0.35, 0.04, mat(0x23332c, 0.3, 0.8), 0, 1.9, 0.1));
       g.add(box(0.12, 0.08, 0.14, mat(0xb7a773, 0.3, 0.6), 0.56, 1.2, 0.15));
-      for (const x of [-0.91, 0.91])
-        g.add(box(0.14, 2.8, 0.2, mat(0x9eac8c, 0.5, 0.5), x, 1.4, 0));
-      const l = label(d.label.toUpperCase(), "#d5d4ae", 2);
-      l.position.set(0, 2.95, 0.08);
+      for (const x of [-0.91, 0.91]) {
+        const frame = box(0.14, 2.8, 0.2, mat(0x9eac8c, 0.5, 0.5), x, 1.4, 0);
+        g.add(frame);
+        this.obstacles.push(frame);
+      }
+      const l = label(
+        d.id.replace(/\D/g, "").padStart(2, "0"),
+        "#a5b09a",
+        0.32,
+      );
+      l.position.set(0, 1.92, 0.14);
       g.add(l);
       this.group.add(g);
       const glow = new T.PointLight(0x94b99b, 5, 4, 1.6);
@@ -447,10 +469,10 @@ export class View {
         g.add(box(0.07, 0.035, 0.19, mat(0xb98170), 0, 0.32, 0));
       }
       const beacon = new T.Mesh(
-        new T.OctahedronGeometry(0.07),
+        new T.OctahedronGeometry(0.035),
         new T.MeshBasicMaterial({ color: c }),
       );
-      beacon.position.y = 0.65;
+      beacon.position.y = 0.28;
       beacon.name = "pickup-marker";
       g.add(beacon);
       this.group.add(g);
@@ -495,13 +517,6 @@ export class View {
       if (!r.safe) this.group.add(decal);
     }
     for (const x of [-4, 4]) {
-      const poster = label(
-        x < 0 ? "ISOLAMENTO A-13" : "LAVE AS MÃOS",
-        "#a9b6a0",
-        1.55,
-      );
-      poster.position.set(x, 2, -8.7);
-      this.group.add(poster);
       const vent = box(1.1, 0.5, 0.04, mat(0x3d4e43, 0.6, 0.6), x, 3.4, -8.69);
       this.group.add(vent);
       for (let k = 0; k < 5; k++)
@@ -513,7 +528,7 @@ export class View {
     for (const [i, z] of [-5, 4].entries()) {
       const l = new T.PointLight(
         r.safe ? 0xffc58e : id === "isolamento" ? 0xd88769 : 0xa9c7b4,
-        r.safe ? 22 : 14,
+        minimumLighting(r.safe, this.prefs.mode).practical,
         13,
         1.5,
       );
@@ -546,16 +561,14 @@ export class View {
       this.group.add(bag);
     }
     if (r.safe) {
-      this.fixture("GRAVADOR · E", 0, -3, 0xcbb97c);
-      this.fixture("RÁDIO DE EMERGÊNCIA", -4, -6, 0x9eb691);
+      this.fixture(0, -3, 0xcbb97c);
+      this.fixture(-4, -6, 0x9eb691);
     }
-    if (id === "lavanderia")
-      this.fixture("VÁLVULAS · 3 / 1 / 2", 4, -6.2, 0xb9a361);
-    if (id === "isolamento")
-      this.fixture("TRANSMITIR E SELAR", 0, -6.5, 0xc0a177);
-    if (id === "arquivo") this.fixture("RELÓGIO DE PLANTÃO", 0, -6.6, 0xd3c18d);
-    if (id === "gerador") this.fixture("QUADRO ELÉTRICO", 4, -6, 0x88b5a2);
-    if (id === "atrio") this.fixture("TRAVA ELÉTRICA", 0, -6.7, 0xc7a975);
+    if (id === "lavanderia") this.fixture(4, -6.2, 0xb9a361);
+    if (id === "isolamento") this.fixture(0, -6.5, 0xc0a177);
+    if (id === "arquivo") this.fixture(0, -6.6, 0xd3c18d);
+    if (id === "gerador") this.fixture(4, -6, 0x88b5a2);
+    if (id === "atrio") this.fixture(0, -6.7, 0xc7a975);
     const count = 180,
       geo = new T.BufferGeometry(),
       pos = new Float32Array(count * 3);
@@ -599,13 +612,10 @@ export class View {
     this.setCamera(0);
     this.applyCutaway();
   }
-  fixture(text: string, x: number, z: number, c: number) {
+  fixture(x: number, z: number, c: number) {
     this.group.add(
       box(1.3, 1.1, 0.65, mat(0x3b4a3c, 0.65, 0.4, this.rust), x, 0.55, z),
     );
-    const l = label(text, "#d6cfa8", 2.4);
-    l.position.set(x, 1.65, z + 0.06);
-    this.group.add(l);
     this.group.add(
       box(
         0.6,
@@ -647,6 +657,13 @@ export class View {
       this.disposeGroup(g);
       this.itemMeshes.delete(id);
     }
+  }
+  worldLabels() {
+    const result: string[] = [];
+    this.group.traverse((o) => {
+      if (o.userData.worldLabel) result.push(o.userData.worldLabel);
+    });
+    return result;
   }
   worldObjects() {
     return {
@@ -719,6 +736,8 @@ export class View {
     this.player.root.rotation.y = p.yaw;
     this.player.root.visible = true;
     this.updateCamera(s, dt, aiming);
+    if (this.prefs.mode === "shoulder" && this.recoil > 0)
+      this.camera.rotateX(this.recoil * 0.014);
     this.camera.updateMatrixWorld();
     if (this.playerAnimation) {
       this.playerAnimation.preview = this.playerAnimationPreview;
@@ -902,7 +921,11 @@ export class View {
         continue;
       }
       const beacon = g.getObjectByName("pickup-marker");
-      if (beacon) beacon.rotation.y += dt;
+      if (beacon) {
+        beacon.visible =
+          Math.hypot(g.position.x - p.x, g.position.z - p.z) < 2.6;
+        beacon.rotation.y += dt;
+      }
     }
     if (this.dust) {
       const arr = this.dust.geometry.attributes.position;
@@ -1063,9 +1086,16 @@ export class View {
       this.fxLife = 0.5;
     }
   }
-  render(doorProgress?: number) {
+  render(doorProgress?: number, title = false) {
     this.renderer.info.reset();
-    if (doorProgress !== undefined) {
+    if (title) {
+      this.title.update(
+        this.elapsed,
+        this.camera.aspect,
+        this.prefs.quality === "low",
+      );
+      this.renderer.render(this.title.scene, this.title.camera);
+    } else if (doorProgress !== undefined) {
       this.hinge.rotation.y =
         -Math.max(0, Math.min(1, (doorProgress - 0.2) / 0.65)) * 1.7;
       this.knob.rotation.z =

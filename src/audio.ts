@@ -1,7 +1,26 @@
+import { soundPlan, type Bus, type SoundKind } from "./sound-design";
+import { defaults, type Preferences } from "./controls";
 import { themes } from "./environment-logic";
 import type { RoomId, Vec } from "./world";
 export class Audio {
   ctx: AudioContext | null = null;
+  levels = {
+    master: defaults.master,
+    music: defaults.music,
+    effects: defaults.effects,
+    voices: defaults.voices,
+  };
+  buses = {} as Record<Bus, GainNode>;
+  musicGain: GainNode | undefined;
+  tension = 0;
+  pulse = 0;
+  creatureClock = 0;
+  configure(p: Pick<Preferences, "master" | "music" | "effects" | "voices">) {
+    this.levels = { ...p };
+    if (this.gain) this.gain.gain.value = this.muted ? 0 : 0.12 * p.master;
+    for (const b of ["music", "effects", "voices"] as const)
+      if (this.buses[b]) this.buses[b].gain.value = p[b];
+  }
   gain: GainNode | null = null;
   muted = false;
   room: RoomId | undefined;
@@ -19,8 +38,17 @@ export class Audio {
     }
     this.ctx = new AudioContext();
     this.gain = this.ctx.createGain();
-    this.gain.gain.value = 0.12;
-    this.gain.connect(this.ctx.destination);
+    this.gain.gain.value = 0.12 * this.levels.master;
+    const limiter = this.ctx.createDynamicsCompressor();
+    limiter.threshold.value = -12;
+    limiter.ratio.value = 4;
+    this.gain.connect(limiter).connect(this.ctx.destination);
+    for (const b of ["music", "effects", "voices"] as const) {
+      const g = this.ctx.createGain();
+      g.gain.value = this.levels[b];
+      g.connect(this.gain);
+      this.buses[b] = g;
+    }
   }
   tone(
     freq: number,
@@ -28,9 +56,11 @@ export class Audio {
     volume = 0.3,
     type: OscillatorType = "sine",
     position?: Vec,
+    bus: Bus = "effects",
+    delay = 0,
   ) {
     if (!this.ctx || !this.gain) return;
-    const t = this.ctx.currentTime;
+    const t = this.ctx.currentTime + delay;
     const o = this.ctx.createOscillator(),
       g = this.ctx.createGain();
     o.type = type;
@@ -52,21 +82,21 @@ export class Audio {
       pan.positionX.value = position.x;
       pan.positionY.value = 1.4;
       pan.positionZ.value = position.z;
-      g.connect(pan).connect(this.gain);
-      if (this.reverb) pan.connect(this.reverb);
+      g.connect(pan).connect(this.buses[bus]);
+      if (this.reverb && bus === "effects") pan.connect(this.reverb);
       o.onended = () => {
         o.disconnect();
         g.disconnect();
         pan.disconnect();
       };
     } else {
-      g.connect(this.gain);
+      g.connect(this.buses[bus]);
       o.onended = () => {
         o.disconnect();
         g.disconnect();
       };
     }
-    o.start();
+    o.start(t);
     o.stop(t + duration);
   }
   noiseBuffer() {
@@ -97,7 +127,7 @@ export class Audio {
     this.room = room;
     this.roomGain = this.ctx.createGain();
     this.roomGain.gain.value = 0.35;
-    this.roomGain.connect(this.gain);
+    this.roomGain.connect(this.buses.effects);
     this.roomNodes.push(this.roomGain);
     const reverb = this.ctx.createConvolver(),
       seconds =
@@ -156,15 +186,37 @@ export class Audio {
       this.sources.push(src);
       this.roomNodes.push(filter, volume, pan);
     }
+    this.musicGain = this.ctx.createGain();
+    this.musicGain.gain.value = 0.025;
+    this.musicGain.connect(this.buses.music);
+    this.roomNodes.push(this.musicGain);
+    const safe = room === "segura" || room === "posto";
+    for (const freq of safe ? [110, 164.81, 220] : [48, 50.1, 72]) {
+      const o = this.ctx.createOscillator();
+      o.type = "sine";
+      o.frequency.value = freq;
+      o.connect(this.musicGain);
+      o.start();
+      this.sources.push(o);
+    }
     this.drip = 1.5;
     this.spatialDiagnostics = {
       room,
       reverbSeconds: seconds,
-      sources: 3,
+      sources: 6,
       events: this.spatialDiagnostics.events,
     };
   }
-  update(room: RoomId, p: Vec, yaw: number, dt: number, active: boolean) {
+  update(
+    room: RoomId,
+    p: Vec,
+    yaw: number,
+    dt: number,
+    active: boolean,
+    danger = 0,
+    hp = 100,
+    title = false,
+  ) {
     if (!this.ctx) return;
     if (this.room !== room) this.enter(room);
     const l = this.ctx.listener;
@@ -182,6 +234,20 @@ export class Audio {
       this.ctx.currentTime,
       0.2,
     );
+    this.tension += (danger - this.tension) * Math.min(1, dt * 2);
+    const safe = room === "segura" || room === "posto";
+    this.musicGain?.gain.setTargetAtTime(
+      title ? 0.04 : active ? (safe ? 0.025 : 0.014 + this.tension * 0.045) : 0,
+      this.ctx.currentTime,
+      0.5,
+    );
+    this.pulse -= dt;
+    if (active && hp <= 30 && this.pulse <= 0) {
+      this.pulse = 1.4;
+      this.play("breath");
+      this.tone(42, 0.15, 0.17, "sine", undefined, "voices");
+      this.tone(39, 0.13, 0.12, "sine", undefined, "voices", 0.2);
+    }
     if (active) {
       this.drip -= dt;
       if (this.drip <= 0) {
@@ -191,22 +257,68 @@ export class Audio {
     }
   }
   step(room: RoomId, p: Vec) {
-    const surface = themes[room].surface;
-    this.tone(
-      surface === "metal"
-        ? 180
-        : surface === "wet"
-          ? 95
-          : surface === "paper"
-            ? 240
-            : 65,
-      0.045,
-      0.12,
-      surface === "metal" ? "triangle" : "sine",
-      p,
-    );
-    if (surface === "wet" || surface === "paper")
-      this.tone(650, 0.045, 0.035, "sawtooth", p);
+    this.play("step", p, themes[room].surface === "metal");
+    if (themes[room].surface === "wet") this.burst(750, 0.12, 0.08, p);
+  }
+  burst(
+    freq: number,
+    duration: number,
+    volume: number,
+    position?: Vec,
+    bus: Bus = "effects",
+    delay = 0,
+  ) {
+    if (!this.ctx || !this.gain) return;
+    const src = this.ctx.createBufferSource(),
+      filter = this.ctx.createBiquadFilter(),
+      g = this.ctx.createGain();
+    src.buffer = this.noiseBuffer()!;
+    filter.type = "bandpass";
+    filter.frequency.value = freq;
+    filter.Q.value = 0.7;
+    const t = this.ctx.currentTime + delay;
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(volume, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    src.connect(filter).connect(g);
+    const pan = position ? this.ctx.createPanner() : undefined;
+    if (pan && position) {
+      pan.panningModel = "HRTF";
+      pan.distanceModel = "inverse";
+      pan.refDistance = 2;
+      pan.maxDistance = 22;
+      pan.positionX.value = position.x;
+      pan.positionY.value = 1.3;
+      pan.positionZ.value = position.z;
+      g.connect(pan).connect(this.buses[bus]);
+      if (this.reverb && bus === "effects") pan.connect(this.reverb);
+    } else {
+      g.connect(this.buses[bus]);
+      if (this.reverb && bus === "effects") g.connect(this.reverb);
+    }
+    src.onended = () => {
+      src.disconnect();
+      filter.disconnect();
+      g.disconnect();
+      pan?.disconnect();
+    };
+    src.start(t);
+    src.stop(t + duration + 0.01);
+  }
+  play(kind: SoundKind, position?: Vec, metal = false) {
+    for (const l of soundPlan(kind, metal))
+      if (l.noise)
+        this.burst(l.freq, l.duration, l.volume, position, l.bus, l.delay);
+      else
+        this.tone(
+          l.freq,
+          l.duration,
+          l.volume,
+          kind === "grunt" ? "sawtooth" : "triangle",
+          position,
+          l.bus,
+          l.delay,
+        );
   }
   environment(kind: string, x: number, z: number) {
     this.spatialDiagnostics.events++;
@@ -228,11 +340,11 @@ export class Audio {
     }
   }
   shot() {
-    this.tone(130, 0.18, 0.65, "sawtooth");
-    this.tone(62, 0.22, 0.8, "triangle");
+    this.play("shot");
   }
   toggle() {
     this.muted = !this.muted;
-    if (this.gain) this.gain.gain.value = this.muted ? 0 : 0.12;
+    if (this.gain)
+      this.gain.gain.value = this.muted ? 0 : 0.12 * this.levels.master;
   }
 }

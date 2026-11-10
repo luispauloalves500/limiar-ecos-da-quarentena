@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const url =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
-const out = process.env.SMOKE_OUT || "/workspace/limiar-v040-smoke/ui";
+const out = process.env.SMOKE_OUT || "/workspace/limiar-v050-smoke/ui";
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -43,7 +43,7 @@ const shot = async (name) => {
 };
 try {
   await page.goto(url, { waitUntil: "networkidle" });
-  assert.equal((await state()).version, "0.4.0");
+  assert.equal((await state()).version, "0.5.0");
   assert.equal((await state()).preferences.mode, "shoulder");
   await page.locator("#options").click();
   await page.locator("#opt-sensitivity").fill("1.4");
@@ -87,6 +87,12 @@ try {
   await page.keyboard.press("Tab");
   assert.equal((await state()).mode, "inventory");
   await page.keyboard.press("Tab");
+  await page.waitForTimeout(250);
+  assert.equal(
+    (await state()).mode,
+    "play",
+    "Closing inventory Tab must not move browser focus and auto-pause",
+  );
   await page.keyboard.press("Escape");
   await page.locator("#quality").click();
   await page.locator("#opt-quality").selectOption("low");
@@ -178,7 +184,7 @@ try {
   result = await state();
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings, []);
-  console.log("V040 UI / MODELS / POINTER LOCK / PROFILES PASS", url);
+  console.log("V050 UI / MODELS / POINTER LOCK / PROFILES PASS", url);
 } catch (e) {
   errors.push(String(e));
   process.exitCode = 1;
