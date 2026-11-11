@@ -97,7 +97,8 @@ describe("locomoção 0.6", () => {
     expect(a).not.toEqual(b);
     for (const id of ["Z01", "Z02", "Z03", "BOSS", "E02"]) {
       const g = gaitVariation(id);
-      expect(Math.abs(g.lean)).toBeLessThanOrEqual(0.11);
+      expect(Math.abs(g.lean)).toBeLessThanOrEqual(0.07);
+      expect(g.hunch).toBeLessThanOrEqual(0.11);
       expect(g.deathSpeed).toBeGreaterThanOrEqual(0.85);
       expect(g.deathSpeed).toBeLessThanOrEqual(1.15);
     }

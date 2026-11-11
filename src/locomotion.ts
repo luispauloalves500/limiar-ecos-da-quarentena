@@ -105,8 +105,8 @@ export function gaitVariation(id: string) {
   for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
   const r = (n: number) => ((h >>> n) & 1023) / 1023;
   return {
-    lean: (r(0) - 0.5) * 0.22,
-    hunch: 0.05 + r(10) * 0.16,
+    lean: (r(0) - 0.5) * 0.14,
+    hunch: 0.03 + r(10) * 0.08,
     limp: r(20) * 0.5,
     deathYaw: (r(5) - 0.5) * 1.4,
     deathSpeed: 0.85 + r(15) * 0.3,
