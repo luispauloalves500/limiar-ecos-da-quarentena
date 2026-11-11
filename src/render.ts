@@ -1,7 +1,12 @@
 import { TitleScene } from "./title";
 import { minimumLighting } from "./presentation";
-import { playerActor, type PlayerAnimator, type PlayerFrame } from "./player";
-import { zombieActor } from "./zombie";
+import {
+  playerActor,
+  setPlayerProbe,
+  type PlayerAnimator,
+  type PlayerFrame,
+} from "./player";
+import { setZombieProbe, zombieActor } from "./zombie";
 import { shoulderOffset } from "./controls";
 import { Environment } from "./environment";
 import { themes } from "./environment-logic";
@@ -10,7 +15,15 @@ import { corpseOpacity, isCollected } from "./logic";
 import { surfaceDetail } from "./art";
 import { architecture, looks, HALF_X, HALF_Z, HEIGHT } from "./architecture";
 import { turnToward, wrap } from "./locomotion";
-import { bakeStatic, dispose as disposeBaked, type BakeOptions } from "./bake";
+import {
+  bakeStatic,
+  bakedGain,
+  dispose as disposeBaked,
+  type BakeLight,
+  type BakeOptions,
+} from "./bake";
+/** Actors have no N·L from the probe; keep it below wall brightness. */
+const PROBE_GAIN = 0.55;
 import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
 import type { GameState } from "./logic";
@@ -71,8 +84,9 @@ export class View {
   baked: T.Mesh[] = [];
   bakeStats = { merged: 0, sources: 0 };
   flash = new T.PointLight(0xffc184, 0, 5);
-  /** 0.6: one camera-attached fill replaces 2–4 per-door PointLights. */
-  fill = new T.PointLight(0xb9c9bd, 3.2, 6.5, 1.6);
+  /** 0.6: baked lights of the room, reused as a light probe for actors. */
+  probeLights: BakeLight[] = [];
+  probeColor = new T.Color();
   muzzle: T.Mesh;
   recoil = 0;
   hurtTime = 0;
@@ -103,7 +117,6 @@ export class View {
     this.scene.background = new T.Color(0x04090b);
     this.scene.fog = new T.FogExp2(0x071013, 0.055);
     this.scene.add(new T.HemisphereLight(0x77968d, 0x252c28, 0.48));
-    if (!(new URLSearchParams(location.search).get("exp") || "").includes("nofill")) this.scene.add(this.fill); // TEMP-EXP
     this.scene.add(this.group, this.player.root);
     this.light = new T.SpotLight(0xffdfac, 65, 13, 0.5, 0.7, 1.5);
     this.light.map = this.cookie;
@@ -545,7 +558,8 @@ export class View {
       );
       l.position.set(i ? -4 : 4, 3.45, z);
       l.userData.base = l.intensity;
-      this.group.add(l);
+      // 0.6: not added to the scene — its light is baked per vertex and its
+      // flicker drives the shared baked gain; actors read a light probe.
       this.practical.push(l);
       const tube = box(
         1.5,
@@ -625,12 +639,18 @@ export class View {
     this.applyCutaway();
   }
   sceneStats() {
-    const out = { meshes: 0, baked: 0, instanced: 0, lights: 0, transparent: 0, other: {} as Record<string, number> };
+    const out = { meshes: 0, baked: 0, instanced: 0, lights: 0, transparent: 0, vertices: 0, bakedVertices: 0, nonIndexed: 0, other: {} as Record<string, number> };
     this.scene.traverseVisible((o) => {
       if (o instanceof T.Light) out.lights++;
       if (!(o instanceof T.Mesh)) return;
       out.meshes++;
-      if (o.name === "baked") out.baked++;
+      const vc = o.geometry.attributes.position?.count || 0;
+      out.vertices += vc * (o instanceof T.InstancedMesh ? o.count : 1);
+      if (!o.geometry.index) out.nonIndexed++;
+      if (o.name === "baked") {
+        out.baked++;
+        out.bakedVertices += vc;
+      }
       else if (o instanceof T.InstancedMesh) out.instanced++;
       else if (!Array.isArray(o.material) && o.material.transparent) out.transparent++;
       else {
@@ -644,12 +664,29 @@ export class View {
   }
   /** 0.6: procedural trim + vertex AO/baked light, merged per material. */
   bakeRoom(id: RoomId, dynamic: Set<T.Object3D>) {
-    const EXP = new URLSearchParams(location.search).get("exp") || ""; // TEMP-EXP
-    if (EXP.includes("noarch")) return; // TEMP-EXP
-    const arch = architecture(id, [
-      [4, -5],
-      [-4, 4],
-    ]);
+    const arch = architecture(
+      id,
+      [
+        [4, -5],
+        [-4, 4],
+      ],
+      themes[id].color,
+      minimumLighting(rooms[id].safe, "shoulder").practical / 18,
+    );
+    this.probeLights = arch.lights;
+    // Zombies share materials: one room-level probe (mean over a 3x3 grid).
+    const zp = new T.Color();
+    for (const gx of [-4, 0, 4])
+      for (const gz of [-6, 0, 6])
+        for (const l of arch.lights) {
+          const d = Math.hypot(l.x - gx, l.y - 1.2, l.z - gz);
+          if (d >= l.range) continue;
+          const k = ((1 - d / l.range) ** 1.5 * l.intensity * PROBE_GAIN) / 9;
+          zp.r += (((l.color >> 16) & 255) / 255) * k;
+          zp.g += (((l.color >> 8) & 255) / 255) * k;
+          zp.b += ((l.color & 255) / 255) * k;
+        }
+    setZombieProbe(zp);
     const archFloor = new T.Group();
     archFloor.name = "arch-floor";
     arch.room.forEach((o) => archFloor.add(o));
@@ -665,7 +702,6 @@ export class View {
       tint: looks[id].tint,
     };
     let merged = 0;
-    if (EXP.includes("nobake")) return; // TEMP-EXP
     const hidden = new T.MeshBasicMaterial({ visible: false });
     for (const w of this.walls as T.Mesh[]) {
       // The wall root stays a raycast/collision obstacle but draws nothing;
@@ -682,13 +718,11 @@ export class View {
       merged += r.merged.length;
     }
     const c = bakeStatic(this.ceiling, o);
-    const g = EXP.includes("wallsonly")
-      ? bakeStatic(archFloor, o)
-      : bakeStatic(
-          this.group,
-          o,
-          new Set<T.Object3D>([...dynamic, this.ceiling, ...this.walls]),
-        );
+    const g = bakeStatic(
+      this.group,
+      o,
+      new Set<T.Object3D>([...dynamic, this.ceiling, ...this.walls]),
+    );
     this.baked.push(...c.sources, ...g.sources);
     this.bakeStats = {
       merged: merged + c.merged.length + g.merged.length,
@@ -821,13 +855,17 @@ export class View {
     this.updateCamera(s, dt, aiming);
     if (this.prefs.mode === "shoulder" && this.recoil > 0)
       this.camera.rotateX(this.recoil * 0.014);
-    // Fill follows Helena (not the far tank camera), slightly above/behind.
-    this.fill.position.set(
-      p.x - Math.sin(p.yaw) * 1.1,
-      2.5,
-      p.z - Math.cos(p.yaw) * 1.1,
-    );
-    this.fill.color.setHex(themes[this.room].color).lerp(new T.Color(0xd8dcd0), 0.6);
+    // Light probe: same baked lights, sampled at Helena's chest (omni).
+    this.probeColor.setRGB(0, 0, 0);
+    for (const l of this.probeLights) {
+      const d = Math.hypot(l.x - p.x, l.y - 1.2, l.z - p.z);
+      if (d >= l.range) continue;
+      const k = (1 - d / l.range) ** 1.5 * l.intensity * bakedGain.value * PROBE_GAIN;
+      this.probeColor.r += ((l.color >> 16) & 255) / 255 * k;
+      this.probeColor.g += ((l.color >> 8) & 255) / 255 * k;
+      this.probeColor.b += (l.color & 255) / 255 * k;
+    }
+    setPlayerProbe(this.probeColor);
     this.camera.updateMatrixWorld();
     const m = this.playerMotion,
       step = Math.max(dt, 1e-3);
@@ -1026,6 +1064,7 @@ export class View {
       this.light.shadow.needsUpdate = true;
       this.lastShadow = this.elapsed;
     }
+    let gain = 0;
     for (const l of this.practical) {
       const pulse =
         this.prefs.quality === "low" || rooms[s.room].safe
@@ -1034,7 +1073,9 @@ export class View {
             0.06 * Math.sin(this.elapsed * 7.2 + l.position.z) +
             0.02 * Math.sin(this.elapsed * 21);
       l.intensity = l.userData.base * pulse;
+      gain += pulse / this.practical.length;
     }
+    bakedGain.value = gain || 1;
     this.environment?.update(
       s,
       dt,

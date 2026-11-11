@@ -156,8 +156,16 @@ function sharedMaterial(index: number, kind: string, quality: Quality) {
     if (index === 0 && m.map) m.map = lowTexture(m.map);
     m.side = T.FrontSide;
   }
+  m.emissiveMap = m.map;
+  m.emissive.copy(zombieProbe);
   materialCache.set(key, m);
   return m;
+}
+const zombieProbe = new T.Color(0, 0, 0);
+/** Room-level light probe for all zombie materials (one uniform per material). */
+export function setZombieProbe(c: T.Color) {
+  zombieProbe.copy(c);
+  materialCache.forEach((m) => m.emissive.copy(c));
 }
 const loops = new Set(["Idle", "Walking", "Running", "Crawl"]);
 class Rig {

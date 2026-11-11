@@ -31,6 +31,11 @@ const bones: BonePose[] = [];
 /** Measured planted-foot speed (m/s at timeScale 1) of each locomotion clip. */
 export const strideSpeeds: Record<string, number> = {};
 let ankleHeight = 0.08;
+const probe = new T.Color(0, 0, 0);
+export function setPlayerProbe(c: T.Color) {
+  probe.copy(c);
+  materials.forEach((m) => m.emissive.copy(c));
+}
 const LOCOMOTION = ["Walking", "Running", "Sneaky_Walk_inplace", "InjuredWalk", "WalkAim"];
 let pending: Promise<void> | undefined;
 export const playerAsset = { status: "loading", error: "", progress: 0 };
@@ -141,6 +146,11 @@ function material(quality: Quality) {
       m.map = t;
     }
   }
+  // 0.6 light probe: actors are lit by baked room light through emission
+  // (albedo x probe colour) instead of extra dynamic PointLights.
+  m.emissiveMap = m.map;
+  m.emissive.copy(probe);
+  m.emissiveIntensity = 1;
   materials.set(quality, m);
   return m;
 }

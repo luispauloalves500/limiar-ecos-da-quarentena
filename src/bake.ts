@@ -45,7 +45,7 @@ export function bakeVertex(
   if (edgeX < 0.7 && edgeZ < 0.7) ao *= 0.7 + 0.3 * Math.max(edgeX, edgeZ) / 0.7;
   // Underside faces receive less bounce.
   if (n.y < -0.6) ao *= 0.78;
-  ao = Math.max(0.32, Math.min(1, ao));
+  ao = Math.max(0.45, Math.min(1, ao));
   out.setRGB(ao, ao, ao);
   // Damp band: deterministic noise near the floor, greenish-brown.
   if (o.damp > 0 && p.y < 1.1) {
@@ -68,7 +68,7 @@ export function bakeVertex(
       const d = tmp.length();
       if (d >= l.range) continue;
       const lambert = Math.max(0, tmp.dot(n) / Math.max(d, 1e-4)),
-        k = lambert * (1 - d / l.range) ** 2 * l.intensity;
+        k = (0.25 + 0.75 * lambert) * (1 - d / l.range) ** 1.5 * l.intensity;
       col.setHex(l.color);
       light.r += col.r * k;
       light.g += col.g * k;
@@ -105,7 +105,6 @@ export function mergeable(o: T.Object3D, exclude: Set<T.Object3D>) {
 }
 /** Re-tessellate large boxes so per-vertex AO has resolution. */
 function tessellated(g: T.BufferGeometry) {
-  if ((new URLSearchParams(location.search).get("exp") || "").includes("notess")) return g; // TEMP-EXP
   if (!(g instanceof T.BoxGeometry)) return g.clone();
   const { width: w, height: h, depth: d } = g.parameters,
     s = (v: number) => Math.max(1, Math.min(16, Math.round(v / 0.9)));
@@ -146,16 +145,19 @@ export function colourise(g: T.BufferGeometry, o: BakeOptions, base?: T.Color) {
 }
 /** Adds the baked radiance attribute as emission (x albedo). One shared
  * program for all baked materials thanks to the fixed cache key. */
+/** Shared gain for all baked light (practical flicker without real lights). */
+export const bakedGain = { value: 1 };
 export function useBakedLight(m: T.MeshStandardMaterial) {
   m.onBeforeCompile = (shader) => {
+    shader.uniforms.bakedGain = bakedGain;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nattribute vec3 bakedLight;\nvarying vec3 vBakedLight;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBakedLight = bakedLight;");
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vBakedLight;")
+      .replace("#include <common>", "#include <common>\nvarying vec3 vBakedLight;\nuniform float bakedGain;")
       .replace(
         "#include <emissivemap_fragment>",
-        "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vBakedLight * diffuseColor.rgb;",
+        "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vBakedLight * diffuseColor.rgb * bakedGain;",
       );
   };
   m.customProgramCacheKey = () => "baked-light-v1";
@@ -176,12 +178,9 @@ export function bakeStatic(
   root.traverse((m) => {
     if (m === root || !mergeable(m, exclude)) return;
     const mesh = m as T.Mesh,
-      cells = Number((new URLSearchParams(location.search).get("exp") || "").match(/cells(\d)/)?.[1] || 1); // TEMP-EXP
-    let k = key(mesh.material as T.Material);
-    if (cells > 1) {
-      const c = new T.Box3().setFromObject(mesh).getCenter(new T.Vector3());
-      k += "|" + Math.floor(((c.x / o.halfX + 1) / 2) * cells) + "," + Math.floor(((c.z / o.halfZ + 1) / 2) * cells);
-    }
+      // Casters and non-casters stay apart so the flashlight shadow pass
+      // only redraws what cast shadows before the merge.
+      k = key(mesh.material as T.Material) + (mesh.castShadow ? "|c" : "");
     if (!buckets.has(k)) buckets.set(k, []);
     buckets.get(k)!.push(mesh);
     sources.push(mesh);
@@ -215,14 +214,12 @@ export function bakeStatic(
     const mat = src.clone();
     mat.color.setHex(0xffffff);
     mat.vertexColors = true;
-    const EXPB = new URLSearchParams(location.search).get("exp") || ""; // TEMP-EXP
-    if (mat instanceof T.MeshStandardMaterial && !EXPB.includes("nolight")) useBakedLight(mat);
-    if (EXPB.includes("novc")) { mat.vertexColors = false; mat.color.copy(src.color); }
+    if (mat instanceof T.MeshStandardMaterial) useBakedLight(mat);
     if (mat instanceof T.MeshStandardMaterial)
       mat.userData.detailBump =
         src.userData.detailBump ?? (src as T.MeshStandardMaterial).bumpMap;
     const mesh = new T.Mesh(g, mat);
-    mesh.castShadow = meshes.some((m) => m.castShadow);
+    mesh.castShadow = meshes[0].castShadow;
     mesh.receiveShadow = true;
     mesh.name = "baked";
     mesh.userData.bakedFrom = meshes.length;

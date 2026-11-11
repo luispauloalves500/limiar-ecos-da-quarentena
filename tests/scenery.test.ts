@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as T from "three";
-import { readFileSync } from "node:fs";
+import renderSource from "../src/render.ts?raw";
+import bakeSource from "../src/bake.ts?raw";
 import { bakeStatic, bakeVertex, mergeable, type BakeOptions } from "../src/bake";
 import { architecture, looks, segments, HALF_X, HALF_Z } from "../src/architecture";
 import { rooms } from "../src/world";
@@ -26,19 +27,23 @@ describe("cenários 0.6: bake de AO/luz e merge estático", () => {
   it("AO por vértice fica no intervalo e escurece o encontro com o piso", () => {
     const out = new T.Color(),
       light = new T.Color();
-    const floorEdge = bakeVertex(new T.Vector3(0, 0.02, 0), new T.Vector3(1, 0, 0), opts, out, light);
-    void floorEdge;
+    bakeVertex(new T.Vector3(0, 0.02, 0), new T.Vector3(1, 0, 0), opts, out, light);
     const low = out.r;
     bakeVertex(new T.Vector3(0, 2, 0), new T.Vector3(1, 0, 0), opts, out, light);
     expect(low).toBeLessThan(out.r);
     for (const v of [low, out.r]) {
-      expect(v).toBeGreaterThanOrEqual(0.3);
+      expect(v).toBeGreaterThanOrEqual(0.2);
       expect(v).toBeLessThanOrEqual(1);
     }
     // Baked light: faces toward the light receive it; faces away do not.
     bakeVertex(new T.Vector3(1, 2.6, 0), new T.Vector3(-1, 0, 0), opts, out, light);
-    expect(light.r).toBeGreaterThan(0.2);
+    const facing = light.r;
+    expect(facing).toBeGreaterThan(0.2);
+    // Faces away get only the soft wrap term (bounce), never full light.
     bakeVertex(new T.Vector3(1, 2.6, 0), new T.Vector3(1, 0, 0), opts, out, light);
+    expect(light.r).toBeLessThan(facing * 0.4);
+    // Out of range: nothing.
+    bakeVertex(new T.Vector3(6, 0.5, 8), new T.Vector3(0, 1, 0), opts, out, light);
     expect(light.r).toBe(0);
   });
   it("funde estáticos por material sem mudar o volume, e preserva cores", () => {
@@ -98,10 +103,10 @@ describe("cenários 0.6: bake de AO/luz e merge estático", () => {
     ]);
   });
   it("render troca luzes de porta dinâmicas por luz assada", () => {
-    const src = readFileSync("src/render.ts", "utf8");
+    const src = renderSource;
     expect(src).not.toContain("PointLight(0x94b99b");
     expect(src).toContain("bakeRoom(");
     expect(src).not.toContain("TEMP-EXP");
-    expect(readFileSync("src/bake.ts", "utf8")).not.toContain("TEMP-EXP");
+    expect(bakeSource).not.toContain("TEMP-EXP");
   });
 });

@@ -78,7 +78,12 @@ export type Architecture = {
 };
 /** Build cheap architectural trim for one room. Everything is static and is
  * merged by bake.ts into a handful of draws. */
-export function architecture(id: RoomId, practical: [number, number][]): Architecture {
+export function architecture(
+  id: RoomId,
+  practical: [number, number][],
+  practicalColor = 0xd9e6d6,
+  practicalGain = 1,
+): Architecture {
   const L = looks[id],
     // One surface response for all trim: colour is baked per vertex, so the
     // whole set merges into a single draw per wall/ceiling.
@@ -94,10 +99,10 @@ export function architecture(id: RoomId, practical: [number, number][]): Archite
       w = doorWall(p);
     gaps[w.wall].push(w.u);
     // The former per-door PointLight is now baked (vertex light) + emissive lamp.
-    out.lights.push({ x: p.x * 0.93, y: 2.6, z: p.z * 0.94, color: 0x94b99b, intensity: 0.75, range: 4.8 });
+    out.lights.push({ x: p.x * 0.93, y: 2.6, z: p.z * 0.94, color: 0x94b99b, intensity: 1.2, range: 5 });
   }
   for (const [x, z] of practical)
-    out.lights.push({ x, y: 3.4, z, color: 0xd9e6d6, intensity: 0.18, range: 7.5 });
+    out.lights.push({ x, y: 3.4, z, color: practicalColor, intensity: 2.4 * practicalGain, range: 12 });
   const piece = (wall: number, u0: number, u1: number, y: number, h: number, t: number, off: number, m: T.Material, toRoom = false) => {
     const len = u1 - u0,
       mid = (u0 + u1) / 2,

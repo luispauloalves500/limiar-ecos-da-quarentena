@@ -1,6 +1,6 @@
 import { level } from "./presentation";
 import type { Vec } from "./world";
-export const VERSION = "0.5.0";
+export const VERSION = "0.6.0";
 export type CameraMode = "shoulder" | "tank";
 export type Quality = "low" | "medium" | "high";
 export type Preferences = {
