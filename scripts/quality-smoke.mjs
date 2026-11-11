@@ -311,7 +311,9 @@ try {
   await pose("tank-recarregando");
   await page.waitForFunction(() => !window.limiar.reloading);
   await page.keyboard.press("v");
-  await moveTo(-3, 4);
+  // The note is at (-3, 2) with a 1.8 m radius; (-3, 4) is 2.0 m away and
+  // only worked in 0.5 by overshooting. With the 0.6 accel ramp, aim inside.
+  await moveTo(-3, 3.2, 0.4);
   await tap("e");
   assert.equal((await state()).mode, "document");
   await tap("e");
