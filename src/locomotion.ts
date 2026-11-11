@@ -24,12 +24,32 @@ export function strideScale(speed: number, native: number, min = 0.45, max = 1.7
   return Math.max(min, Math.min(max, speed / native));
 }
 
-/** Planted-foot speed of an in-place clip from sampled foot forward offsets
- * (root space) over exactly one cycle: the foot sweeps its range twice. */
-export function nativeSpeed(footZ: number[], duration: number) {
-  if (footZ.length < 4 || duration <= 0) return 0;
-  const range = Math.max(...footZ) - Math.min(...footZ);
-  return (2 * range) / duration;
+/** Native ground speed of an in-place clip: the planted (lowest) foot slides
+ * backwards relative to the body at exactly the speed the body must travel.
+ * Median of that backward velocity over the cycle; robust to swing frames. */
+export function plantedSpeed(feet: { y: [number, number]; z: [number, number] }[], dt: number) {
+  const v: number[] = [];
+  for (let i = 1; i < feet.length; i++) {
+    const a = feet[i - 1],
+      b = feet[i],
+      f = b.y[0] <= b.y[1] ? 0 : 1;
+    if (a.y[f] > Math.min(a.y[0], a.y[1]) + 0.04) continue; // contact switch
+    const back = -(b.z[f] - a.z[f]) / dt;
+    if (back > 0) v.push(back);
+  }
+  if (v.length < 3) return 0;
+  v.sort((x, y) => x - y);
+  return v[Math.floor(v.length / 2)];
+}
+
+/** Exponential smoothing that is frame-rate independent. */
+export const approach = (current: number, target: number, dt: number, rate: number) =>
+  current + (target - current) * (1 - Math.exp(-dt * rate));
+
+/** Recoil kick envelope for a shot fired `age` seconds ago (fast in, slow out). */
+export function recoilKick(age: number) {
+  if (age < 0 || age > 0.28) return 0;
+  return age < 0.04 ? age / 0.04 : Math.exp(-(age - 0.04) * 14);
 }
 
 export type MoveBlend = {
@@ -37,7 +57,8 @@ export type MoveBlend = {
   hipsYaw: number;
   reverse: boolean;
 };
-/** Classify local move direction (x right, z forward relative to body). When
+/** Classify local move direction (x = Helena's left, i.e. Three's +X at
+ * yaw 0; z forward relative to body). When
  * aiming, the upper body is locked, so the lower body walks backwards or
  * twists the hips toward a sidestep instead of moonwalking. */
 export function moveBlend(localX: number, localZ: number, aiming: boolean): MoveBlend {
@@ -47,7 +68,7 @@ export function moveBlend(localX: number, localZ: number, aiming: boolean): Move
     z = localZ / len;
   if (!aiming || z > 0.7) return { mode: "forward", hipsYaw: aiming ? Math.atan2(x, z) * 0.6 : 0, reverse: false };
   if (z < -0.55) return { mode: "back", hipsYaw: Math.atan2(-x, -z) * 0.5, reverse: true };
-  return { mode: x > 0 ? "strafeR" : "strafeL", hipsYaw: Math.sign(x) * 0.75, reverse: false };
+  return { mode: x > 0 ? "strafeL" : "strafeR", hipsYaw: Math.sign(x) * 0.75, reverse: false };
 }
 
 /** Lean into turns, proportional to angular velocity and speed, clamped. */

@@ -105,6 +105,7 @@ export function mergeable(o: T.Object3D, exclude: Set<T.Object3D>) {
 }
 /** Re-tessellate large boxes so per-vertex AO has resolution. */
 function tessellated(g: T.BufferGeometry) {
+  if ((new URLSearchParams(location.search).get("exp") || "").includes("notess")) return g; // TEMP-EXP
   if (!(g instanceof T.BoxGeometry)) return g.clone();
   const { width: w, height: h, depth: d } = g.parameters,
     s = (v: number) => Math.max(1, Math.min(16, Math.round(v / 0.9)));
@@ -175,7 +176,12 @@ export function bakeStatic(
   root.traverse((m) => {
     if (m === root || !mergeable(m, exclude)) return;
     const mesh = m as T.Mesh,
-      k = key(mesh.material as T.Material);
+      cells = Number((new URLSearchParams(location.search).get("exp") || "").match(/cells(\d)/)?.[1] || 1); // TEMP-EXP
+    let k = key(mesh.material as T.Material);
+    if (cells > 1) {
+      const c = new T.Box3().setFromObject(mesh).getCenter(new T.Vector3());
+      k += "|" + Math.floor(((c.x / o.halfX + 1) / 2) * cells) + "," + Math.floor(((c.z / o.halfZ + 1) / 2) * cells);
+    }
     if (!buckets.has(k)) buckets.set(k, []);
     buckets.get(k)!.push(mesh);
     sources.push(mesh);
@@ -209,7 +215,9 @@ export function bakeStatic(
     const mat = src.clone();
     mat.color.setHex(0xffffff);
     mat.vertexColors = true;
-    if (mat instanceof T.MeshStandardMaterial) useBakedLight(mat);
+    const EXPB = new URLSearchParams(location.search).get("exp") || ""; // TEMP-EXP
+    if (mat instanceof T.MeshStandardMaterial && !EXPB.includes("nolight")) useBakedLight(mat);
+    if (EXPB.includes("novc")) { mat.vertexColors = false; mat.color.copy(src.color); }
     if (mat instanceof T.MeshStandardMaterial)
       mat.userData.detailBump =
         src.userData.detailBump ?? (src as T.MeshStandardMaterial).bumpMap;

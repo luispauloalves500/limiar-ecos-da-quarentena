@@ -1,12 +1,8 @@
-# Progresso — 0.5.0
+# 0.6.0 progresso
+C1: 0.5 publicada/verificada (release.json). node_modules tinha sumido: npm ci + chromium reinstalado (mesma 158.0.8127.18). Baseline exata 9c68c5e em /workspace/limiar-v060-baseline (preview 4175). scripts/room-bench.mjs criado (save fixture v1 por sala, inimigos mortos, câmera parada, 3 perfis, hook WebGL de textura). Commit local wip.
+C2: src/locomotion.ts (funções puras: ramp, turnToward, strideScale, nativeSpeed, moveBlend, lean, hitReaction, breath, telegraph, gaitVariation, groundLift).
 
-- [x] Checkpoint local cedo, antes da validação. Nenhum histórico remoto reescrito.
-- [x] Prosa/etiquetas retiradas das 12 salas; pistas preservadas no HUD/documentos/diário.
-- [x] Corrigidos câmera atrás da porta, fade/relógio de passagem, QuickTurn e arma em interação.
-- [x] Som procedural em camadas, quatro canais, título 3D e empurrão frontal.
-- [x] Lint, tipos, 171 testes, build e audit de produção (0 vulnerabilidades).
-- [x] Campanhas novas completas por inputs reais: ombro e tank, final com 100 HP e reload no posto.
-- [x] Inspeção visual das 12 salas pós-transição, menu e poses. Brilho mínimo geral 12,235/255, sem HUD 11,233.
-- [x] Quality/environment/UI e benchmark sequencial com fixture comum às duas versões.
-
-Registro de pré-publicação. O único commit local de trabalho é consolidado antes de um push normal; a verificação de Actions/deployment/HTTP ocorre depois. Resultado, SHA/run e evidências originais: entrega e `/workspace/limiar-v050-smoke/release.json`. Detalhes/limitações em [QA](docs/QA.md). Checkpoints extensos e capturas ficam fora do repo em `/workspace/limiar-v050-smoke/PROGRESS.md`, não no bundle do jogo.
+## C3 — 18:41 (UTC-3) wip animações + experimentos de custo
+- Helena: stride sync medido (src/stride.ts), backpedal/strafe com quadril, lean, respiração, reação direcional, recuo 2 mãos, foot IK chão plano, corpo morto não afunda; rampa de aceleração em main.ts.
+- Zumbis: stride sync, telegraph, gait por ID, hit por região, perceive, yaw limitado (turnToward), deathYaw/deathSpeed, clamp no chão.
+- Bench A/B com "work" (readPixels 1px) — ab4: base 33–34 ms; merge completo +7 ms; arch sem merge +2 ms. Merge estático NÃO compensa no SwiftShader → investigar índices/tessellation; flags TEMP-EXP ainda no código.

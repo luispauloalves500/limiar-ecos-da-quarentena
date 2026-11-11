@@ -1,4 +1,5 @@
 import { themes } from "./environment-logic";
+import { ramp } from "./locomotion";
 import { shove } from "./gameplay";
 import { transitionOpacity, transitionElapsed } from "./presentation";
 import { Vector3 } from "three";
@@ -108,6 +109,7 @@ let doorStarted = 0;
 let last = performance.now(),
   acc = 0;
 let moving = false;
+const velocity = { x: 0, z: 0 };
 let clockHour = 0,
   clockMin = 0;
 let deaths = 0;
@@ -290,6 +292,7 @@ function menu() {
       reloadTime = 0;
       invulnerable = 1.5;
       moving = false;
+      velocity.x = velocity.z = 0;
       aiming = false;
       view.load(s.room, s);
       fadeUntil = performance.now() + 350;
@@ -781,6 +784,10 @@ function hitPlayer(amount: number, grapple = false, attacker?: Enemy) {
   s.player.hp = Math.max(0, s.player.hp - amount);
   view.hurtTime = 0.35;
   view.playerAnimation?.trigger(grapple ? "Grabbed" : "Hit");
+  if (attacker)
+    view.playerAnimation?.hitFrom(
+      Math.atan2(attacker.x - s.player.x, attacker.z - s.player.z),
+    );
   if (grapple && attacker) {
     grappleLock = 0.5;
     s.player.yaw = Math.atan2(attacker.x - s.player.x, attacker.z - s.player.z);
@@ -1021,15 +1028,22 @@ function tick(dt: number) {
     v = tank.vector;
   } else v = relativeMovement(x, z, view.yaw);
   if (grappleLock > 0) v = { x: 0, z: 0 };
-  moving = Math.hypot(v.x, v.z) > 0.01;
+  const speed =
+    (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 3.7 : 2.2) *
+    (aiming ? 0.4 : 1) *
+    (s.player.hp <= 30 ? 0.88 : 1) *
+    (keys.has("AltLeft") ? 0.65 : 1);
+  // 0.6: short symmetric accel/decel ramp (≈0.1 s) instead of instant
+  // velocity, so starts/stops read physically; grabs still stop at once.
+  const tx = v.x * speed,
+    tz = v.z * speed;
+  if (grappleLock > 0) velocity.x = velocity.z = 0;
+  velocity.x = ramp(velocity.x, tx, dt, 0.1 / Math.max(1, speed));
+  velocity.z = ramp(velocity.z, tz, dt, 0.1 / Math.max(1, speed));
+  moving = Math.hypot(velocity.x, velocity.z) > 0.12;
   if (moving) {
-    const speed =
-      (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 3.7 : 2.2) *
-      (aiming ? 0.4 : 1) *
-      (s.player.hp <= 30 ? 0.88 : 1) *
-      (keys.has("AltLeft") ? 0.65 : 1);
-    moveBody(s.player, v.x * speed * dt, v.z * speed * dt, 0.3, true);
-    if (prefs.mode === "shoulder" && !aiming) {
+    moveBody(s.player, velocity.x * dt, velocity.z * dt, 0.3, true);
+    if (prefs.mode === "shoulder" && !aiming && (v.x || v.z)) {
       const desired = Math.atan2(v.x, v.z);
       s.player.yaw = wrapAngle(
         s.player.yaw +

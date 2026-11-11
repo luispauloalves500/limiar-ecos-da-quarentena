@@ -12,11 +12,20 @@ import {
 import type { Actor } from "./actors";
 import type { Enemy, Region } from "./logic";
 import type { Quality } from "./controls";
+import { measureStrides } from "./stride";
+import {
+  gaitVariation,
+  groundLift,
+  hitReaction,
+  strideScale,
+  telegraphScale,
+} from "./locomotion";
 type Template = {
   gltf: GLTF;
   clips: T.AnimationClip[];
   bones: BonePose[];
   material: T.MeshStandardMaterial;
+  strides: Record<string, number>;
 };
 let templates: Template[] = [];
 let pending: Promise<void> | undefined;
@@ -68,14 +77,17 @@ function template(gltf: GLTF): Template {
   mixer.uncacheRoot(reference);
   if (!material || bones.length < 50)
     throw Error("Esqueleto/material do zumbi inválido");
+  const clips = compactRigClips(
+    [...source, ...authorZombieClips(bones)],
+    gltf.scene,
+  );
   return {
     gltf,
-    clips: compactRigClips(
-      [...source, ...authorZombieClips(bones)],
-      gltf.scene,
-    ),
+    clips,
     bones,
     material,
+    strides: measureStrides(gltf.scene, clips, ["Walking", "Running", "Crawl"])
+      .speeds,
   };
 }
 export function preloadZombie(progress?: (n: number) => void) {
@@ -166,11 +178,19 @@ class Rig {
   throttle = 0;
   updated = 0;
   quality: Quality = "medium";
+  // 0.6: per-instance gait/death character and additive reaction layers.
+  gait: ReturnType<typeof gaitVariation>;
+  boneMap = new Map<string, T.Bone>();
+  hitAt = -9;
+  hitSide = 1;
+  noticedAt = -9;
+  lastState = "";
   constructor(
     public index: number,
     public enemy: Enemy,
   ) {
     this.variation = animationVariation(enemy.id);
+    this.gait = gaitVariation(enemy.id);
     const t = templates[index];
     this.root = clone(t.gltf.scene) as T.Group;
     const bones = new Map<string, T.Bone>();
@@ -185,6 +205,7 @@ class Rig {
       }
     });
     this.mesh = mesh!;
+    this.boneMap = bones;
     this.head = bones.get("Head")!;
     this.mixer = new T.AnimationMixer(this.root);
     this.lastCrawl = enemy.crawl;
@@ -323,6 +344,16 @@ class Rig {
                     ? "Running"
                     : "Walking"
                   : "Idle");
+    if ((e.hitSerial || 0) !== this.lastHit) {
+      this.hitAt = this.elapsed;
+      this.hitSide = e.lastHit === "legL" ? 1 : e.lastHit === "legR" ? -1 : ((e.hitSerial || 0) % 2 ? 1 : -1);
+    }
+    // Perceive/react: entering an aggressive state from recovery gives a
+    // short head-snap before the approach.
+    if (e.state !== this.lastState) {
+      if (e.state === "chase" && this.lastState === "recover") this.noticedAt = this.elapsed;
+      this.lastState = e.state;
+    }
     const restart =
       (e.hitSerial || 0) !== this.lastHit &&
       (name === "HitHead" || name === "HitTorso");
@@ -331,20 +362,91 @@ class Rig {
     this.tremor.setEffectiveWeight(
       e.dead || name === "LegFall" ? 0 : name === "LightStun" ? 0.1 : 0.25,
     );
+    if (this.current && !preview) {
+      const clip = this.current.getClip();
+      // Stride sync for gait cycles; slow windup then fast strike for attacks.
+      if (name === "Walking" || name === "Running" || name === "Crawl") {
+        const native = templates[this.index].strides[name];
+        this.current.setEffectiveTimeScale(
+          native ? strideScale(speed, native, 0.5, 1.6) : this.variation.speed,
+        );
+      } else if (name === "AttackBite" || name === "CrawlAttack")
+        this.current.setEffectiveTimeScale(
+          telegraphScale(this.current.time / clip.duration),
+        );
+    }
     this.mixer.update(dt);
     this.updated++;
     if (e.dead && this.current) {
       this.current.time = Math.min(
         this.current.getClip().duration - 0.001,
-        Math.max(0, (Date.now() - e.deathAt) / 1000),
+        Math.max(0, ((Date.now() - e.deathAt) / 1000) * (preview ? 1 : this.gait.deathSpeed)),
       );
       this.mixer.update(0);
     }
+    if (!preview) this.layers(e, name);
     const scale = templates[this.index].bones.find(
       (b) => b.short === "Head",
     )!.scale;
     this.head.scale.copy(scale).multiplyScalar(e.headGone ? 0.001 : 1);
     this.root.updateMatrixWorld(true);
+  }
+  rotate(name: string, x: number, y: number, z: number) {
+    if (!x && !y && !z) return;
+    const bone = this.boneMap.get(name),
+      b = templates[this.index].bones.find((b) => b.short === name);
+    if (!bone || !b) return;
+    bone.quaternion.premultiply(
+      b.parentRotation
+        .clone()
+        .invert()
+        .multiply(new T.Quaternion().setFromEuler(new T.Euler(x, y, z, "YXZ")))
+        .multiply(b.parentRotation),
+    );
+  }
+  /** Additive per-instance layers on top of the single mixer: gait lean,
+   * hunch and limp, directional hit stagger, perceive snap, corpse yaw and a
+   * floor clamp so bodies never sink. Runs only on mixer-updated frames. */
+  layers(e: Enemy, name: string) {
+    const g = this.gait,
+      gait = name === "Walking" || name === "Running" || name === "Idle";
+    if (gait && !e.dead) {
+      const cycle = this.current
+        ? (this.current.time / this.current.getClip().duration) * Math.PI * 4
+        : 0;
+      this.rotate("Spine", g.lean * 0.5, 0, g.lean);
+      this.rotate("Spine1", g.hunch, 0, 0);
+      this.rotate("Hips", 0, 0, name === "Idle" ? 0 : Math.sin(cycle) * g.limp * 0.12);
+    }
+    if (!e.dead) {
+      const age = this.elapsed - this.hitAt,
+        leg = e.lastHit === "legL" || e.lastHit === "legR",
+        h = hitReaction(leg ? this.hitSide * 1.2 : this.hitSide * 0.35, age, leg ? 0.42 : 0.3, 0.5);
+      if (h.bend || h.twist) {
+        this.rotate("Spine1", h.bend, h.twist, leg ? h.twist * 0.6 : 0);
+        if (leg) this.rotate("Hips", 0, 0, -this.hitSide * Math.abs(h.bend) * 0.5);
+      }
+      const notice = this.elapsed - this.noticedAt;
+      if (notice >= 0 && notice < 0.45) {
+        const k = Math.sin((notice / 0.45) * Math.PI);
+        this.rotate("Neck", -0.28 * k, 0, 0);
+        this.rotate("Spine2", -0.14 * k, 0, 0);
+      }
+    }
+    const death = e.dead ? Math.min(1, Math.max(0, (Date.now() - e.deathAt) / 700)) : 0;
+    this.root.rotation.y = g.deathYaw * death;
+    this.root.position.y = 0;
+    if (e.dead || e.crawl || name === "LegFall") {
+      this.root.updateMatrixWorld(true);
+      let low = Infinity;
+      const w = new T.Vector3();
+      for (const n of ["Head", "Hips", "Spine2", "LeftHand", "RightHand", "LeftFoot", "RightFoot"]) {
+        const b = this.boneMap.get(n);
+        if (b) low = Math.min(low, b.getWorldPosition(w).y);
+      }
+      const base = this.root.parent?.parent?.position.y ?? 0;
+      this.root.position.y = groundLift(low - base, 0.05);
+    }
   }
   dispose() {
     this.mixer.stopAllAction();

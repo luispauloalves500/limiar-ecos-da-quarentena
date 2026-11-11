@@ -38,7 +38,7 @@ export const looks: Record<RoomId, RoomLook> = {
   escadaria: { ...base, tint: 0xe0eaea, band: 0x37504f, trim: 0x84948f, damp: 0.45, rail: true },
   internacao: { ...base, tint: 0xe5efe6, band: 0x46604e, trim: 0x8fa08e, damp: 0.4, rail: true, curtains: true },
   enfermaria: { ...base, tint: 0xf0e6e6, band: 0x5e4446, trim: 0x9a8a88, damp: 0.38, curtains: true },
-  posto: { ...base, tint: 0xfff0dc, band: 0x6b4b33, trim: 0x8a6646, damp: 0.12 },
+  posto: { ...base, tint: 0xe7eee6, band: 0x44575f, trim: 0x8b989b, damp: 0.28, rail: true },
   lavanderia: { ...base, tint: 0xe6f0f2, band: 0xa9b8b6, trim: 0x7d8f90, damp: 0.7, drains: true, tiles: true },
   isolamento: { ...base, tint: 0xf2e2dc, band: 0x5a3832, trim: 0x8d6f68, damp: 0.5, hazard: true, sheets: true },
 };

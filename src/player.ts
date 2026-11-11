@@ -12,10 +12,26 @@ import {
   PoseRestore,
 } from "./player-clips";
 import type { Actor } from "./actors";
+import { measureStrides } from "./stride";
+import {
+  approach,
+  breath,
+  groundLift,
+  hitReaction,
+  leanAngle,
+  moveBlend,
+  recoilKick,
+  strideScale,
+  wrap,
+} from "./locomotion";
 import type { Quality } from "./controls";
 let gltf: GLTF | undefined,
   clips: T.AnimationClip[] = [];
 const bones: BonePose[] = [];
+/** Measured planted-foot speed (m/s at timeScale 1) of each locomotion clip. */
+export const strideSpeeds: Record<string, number> = {};
+let ankleHeight = 0.08;
+const LOCOMOTION = ["Walking", "Running", "Sneaky_Walk_inplace", "InjuredWalk", "WalkAim"];
 let pending: Promise<void> | undefined;
 export const playerAsset = { status: "loading", error: "", progress: 0 };
 const textures = new Set<T.Texture>(),
@@ -82,6 +98,9 @@ export function preloadPlayer(progress?: (n: number) => void) {
       const authored = authorPlayerClips(bones);
       bakeSupportGrip(authored, clone(g.scene));
       clips = compactRigClips([...source, ...authored], g.scene);
+      const measured = measureStrides(g.scene, clips, LOCOMOTION);
+      Object.assign(strideSpeeds, measured.speeds);
+      ankleHeight = measured.ankle;
       playerAsset.status = "ready";
       playerAsset.progress = 100;
       progress?.(100);
@@ -136,6 +155,10 @@ export type PlayerFrame = {
   pitch: number;
   yawDelta: number;
   aimPoint?: T.Vector3;
+  /** 0.6 locomotion: body-local velocity (m/s, +z forward) and yaw rate. */
+  localX?: number;
+  localZ?: number;
+  yawRate?: number;
 };
 const looping = new Set([
   "PlayerIdle",
@@ -170,6 +193,16 @@ export class PlayerAnimator {
   poseRestore: PoseRestore;
   gunBind = new T.Quaternion();
   quality: Quality = "medium";
+  // 0.6 procedural layers (all additive on top of the mixer, no extra mixer).
+  lean = 0;
+  hipsYaw = 0;
+  speed = 0;
+  hitAngle = 0;
+  hitAt = -9;
+  fireAt = -9;
+  lift = 0;
+  timeScale = 1;
+  blend = "idle";
   constructor(public root: T.Group) {
     let mesh: T.SkinnedMesh | undefined;
     root.traverse((o) => {
@@ -182,7 +215,20 @@ export class PlayerAnimator {
       }
     });
     this.poseRestore = new PoseRestore(
-      ["Spine2", "LeftArm", "RightArm", "LeftForeArm", "RightForeArm"].map(
+      [
+        "Hips",
+        "Spine",
+        "Spine1",
+        "Spine2",
+        "LeftArm",
+        "RightArm",
+        "LeftForeArm",
+        "RightForeArm",
+        "LeftUpLeg",
+        "RightUpLeg",
+        "LeftLeg",
+        "RightLeg",
+      ].map(
         (n) => this.bones.get(n)!,
       ),
     );
@@ -245,7 +291,24 @@ export class PlayerAnimator {
     }
     this.gunBind.copy(this.gun.quaternion);
   }
+  /** Directional damage: world angle from Helena toward the attacker. */
+  hitFrom(worldAngle: number) {
+    this.hitAngle = worldAngle;
+    this.hitAt = this.time;
+  }
+  /** Rotate a bone by a delta expressed in the actor's (bind-time) frame. */
+  rotate(name: string, x: number, y: number, z: number) {
+    if (!x && !y && !z) return;
+    const bone = this.bones.get(name),
+      b = bones.find((b) => b.short === name);
+    if (!bone || !b) return;
+    const delta = new T.Quaternion().setFromEuler(new T.Euler(x, y, z, "YXZ"));
+    bone.quaternion.premultiply(
+      b.parentRotation.clone().invert().multiply(delta).multiply(b.parentRotation),
+    );
+  }
   trigger(name: string) {
+    if (name === "Fire") this.fireAt = this.time;
     this.event = name;
     this.until =
       this.time +
@@ -315,6 +378,17 @@ export class PlayerAnimator {
         base = upper = this.preview;
       else upper = this.preview;
     }
+    const lx = f.localX ?? 0,
+      lz = f.localZ ?? (f.moving ? 1 : 0),
+      speed = f.localX === undefined && f.localZ === undefined
+        ? f.moving ? 1 : 0
+        : Math.hypot(lx, lz);
+    this.speed = approach(this.speed, speed, dt, 12);
+    const mb = moveBlend(lx, lz, f.aiming && f.moving && f.hp > 0);
+    this.blend = f.moving ? mb.mode : "idle";
+    // Aiming locomotion: legs walk the real direction (back-pedal or twisted
+    // hips for a sidestep) while the chest stays on the reticle.
+    this.hipsYaw = approach(this.hipsYaw, f.moving && f.hp > 0 && !this.preview ? mb.hipsYaw : 0, dt, 10);
     this.state = upper === "PlayerIdle" ? base : upper;
     [base, upper].forEach((name, index) => {
       const channel = this.channels[index];
@@ -328,18 +402,26 @@ export class PlayerAnimator {
         channel.name = name;
       }
     });
-    if (this.channels[0].action)
-      this.channels[0].action.setEffectiveTimeScale(
-        f.moving
-          ? f.aiming
-            ? 0.45
-            : f.cautious
-              ? 0.68
-              : f.running
-                ? 1.12
-                : 1
-          : 1,
-      );
+    if (this.channels[0].action) {
+      // Stride sync: play the cycle at the rate its planted foot matches the
+      // real ground speed (no foot sliding); negative when back-pedalling.
+      const native = strideSpeeds[this.channels[0].name];
+      const legacy = f.moving
+        ? f.aiming
+          ? 0.45
+          : f.cautious
+            ? 0.68
+            : f.running
+              ? 1.12
+              : 1
+        : 1;
+      const target =
+        f.moving && native && f.localZ !== undefined && !this.preview
+          ? strideScale(this.speed, native) * (mb.reverse ? -1 : 1)
+          : legacy;
+      this.timeScale = approach(this.timeScale, target, dt, 14);
+      this.channels[0].action.setEffectiveTimeScale(this.timeScale);
+    }
     this.mixer.update(dt);
     if (this.preview && this.previewAt !== undefined) {
       this.channels.forEach((c) => {
@@ -348,6 +430,22 @@ export class PlayerAnimator {
       this.mixer.update(0);
     }
     this.poseRestore.capture();
+    if (f.hp > 0 && !this.preview) {
+      // Lean into turns, hips twist for aimed sidesteps, counter-rotated spine.
+      this.lean = approach(this.lean, f.moving ? leanAngle(f.yawRate ?? 0, this.speed) : 0, dt, 8);
+      this.rotate("Hips", 0, this.hipsYaw, this.lean);
+      this.rotate("Spine", 0, -this.hipsYaw * 0.5, -this.lean * 0.4);
+      this.rotate("Spine1", 0, -this.hipsYaw * 0.5, 0);
+      // Breathing/micro-motion, stronger and faster when hurt.
+      const b = breath(this.time, f.hp),
+        still = f.moving ? 0.35 : 1;
+      this.rotate("Spine2", b.chest * still * (f.aiming ? 0.4 : 1), 0, b.sway * still);
+      // Directional damage: bend away from the hit, twist toward its side.
+      const yaw = this.root.parent?.rotation.y ?? 0,
+        h = hitReaction(wrap(this.hitAngle - yaw), this.time - this.hitAt);
+      this.rotate("Spine1", h.bend, h.twist, 0);
+      this.rotate("Neck", h.bend * 0.6, h.twist * 0.5, 0);
+    }
     if (
       (f.aiming || ["Aim", "WalkAim", "Fire"].includes(this.preview)) &&
       f.hp > 0 &&
@@ -388,7 +486,11 @@ export class PlayerAnimator {
       actor.updateMatrixWorld(true);
       const right = this.bones.get("RightHand")!;
       const handTarget = actor.localToWorld(
-        new T.Vector3(-0.19, 1.43 + Math.sin(f.pitch) * 0.35, 0.44),
+        new T.Vector3(
+          -0.19,
+          1.43 + Math.sin(f.pitch) * 0.35 + recoilKick(this.time - this.fireAt) * 0.045,
+          0.44 - recoilKick(this.time - this.fireAt) * 0.06,
+        ),
       );
       supportGrip(
         this.root,
@@ -399,9 +501,16 @@ export class PlayerAnimator {
         3,
       );
       const handPos = right.getWorldPosition(new T.Vector3());
-      const q = new T.Quaternion().setFromRotationMatrix(
-        new T.Matrix4().lookAt(f.aimPoint, handPos, new T.Vector3(0, 1, 0)),
-      );
+      const q = new T.Quaternion()
+        .setFromRotationMatrix(
+          new T.Matrix4().lookAt(f.aimPoint, handPos, new T.Vector3(0, 1, 0)),
+        )
+        .multiply(
+          new T.Quaternion().setFromAxisAngle(
+            new T.Vector3(1, 0, 0),
+            -recoilKick(this.time - this.fireAt) * 0.16,
+          ),
+        );
       this.gun.quaternion.copy(
         right.getWorldQuaternion(new T.Quaternion()).invert().multiply(q),
       );
@@ -476,6 +585,7 @@ export class PlayerAnimator {
           .multiply(q),
       );
     }
+    this.groundFeet(f.hp <= 0);
     this.gun.visible = true;
     this.lamp.visible = f.light;
     this.mesh.castShadow = quality === "high";
@@ -484,6 +594,40 @@ export class PlayerAnimator {
       this.mesh.material = material(quality);
     }
     this.root.updateMatrixWorld(true);
+  }
+  /** Flat-floor foot IK: a foot that the additive layers pushed below the
+   * floor is pulled back to ankle height with a 2-bone CCD (UpLeg/Leg).
+   * When dead, lift the whole body so the corpse never sinks. */
+  groundFeet(dead: boolean) {
+    this.root.updateMatrixWorld(true);
+    const w = new T.Vector3();
+    if (dead) {
+      let low = Infinity;
+      for (const n of ["Head", "Hips", "LeftHand", "RightHand", "LeftFoot", "RightFoot"]) {
+        const b = this.bones.get(n);
+        if (b) low = Math.min(low, b.getWorldPosition(w).y - this.lift);
+      }
+      this.lift = groundLift(low, 0.05);
+      this.root.position.y = this.lift;
+      return;
+    }
+    if (this.lift) this.root.position.y = this.lift = 0;
+    for (const side of ["Left", "Right"]) {
+      const foot = this.bones.get(side + "Foot");
+      if (!foot) continue;
+      const p = foot.getWorldPosition(new T.Vector3()),
+        floor = (this.root.parent?.position.y ?? 0) + ankleHeight * 0.92;
+      if (p.y >= floor) continue;
+      p.y = floor;
+      supportGrip(
+        this.root,
+        this.bones.get(side + "UpLeg")!,
+        this.bones.get(side + "Leg")!,
+        foot,
+        p,
+        2,
+      );
+    }
   }
   dispose() {
     this.mixer.stopAllAction();
@@ -495,6 +639,10 @@ export class PlayerAnimator {
   diagnostic() {
     return {
       state: this.state,
+      blend: this.blend,
+      timeScale: this.timeScale,
+      lean: this.lean,
+      hipsYaw: this.hipsYaw,
       base: this.channels[0].name,
       upper: this.channels[1].name,
       bones: this.bones.size,
@@ -546,6 +694,8 @@ export function playerDiagnostics() {
     bones: bones.length,
     tracks: Object.fromEntries(clips.map((c) => [c.name, c.tracks.length])),
     clips: clips.map((c) => c.name),
+    strideSpeeds,
+    ankleHeight,
   };
 }
 export function disposePlayerCache() {

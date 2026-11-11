@@ -9,6 +9,7 @@ import { roomDetails } from "./details";
 import { corpseOpacity, isCollected } from "./logic";
 import { surfaceDetail } from "./art";
 import { architecture, looks, HALF_X, HALF_Z, HEIGHT } from "./architecture";
+import { turnToward, wrap } from "./locomotion";
 import { bakeStatic, dispose as disposeBaked, type BakeOptions } from "./bake";
 import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
@@ -37,6 +38,9 @@ export class View {
   playerAnimation?: PlayerAnimator;
   playerAnimationPreview = "";
   playerFrame: Partial<PlayerFrame> = {};
+  enemyYaw = new Map<string, number>();
+  /** Smoothed body-local velocity/yaw rate for Helena's locomotion layers. */
+  playerMotion = { x: 0, z: 0, yaw: 0, px: NaN, pz: NaN, pyaw: 0, lx: 0, lz: 0, rate: 0 };
   enemyMeshes = new Map<string, Actor>();
   proceduralZombies = false;
   animationPreview: string | undefined;
@@ -99,7 +103,7 @@ export class View {
     this.scene.background = new T.Color(0x04090b);
     this.scene.fog = new T.FogExp2(0x071013, 0.055);
     this.scene.add(new T.HemisphereLight(0x77968d, 0x252c28, 0.48));
-    this.scene.add(this.fill);
+    if (!(new URLSearchParams(location.search).get("exp") || "").includes("nofill")) this.scene.add(this.fill); // TEMP-EXP
     this.scene.add(this.group, this.player.root);
     this.light = new T.SpotLight(0xffdfac, 65, 13, 0.5, 0.7, 1.5);
     this.light.map = this.cookie;
@@ -237,6 +241,7 @@ export class View {
     return mesh;
   }
   load(id: RoomId, s: GameState) {
+    this.enemyYaw.clear();
     this.disposeGroup(this.group);
     disposeBaked(this.baked);
     this.baked = [];
@@ -639,11 +644,16 @@ export class View {
   }
   /** 0.6: procedural trim + vertex AO/baked light, merged per material. */
   bakeRoom(id: RoomId, dynamic: Set<T.Object3D>) {
+    const EXP = new URLSearchParams(location.search).get("exp") || ""; // TEMP-EXP
+    if (EXP.includes("noarch")) return; // TEMP-EXP
     const arch = architecture(id, [
       [4, -5],
       [-4, 4],
     ]);
-    arch.room.forEach((o) => this.group.add(o));
+    const archFloor = new T.Group();
+    archFloor.name = "arch-floor";
+    arch.room.forEach((o) => archFloor.add(o));
+    this.group.add(archFloor);
     arch.ceiling.forEach((o) => this.ceiling.add(o));
     arch.walls.forEach((list, i) => list.forEach((o) => this.walls[i]?.add(o)));
     const o: BakeOptions = {
@@ -655,6 +665,7 @@ export class View {
       tint: looks[id].tint,
     };
     let merged = 0;
+    if (EXP.includes("nobake")) return; // TEMP-EXP
     const hidden = new T.MeshBasicMaterial({ visible: false });
     for (const w of this.walls as T.Mesh[]) {
       // The wall root stays a raycast/collision obstacle but draws nothing;
@@ -671,11 +682,13 @@ export class View {
       merged += r.merged.length;
     }
     const c = bakeStatic(this.ceiling, o);
-    const g = bakeStatic(
-      this.group,
-      o,
-      new Set<T.Object3D>([...dynamic, this.ceiling, ...this.walls]),
-    );
+    const g = EXP.includes("wallsonly")
+      ? bakeStatic(archFloor, o)
+      : bakeStatic(
+          this.group,
+          o,
+          new Set<T.Object3D>([...dynamic, this.ceiling, ...this.walls]),
+        );
     this.baked.push(...c.sources, ...g.sources);
     this.bakeStats = {
       merged: merged + c.merged.length + g.merged.length,
@@ -816,6 +829,28 @@ export class View {
     );
     this.fill.color.setHex(themes[this.room].color).lerp(new T.Color(0xd8dcd0), 0.6);
     this.camera.updateMatrixWorld();
+    const m = this.playerMotion,
+      step = Math.max(dt, 1e-3);
+    if (!Number.isFinite(m.px) || Math.hypot(p.x - m.px, p.z - m.pz) > 1.5) {
+      m.px = p.x;
+      m.pz = p.z;
+      m.pyaw = p.yaw;
+    }
+    const wx = (p.x - m.px) / step,
+      wz = (p.z - m.pz) / step,
+      c = Math.cos(p.yaw),
+      sn = Math.sin(p.yaw),
+      k = 1 - Math.exp(-dt * 14);
+    // Local frame: +z forward along yaw, +x to Helena's left (Three's +X at yaw 0).
+    m.lx += (wx * c - wz * sn - m.lx) * k;
+    m.lz += (wx * sn + wz * c - m.lz) * k;
+    m.rate +=
+      (Math.atan2(Math.sin(p.yaw - m.pyaw), Math.cos(p.yaw - m.pyaw)) / step -
+        m.rate) *
+      k;
+    m.px = p.x;
+    m.pz = p.z;
+    m.pyaw = p.yaw;
     if (this.playerAnimation) {
       this.playerAnimation.preview = this.playerAnimationPreview;
       this.playerAnimation.update(
@@ -850,6 +885,9 @@ export class View {
                   1.43,
                   p.z + Math.cos(p.yaw) * 10,
                 ),
+          localX: m.lx,
+          localZ: m.lz,
+          yawRate: m.rate,
           ...this.playerFrame,
         },
         this.prefs.quality,
@@ -877,15 +915,29 @@ export class View {
       a.warning.visible = !e.dead && e.state === "windup";
       if (e.boss && a.warning.children[1])
         a.warning.children[1].visible = e.attack === 1;
-      if (!e.dead)
-        a.root.rotation.y =
-          e.state === "windup"
-            ? Math.atan2(e.dx, e.dz)
-            : Math.atan2(p.x - e.x, p.z - e.z);
+      let turning = 0;
+      if (!e.dead) {
+        // 0.6: rate-limited turning (no snapping/skating); quick in windup.
+        const want =
+            e.state === "windup"
+              ? Math.atan2(e.dx, e.dz)
+              : Math.atan2(p.x - e.x, p.z - e.z),
+          before = this.enemyYaw.get(e.id) ?? want,
+          after = a.animation
+            ? turnToward(before, want, e.state === "windup" ? 7 : e.state === "stun" ? 1.2 : 3.4, dt)
+            : want;
+        turning = Math.abs(wrap(after - before)) / Math.max(dt, 1e-3);
+        this.enemyYaw.set(e.id, after);
+        a.root.rotation.y = after;
+      }
       if (a.animation) {
         const position = new T.Vector3(e.x, 0, e.z),
           previous = this.previousEnemyPositions.get(e.id) || position;
-        const speed = position.distanceTo(previous) / Math.max(dt, 0.001);
+        // Turning in place shuffles the feet instead of pivoting on them.
+        const speed = Math.max(
+          position.distanceTo(previous) / Math.max(dt, 0.001),
+          e.state === "chase" && !e.crawl ? Math.min(0.6, turning * 0.22) : 0,
+        );
         this.previousEnemyPositions.set(e.id, position);
         const visible = this.frustum.intersectsSphere(
           new T.Sphere(new T.Vector3(e.x, 0.85, e.z), 1.5),
