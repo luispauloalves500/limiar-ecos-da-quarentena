@@ -8,6 +8,8 @@ import { themes } from "./environment-logic";
 import { roomDetails } from "./details";
 import { corpseOpacity, isCollected } from "./logic";
 import { surfaceDetail } from "./art";
+import { architecture, looks, HALF_X, HALF_Z, HEIGHT } from "./architecture";
+import { bakeStatic, dispose as disposeBaked, type BakeOptions } from "./bake";
 import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
 import type { GameState } from "./logic";
@@ -62,7 +64,11 @@ export class View {
   ceiling = new T.Group();
   practical: T.PointLight[] = [];
   dust: T.Points | undefined;
+  baked: T.Mesh[] = [];
+  bakeStats = { merged: 0, sources: 0 };
   flash = new T.PointLight(0xffc184, 0, 5);
+  /** 0.6: one camera-attached fill replaces 2–4 per-door PointLights. */
+  fill = new T.PointLight(0xb9c9bd, 3.2, 6.5, 1.6);
   muzzle: T.Mesh;
   recoil = 0;
   hurtTime = 0;
@@ -93,6 +99,7 @@ export class View {
     this.scene.background = new T.Color(0x04090b);
     this.scene.fog = new T.FogExp2(0x071013, 0.055);
     this.scene.add(new T.HemisphereLight(0x77968d, 0x252c28, 0.48));
+    this.scene.add(this.fill);
     this.scene.add(this.group, this.player.root);
     this.light = new T.SpotLight(0xffdfac, 65, 13, 0.5, 0.7, 1.5);
     this.light.map = this.cookie;
@@ -231,6 +238,8 @@ export class View {
   }
   load(id: RoomId, s: GameState) {
     this.disposeGroup(this.group);
+    disposeBaked(this.baked);
+    this.baked = [];
     for (const a of this.enemyMeshes.values()) {
       a.animation?.dispose();
       this.disposeGroup(a.root);
@@ -433,9 +442,6 @@ export class View {
       l.position.set(0, 1.92, 0.14);
       g.add(l);
       this.group.add(g);
-      const glow = new T.PointLight(0x94b99b, 5, 4, 1.6);
-      glow.position.set(p.x * 0.93, 2.6, p.z * 0.94);
-      this.group.add(glow);
     }
     for (const item of r.items) {
       if (isCollected(s, item.id)) continue;
@@ -600,6 +606,7 @@ export class View {
       ...this.itemMeshes.values(),
       this.environment.root,
     ]);
+    this.bakeRoom(id, dynamic);
     const freeze = (o: T.Object3D) => {
       if (dynamic.has(o)) return;
       o.updateMatrix();
@@ -611,6 +618,69 @@ export class View {
     this.syncCamera(s.player);
     this.setCamera(0);
     this.applyCutaway();
+  }
+  sceneStats() {
+    const out = { meshes: 0, baked: 0, instanced: 0, lights: 0, transparent: 0, other: {} as Record<string, number> };
+    this.scene.traverseVisible((o) => {
+      if (o instanceof T.Light) out.lights++;
+      if (!(o instanceof T.Mesh)) return;
+      out.meshes++;
+      if (o.name === "baked") out.baked++;
+      else if (o instanceof T.InstancedMesh) out.instanced++;
+      else if (!Array.isArray(o.material) && o.material.transparent) out.transparent++;
+      else {
+        let top: T.Object3D = o;
+        while (top.parent && top.parent !== this.scene && top.parent !== this.group) top = top.parent;
+        const k = top === o ? o.type + ":" + (o.material as T.Material).type : top.type + ":" + (top.name || "grp");
+        out.other[k] = (out.other[k] || 0) + 1;
+      }
+    });
+    return { ...out, ...this.bakeStats };
+  }
+  /** 0.6: procedural trim + vertex AO/baked light, merged per material. */
+  bakeRoom(id: RoomId, dynamic: Set<T.Object3D>) {
+    const arch = architecture(id, [
+      [4, -5],
+      [-4, 4],
+    ]);
+    arch.room.forEach((o) => this.group.add(o));
+    arch.ceiling.forEach((o) => this.ceiling.add(o));
+    arch.walls.forEach((list, i) => list.forEach((o) => this.walls[i]?.add(o)));
+    const o: BakeOptions = {
+      lights: arch.lights,
+      halfX: HALF_X,
+      halfZ: HALF_Z,
+      height: HEIGHT,
+      damp: looks[id].damp,
+      tint: looks[id].tint,
+    };
+    let merged = 0;
+    const hidden = new T.MeshBasicMaterial({ visible: false });
+    for (const w of this.walls as T.Mesh[]) {
+      // The wall root stays a raycast/collision obstacle but draws nothing;
+      // its shell + trim (sharing the wall's surface) bake into ONE draw.
+      const shell = new T.Mesh(w.geometry, w.material);
+      shell.castShadow = w.castShadow;
+      w.add(shell);
+      w.children.forEach((c) => {
+        if (c.userData.trim) (c as T.Mesh).material = w.material;
+      });
+      const r = bakeStatic(w, o);
+      w.material = hidden;
+      this.baked.push(...r.sources);
+      merged += r.merged.length;
+    }
+    const c = bakeStatic(this.ceiling, o);
+    const g = bakeStatic(
+      this.group,
+      o,
+      new Set<T.Object3D>([...dynamic, this.ceiling, ...this.walls]),
+    );
+    this.baked.push(...c.sources, ...g.sources);
+    this.bakeStats = {
+      merged: merged + c.merged.length + g.merged.length,
+      sources: this.baked.length,
+    };
   }
   fixture(x: number, z: number, c: number) {
     this.group.add(
@@ -738,6 +808,13 @@ export class View {
     this.updateCamera(s, dt, aiming);
     if (this.prefs.mode === "shoulder" && this.recoil > 0)
       this.camera.rotateX(this.recoil * 0.014);
+    // Fill follows Helena (not the far tank camera), slightly above/behind.
+    this.fill.position.set(
+      p.x - Math.sin(p.yaw) * 1.1,
+      2.5,
+      p.z - Math.cos(p.yaw) * 1.1,
+    );
+    this.fill.color.setHex(themes[this.room].color).lerp(new T.Color(0xd8dcd0), 0.6);
     this.camera.updateMatrixWorld();
     if (this.playerAnimation) {
       this.playerAnimation.preview = this.playerAnimationPreview;

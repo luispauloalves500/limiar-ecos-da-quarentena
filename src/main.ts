@@ -1440,6 +1440,7 @@ Object.defineProperty(window, "limiar", {
     transition: travel.active,
     fps,
     drawCalls: view.renderer.info.render.calls,
+    scene: view.sceneStats(),
     triangles: view.renderer.info.render.triangles,
     frameMs: [...frameSamples],
     enemies: JSON.parse(JSON.stringify(s.enemies)),

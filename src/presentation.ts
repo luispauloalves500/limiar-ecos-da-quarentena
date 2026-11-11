@@ -6,7 +6,8 @@ export function transitionOpacity(now: number, until: number) {
 }
 export function minimumLighting(safe: boolean | undefined, mode: CameraMode) {
   return {
-    ambient: mode === "tank" ? 0.82 : safe ? 0.72 : 0.64,
+    // 0.6: +0.1 replaces the per-door PointLights now baked into vertices.
+    ambient: mode === "tank" ? 0.88 : safe ? 0.8 : 0.74,
     practical: safe ? 24 : 18,
   };
 }
