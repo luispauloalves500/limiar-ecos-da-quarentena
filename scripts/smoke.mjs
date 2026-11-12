@@ -121,10 +121,10 @@ Object.assign(obstacles, {
     [0, -3.6, 1.8, 1.8],
   ],
   circulo: [
-    [-3.6, 1.5, 2.2, 2.2],
-    [3.6, 1.5, 2.2, 2.2],
-    [-3.6, -3.2, 2.2, 2.2],
-    [3.6, -3.2, 2.2, 2.2],
+    [-3.6, 1.5, 1.4, 1.6],
+    [3.6, 1.5, 1.4, 1.6],
+    [-3.6, -3.2, 1.4, 1.6],
+    [3.6, -3.2, 1.4, 1.6],
   ],
   visor: [
     [-3, -2, 1.6, 3],
@@ -233,22 +233,28 @@ async function moveTo(x, z, tolerance = 0.6) {
       if (s.mode !== "play") throw Error("Not playing: " + s.mode);
       const d = Math.hypot(goal.x - s.player.x, goal.z - s.player.z);
       if (d < tolerance) break;
-      if (count++ > 50)
-        throw Error(
-          `Movement stuck ${JSON.stringify(s.player)} => ${JSON.stringify(goal)}`,
-        );
+      if (s.hp < 55 && s.hp > 0) await tap("h");
+      if (count++ > 22) {
+        await tap(" ");
+        await page.waitForTimeout(80);
+      }
+      if (count > 40) break;
       let keys;
       if (gameMode === "tank") {
         await tankFace(Math.atan2(goal.x - s.player.x, goal.z - s.player.z));
         keys = ["w"];
       } else keys = controlsToward(s.player, goal, s.cameraYaw);
       if (!keys.length) break;
-      if (s.room === "atrio") keys.push("Shift");
+      if (s.room === "atrio" || s.room === "circulo") keys.push("Shift");
       await hold(
         keys,
         Math.min(
           170,
-          Math.max(35, (d / (s.room === "atrio" ? 3.7 : 2.2)) * 450),
+          Math.max(
+            35,
+            (d / (s.room === "atrio" || s.room === "circulo" ? 3.7 : 2.2)) *
+              450,
+          ),
         ),
       );
     }
@@ -697,16 +703,12 @@ try {
   await tap("r");
   await page.waitForFunction(() => !window.limiar.reloading);
   await travel(0, -7, "circulo");
-  await moveTo(0, 5);
-  await tap("e");
-  await tap("Escape");
-  await moveTo(4, 6);
-  await tap("e");
+  if ((await state()).hp < 90) await tap("h");
+  await moveTo(5, 5.5);
+  await moveTo(5, -6);
+  await moveTo(4, -6);
   await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading);
-  await moveTo(-4, 6);
-  await tap("e");
-  if ((await state()).hp < 80) await tap("h");
+  await page.waitForFunction(() => !window.limiar.reloading, { timeout: 10000 });
   for (let i = 0; i < 12 && !(await state()).flags.preceptora; i++) {
     if ((await state()).hp < 65 && (await state()).hp > 0) await tap("h");
     if ((await state()).ammo === 0) {
