@@ -327,7 +327,22 @@ async function shoot(id, region = "1", count = 2) {
     await page.waitForFunction(() => window.limiar.weaponReady, {
       timeout: 10000,
     });
-    await aimAtEnemy(id, region);
+    try {
+      await aimAtEnemy(id, region);
+    } catch {
+      await page.keyboard.up("j");
+      const s = await state(),
+        e = s.enemies[id];
+      if (!e || e.dead) break;
+      const d = Math.hypot(e.x - s.player.x, e.z - s.player.z);
+      if (d > 2.2) {
+        const ux = (e.x - s.player.x) / d,
+          uz = (e.z - s.player.z) / d;
+        await moveTo(e.x - ux * 2, e.z - uz * 2, 0.8);
+      }
+      if ((await state()).hp < 65) await tap("h");
+      await aimAtEnemy(id, region);
+    }
     await page.waitForFunction(() => window.limiar.aiming, { timeout: 10000 });
     const before = (await state()).ammo;
     await tap("k");
@@ -692,12 +707,7 @@ try {
   await moveTo(-4, 6);
   await tap("e");
   if ((await state()).hp < 80) await tap("h");
-  for (const id of ["rastejador03", "rastejador04"]) {
-    const e = (await state()).enemies[id];
-    if (e && !e.dead) await shoot(id, "2", 4);
-    if (!(await state()).enemies[id].dead) await shoot(id, "2", 3);
-  }
-  for (let i = 0; i < 10 && !(await state()).flags.preceptora; i++) {
+  for (let i = 0; i < 12 && !(await state()).flags.preceptora; i++) {
     if ((await state()).hp < 65 && (await state()).hp > 0) await tap("h");
     if ((await state()).ammo === 0) {
       await tap("r");
@@ -708,6 +718,13 @@ try {
     await moveTo(4, -6);
     await tap("e");
     await shoot("preceptora", "2", 5);
+    const boss = (await state()).enemies.preceptora;
+    if (boss && boss.hp / 700 <= 0.71) {
+      for (const id of ["rastejador03", "rastejador04"]) {
+        const h = (await state()).enemies[id];
+        if (h && !h.dead) await shoot(id, "2", 4);
+      }
+    }
   }
   assert.ok((await state()).flags.preceptora);
   assert.ok((await state()).flags.cracha);
