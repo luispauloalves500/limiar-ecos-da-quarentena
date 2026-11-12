@@ -343,9 +343,29 @@ async function aimAtEnemy(id, region) {
   await page.keyboard.down("j");
   await page.waitForTimeout(180);
   if (gameMode === "tank") {
-    // C7b: o ramo antigo soltava a mira, virava e esperava 100 ms;
-    // shoot() abortava com !aiming e a Preceptora não levava dano (C7 tank, 0/700).
-    for (let t = 0; t < 18; t++) {
+    // Probe C7c: ADS com J real registra em ~120 ms; a Preceptora toma
+    // dano (3 na armadura, mesmo fire() dos rastejadores). O loop de 18
+    // ciclos parado matou o tank C7b no recreio. Espera no máximo ~480 ms.
+    const s0 = await state();
+    if (s0.mode !== "play")
+      throw Error("Not playing while aiming " + id + ": " + s0.mode);
+    const e0 = s0.enemies[id];
+    if (!e0 || e0.dead) return;
+    if (
+      s0.room === "circulo" &&
+      e0.boss &&
+      (e0.state === "windup" ||
+        Math.hypot(e0.x - s0.player.x, e0.z - s0.player.z) < 3.2)
+    ) {
+      await page.keyboard.up("j");
+      if (s0.hp < 70 && s0.hp > 0 && (s0.kits || 0) > 0) await tap("h");
+      await fleePreceptora(e0);
+      return;
+    }
+    await page.keyboard.up("j");
+    await tankFace(Math.atan2(e0.x - s0.player.x, e0.z - s0.player.z));
+    await page.keyboard.down("j");
+    for (let t = 0; t < 6; t++) {
       const s = await state();
       if (s.mode !== "play")
         throw Error("Not playing while aiming " + id + ": " + s.mode);
@@ -358,30 +378,12 @@ async function aimAtEnemy(id, region) {
           Math.hypot(e.x - s.player.x, e.z - s.player.z) < 3.2)
       ) {
         await page.keyboard.up("j");
-        if (s.hp < 70 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
         await fleePreceptora(e);
         return;
       }
-      const desired = Math.atan2(e.x - s.player.x, e.z - s.player.z);
-      const error = angle(desired - s.player.yaw);
-      if (Math.abs(error) >= 0.08) {
-        await page.keyboard.up("j");
-        await tankFace(desired);
-        await page.keyboard.down("j");
-        await page.waitForTimeout(180);
-        continue;
-      }
-      if (!s.aiming) {
-        await page.keyboard.down("j");
-        await page.waitForTimeout(180);
-        continue;
-      }
-      if (s.rayHit?.id === id) return;
-      const target = s.aimTargets?.find(
-        (x) => x.id === id && (x.region === "body" || x.region === "head"),
-      );
-      if (target) await lookAt(target.position);
-      else if (t >= 6) return;
+      if (s.aiming) return;
+      await page.keyboard.down("j");
+      await page.waitForTimeout(80);
     }
     return;
   }
@@ -1044,7 +1046,8 @@ try {
         aiming: (await state()).aiming,
       });
     } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
-      const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 4;
+      // C7b ombro morreu a 22 HP de HP do chefe indo ao gerador com o chefe a 4,59 m.
+      const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 6.5;
       if (genClear) {
         console.log("generator-go", {
           bossToGen: Math.hypot(b.x - 4, b.z - -6.2),
