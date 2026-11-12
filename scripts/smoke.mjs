@@ -661,6 +661,7 @@ try {
   await moveTo(-4, 5);
   await tap("e");
   await travel(0, -7, "leitos");
+  await moveTo(0, 3);
   await shoot("rastejador02", "2", 4);
   if (!(await state()).enemies.rastejador02.dead)
     await shoot("rastejador02", "2", 3);

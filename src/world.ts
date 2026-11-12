@@ -559,7 +559,7 @@ export const rooms: Record<RoomId, Room> = {
       },
       { id: "rec2-herb", kind: "herb", label: "Kit médico", x: 4, z: -5 },
     ],
-    enemies: [{ id: "rastejador01", kind: "E05", x: -3, z: -1 }],
+    enemies: [{ id: "rastejador01", kind: "E05", x: 0, z: 1 }],
   },
   bercario: {
     id: "bercario",
@@ -598,7 +598,7 @@ export const rooms: Record<RoomId, Room> = {
       { id: "lei-herb", kind: "herb", label: "Kit médico", x: 4, z: 5 },
       { id: "lei-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: -4, z: 5 },
     ],
-    enemies: [{ id: "rastejador02", kind: "E05", x: 3, z: -2 }],
+    enemies: [{ id: "rastejador02", kind: "E05", x: 1.6, z: 1.2 }],
   },
   circulo: {
     id: "circulo",
@@ -625,8 +625,8 @@ export const rooms: Record<RoomId, Room> = {
     ],
     enemies: [
       { id: "preceptora", x: 0, z: -3, boss: true, kind: "B02" },
-      { id: "rastejador03", kind: "E05", x: -3.5, z: -3 },
-      { id: "rastejador04", kind: "E05", x: 3.5, z: -3 },
+      { id: "rastejador03", kind: "E05", x: -1.8, z: -3 },
+      { id: "rastejador04", kind: "E05", x: 1.8, z: -3 },
     ],
   },
   visor: {

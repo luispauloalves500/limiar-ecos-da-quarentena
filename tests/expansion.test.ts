@@ -87,6 +87,15 @@ describe("expansão e migração", () => {
     expect(Object.values(rooms).filter((r) => r.safe)).toHaveLength(3);
     expect(validateGraph()).toBe(true);
   });
+  it("inimigos nascem no corredor, fora dos obstáculos", () => {
+    const s = newGame();
+    for (const e of Object.values(s.enemies)) {
+      const room = rooms[e.room];
+      expect(clearPoint({ x: e.x, z: e.z }, room.obstacles, 0.4), e.id).toBe(
+        true,
+      );
+    }
+  });
   it("todas as novas salas são alcançáveis no grafo", () => {
     const seen = new Set(["recepcao"]);
     for (let n = 0; n < 20; n++)
