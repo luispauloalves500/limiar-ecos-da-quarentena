@@ -1,0 +1,173 @@
+[
+  {
+    "room": "abrigo",
+    "rgbMean255": 21.843,
+    "sceneWithoutHudMean255": 24.557,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-abrigo.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "arquivo",
+    "rgbMean255": 11.543,
+    "sceneWithoutHudMean255": 11.702,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-arquivo.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "atrio",
+    "rgbMean255": 9.426,
+    "sceneWithoutHudMean255": 9.786,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-atrio.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "bercario",
+    "rgbMean255": 14.299,
+    "sceneWithoutHudMean255": 15.818,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-bercario.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "circulo",
+    "rgbMean255": 10.077,
+    "sceneWithoutHudMean255": 10.623,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-circulo.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "corredor",
+    "rgbMean255": 9.718,
+    "sceneWithoutHudMean255": 10.199,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-corredor.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "enfermaria",
+    "rgbMean255": 13.361,
+    "sceneWithoutHudMean255": 14.089,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-enfermaria.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "escadaria",
+    "rgbMean255": 13.573,
+    "sceneWithoutHudMean255": 14.403,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-escadaria.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "espera",
+    "rgbMean255": 12.773,
+    "sceneWithoutHudMean255": 13.871,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-espera.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "gerador",
+    "rgbMean255": 9.112,
+    "sceneWithoutHudMean255": 9.478,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-gerador.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "internacao",
+    "rgbMean255": 10.814,
+    "sceneWithoutHudMean255": 11.277,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-internacao.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "isolamento",
+    "rgbMean255": 10.726,
+    "sceneWithoutHudMean255": 11.397,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-isolamento.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "lavanderia",
+    "rgbMean255": 13.03,
+    "sceneWithoutHudMean255": 14.159,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-lavanderia.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "leitos",
+    "rgbMean255": 11.812,
+    "sceneWithoutHudMean255": 12.737,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-leitos.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "posto",
+    "rgbMean255": 18.576,
+    "sceneWithoutHudMean255": 20.682,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-posto.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "recepcao",
+    "rgbMean255": 12.315,
+    "sceneWithoutHudMean255": 13.305,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-recepcao.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "recreio",
+    "rgbMean255": 16.278,
+    "sceneWithoutHudMean255": 17.316,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-recreio.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "segura",
+    "rgbMean255": 20.279,
+    "sceneWithoutHudMean255": 22.709,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-segura.png",
+    "width": 1280,
+    "height": 800
+  },
+  {
+    "room": "visor",
+    "rgbMean255": 11.418,
+    "sceneWithoutHudMean255": 12.212,
+    "pass": true,
+    "file": "/workspace/limiar-v070-smoke/review/sala-visor.png",
+    "width": 1280,
+    "height": 800
+  }
+]

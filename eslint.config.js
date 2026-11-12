@@ -32,6 +32,7 @@ export default ts.config(
         process: "readonly",
         URL: "readonly",
         window: "readonly",
+        document: "readonly",
         localStorage: "readonly",
       },
     },

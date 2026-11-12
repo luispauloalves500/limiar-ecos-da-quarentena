@@ -283,7 +283,7 @@ async function travel(x, z, to) {
     }
     if (!ok) {
       const s = await state();
-      throw Error(
+      throw new Error(
         "travel to " +
           to +
           " failed: room=" +
@@ -291,9 +291,8 @@ async function travel(x, z, to) {
           " mode=" +
           s.mode +
           " transition=" +
-          s.transition +
-          " — " +
-          err,
+          s.transition,
+        { cause: err },
       );
     }
   }
@@ -388,7 +387,6 @@ async function aimAtEnemy(id, region) {
     return;
   }
   const wanted = region === "3" ? "legL" : region === "2" ? "body" : "head";
-  let sidesteps = 0;
   for (let i = 0; i < 64; i++) {
     const s = await state();
     if (s.mode !== "play")

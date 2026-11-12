@@ -4,7 +4,7 @@
 Linux / Node 24.22.1, Chromium 158.0.8127.18, ANGLE SwiftShader, viewport 1280×800. Testes headless por GPU de software, não certificação de hardware físico. Histórico em [QA-v060.md](QA-v060.md). Comandos reais de teclado/mouse e diagnósticos somente leitura; nenhum teleporte, HP artificial ou flags de progressão criadas pelo bot (o fixture de captura das 19 entradas é um save de revisão, não a campanha).
 
 ## Gates
-190 testes em dez arquivos (inclui expansão da pediatria, câmera com folga e desgaste no bake), lint, TypeScript e build. O chunk Three/loader continua >500 KB; o aviso Vite não é ocultado.
+192 testes em dez arquivos (inclui expansão da pediatria, folga do anel da Preceptora e kit junto ao gerador), lint, TypeScript e build. O chunk Three/loader continua >500 KB; o aviso Vite não é ocultado.
 
 ## Causas e decisões
 - **Faixa clara à esquerda:** nas entradas laterais (arquivo D03, enfermaria D10 e equivalentes), o boom de 2,75 m da câmera de ombro caía na ou através da parede (x≈±6,65). `cameraCollision` deixava a câmera a ~0,3 m da superfície; o near plane (0,06 m) enchia o quadro. O bake 0.6 (tint quente, AO mínimo 0,45, wrap largo, lâmpada da porta com alcance 5 m) deixava a faixa lisa e clara demais. A 0.7 impõe folga de 1,2 m no interior, afasta o spawn lateral (4,6 → 3,8 m), baixa o AO mínimo para 0,38, acrescenta desgaste por vértice, aperta o wrap (0,12+0,88), usa atenuação **1,85 com teto 0,78 e encurta a lâmpada da porta (0,85 / 3,6 m). Custo extra de draws: zero. Confirmado nas capturas de arquivo, enfermaria e escadaria.
@@ -39,11 +39,43 @@ A campanha oficial da 0.7.0 passou a rodar em **dois segmentos encadeados por gr
 - **Segmento 2, tank:** falhou nas 2 tentativas, teto de 24 ciclos, Preceptora ainda a 700 HP, Helena viva a 100 HP. A mira tank soltava o ADS, esperava 100 ms e o `shoot()` abortava com `!aiming` — zero dano. Quando o chefe acampava o gerador, o smoke só fugia e não o atraía para fora.
 - Nenhuma trapaça, nenhum save fabricado. O jogo (HP 700, dano, velocidade, arena C6j) não mudou. A luta continua justa (C6k chegou a 147 HP).
 
-**C7b (correção só da automação, depois do C7 oficial):** o segmento 2 volta a correr a partir das **mesmas gravações reais do abrigo** geradas no C7, no máximo 2 tentativas, ombro e tank em série. Mudanças no `scripts/smoke.mjs`, nenhuma no jogo: teto de 90 ciclos com erro honesto se a Preceptora continuar de pé; não atira nos ajudantes durante o chefe (foi o que matou o ombro a1); rajada de até 3 tiros na janela vulnerável (o `aimAtEnemy` já recua no windup); espera o ADS no tank; se o chefe acampa o gerador, atrai-o ao canto oposto; kit do círculo só se o chefe está a mais de 5 m. `SKIP_SEG1=1` no runner, pasta `segments-c7b`.
+**C7b (correção só da automação, 18:37–18:45 America/Sao_Paulo):** segmento 2 a partir das **mesmas gravações reais do abrigo** do C7, 2 tentativas, ombro e tank. Sem mudança no jogo. Teto de 90 ciclos, sem tiros nos ajudantes, rajada de 3, espera de ADS, atração para fora do gerador.
 
+- **Ombro tentativa 1 (melhor de toda a sessão):** Preceptora de 700 a **22 HP** (volleys 364→199, 199→34, 34→28, 28→22). Fase 2 (≤497) e fase 3 (≤217) ocorreram. O gerador abriu várias janelas de 15 s («Quinze segundos de claridade»). Helena morreu ao caminhar até o gerador com a chefe a 4,59 m (`generator-go`, `moveTo`). Não é injustiça da luta: a C6k já tinha chegado a 147 HP com janela sobrando.
+- **Ombro tentativa 2:** não confirmou os prontuários em leitos (`flags.prontuarios` ausente) e não chegou à Preceptora.
+- **Tank tentativas 1 e 2:** morreu no recreio mirando o `rastejador01`. O loop novo de ADS (até 18 ciclos parado) deixou a Helena parada tempo demais. **Não chegou à chefe nesta passagem.**
+
+**C7c — o modo tank acerta a Preceptora? (entrada real, não é bug do jogo).** Antes de culpar o jogo pelo dano zero do C7 tank, `scripts/tank-hit-probe.mjs` carregou o save real do abrigo tank, caminhou até o círculo e disparou com **J, 2 e K reais** (sem chamar `fire()` internamente, sem teleporte, sem HP falso). Relatório em `/workspace/limiar-v070-smoke/tank-probe-run2/report.json`, foto `docs/screenshots/v070/b02-tank-ads.png`.
+
+- ADS registra em **108–124 ms** (HUD «MIRA: TRONCO», indicador de alvo visível).
+- Rastejadores: 22 de dano por tiro no tronco, «Ameaça neutralizada». Mesa de controle ok.
+- Preceptora, no stun de entrada, armadura fechada: dois tiros **700→697→694** (3+3, regra `damage()` para chefe fechado), aviso honesto **«Armadura fechada. Use a trava elétrica.»**
+- O gerador no tank também responde: «Quinze segundos de claridade. A Preceptora está exposta», `vulnerable ≈ 15`.
+- **Conclusão:** não é bug do jogo. O dano zero do C7 oficial era a automação (espera de 100 ms + aborto em `!aiming` sem disparar).
+
+**C7d (19:00–19:24 America/Sao_Paulo), última passagem oficial do segmento 2**, mesmas gravações reais, 2 tentativas, ombro e tank. Ajustes só no smoke: mira tank curta (~480 ms; o loop longo matava no recreio) e gerador só com o chefe a mais de 6,5 m (morte da C7b a 22 HP). Sem mudança no jogo. Pedido explícito: se ainda falhasse, não gastar mais horas na automação da chefe.
+
+- **Ombro a1:** 700→306, Helena viva a 100 com 1 kit, 90 ciclos. A chefe acampou o gerador (~(4,5, −4)); o «lure» para (−5,2, 6,2) não a tirou do lugar. Erro honesto de esgotamento.
+- **Ombro a2:** 700→**196** (fase 3). Helena logada a 100 HP / 1 kit, vulnerável 6,3 s, depois morreu ao fugir no meio de um `shoot` (`fleePreceptora`/`moveTo`).
+- **Tank a1:** chegou à chefe e **causou dano na campanha** (700→581). Mesmo esgotamento a 90 ciclos, Helena 100, 2 kits, lure preso. Confirma o probe: o tank acerta a B02 no jogo publicado.
+- **Tank a2:** 700→691, mesmo teto de 90 ciclos, Helena 100.
+
+## O que foi e o que não foi verificado de ponta a ponta
+
+**Verificado, com entrada real e gravações do próprio jogo:**
+
+1. **Segmento 1 (início → abrigo)** nos modos ombro e tank, 1ª tentativa. Inclui recepção, arquivo, gerador, **Porteiro (B01)**, escadaria, internação, enfermaria, posto, lavanderia (P02 3→1→2), isolamento, **Porta 13 em modo play** (não encerra), espera e plantão. Save/load real (`limiar-save-v1`, contentVersion 4, `flags.final`).
+2. **Caminho pediátrico do abrigo até a enfermaria circular** (espera, recreio, berçário, leitos/P03, círculo), várias vezes, ombro e tank.
+3. **A luta da Preceptora, como mecânica:** gerador 15/20, fases 2 e 3, dano com armadura aberta (volleys de ~55–165) e fechada (3), ADS tank, aviso de armadura e de claridade. A arena após C6j é justa (C6k: 147 HP com janela sobrando; C7b: **22 HP** restantes).
+4. **As 19 entradas** no fixture de revisão (inimigos mortos, câmera de ombro após a porta — não é a campanha). Brilho: mínimo média 9,11 e cena 9,48 na sala gerador (limiares 7 e 5). Sem ajuste posterior.
+
+**Não verificado de ponta a ponta numa sessão contínua:**
+
+- **Derrotar a Preceptora até 0 HP** com a automação oficial (melhor resto: 22 HP, C7b ombro a1, Helena morreu no gerador).
+- **O trecho pós-chefe:** atravessar a porta do visor com o crachá (`flags.preceptora` / `flags.cracha`), registrar o crachá em (0, −6,5), obter `flags.cirurgia`, a tela de vitória («Água do outro lado.» / `pediatricWin`) e o modo `win`. Esse caminho existe no código (`preceptoraWin` → porta do visor exige a flag → interação do visor → `pediatricWin`) e o teste de grafo confirma que a sala é alcançável; a fotografia `sala-visor.png` é do **fixture de revisão**, não de uma campanha que tenha derrubado a B02. A automação do smoke tem esses passos escritos, mas nunca os concluiu ao vivo. **Não afirmamos que o final foi jogado até o fim nesta sessão.**
 
 ## QA real
-`smoke` (ombro e tank): 19 salas, final no visor com a flag `cirurgia`, Porta 13 em modo play (não encerra), save/load real no plantão da pediatria, zero erros JS/warnings/HTTP. Fotografias de porta com fade zero. Mínimo de brilho das 19 entradas (fixture de revisão, média RGB sRGB 0–255, recorte sem HUD): a registrar após as campanhas desta sessão; a revisão prévia das 19 passou (mínimo média 9,11 e cena 9,48, limiares 7 e 5).
+Segmento 1 oficial passou em ombro e tank, com saves reais. Segmento 2 (Preceptora → visor → `cirurgia`) **não passou**. Porta 13 em modo play, confirmado no segmento 1. Fotografias de porta com fade zero nas campanhas do segmento 1 e no caminho até o círculo. Mínimo de brilho das 19 entradas (fixture de revisão, média RGB sRGB 0–255, recorte sem HUD): **9,11 / 9,48** (gerador), todas passaram (limiares 7 e 5). Detalhe em [brilho.json](screenshots/v070/brilho.json).
 
 `smoke:quality` / `smoke:environment` / `smoke:player` / `smoke:zombie` / `smoke:poses`: mesmos papéis da 0.6; environment-smoke e published-smoke exigem 0.7.0.
 
@@ -82,3 +114,4 @@ Versões anteriores (0.1.0–0.6.0) não usaram tag Git nem GitHub Release: um c
 - Música é um tema tonal/drone procedural discreto, não trilha orquestral; grunhidos são estilizados, não atores gravados. Audição/mixagem humana e hardware físico continuam pendentes.
 - Física/vidro/volumetria continuam aproximados conforme QA anterior. Sem gamepad, inventário Tetris ou baú. Licença original dos modelos fornecidos não foi verificada; créditos mantidos.
 - A comparação oficial de desempenho desta versão retomou o room-bench após um timeout de clique; a geometria, os URLs e o fixture não mudaram.
+- A campanha oficial da 0.7.0 foi validada em segmentos com gravações reais. O segmento 1 (até o abrigo, inclusive B01 e Porta 13) passou em ombro e tank. O segmento 2 não chegou ao visor: a melhor tentativa deixou a Preceptora com 22 HP. O final (`flags.cirurgia`, tela «Água do outro lado.») não foi verificado ao vivo. Sem save fabricado nem flag inventada para forçar esse trecho.

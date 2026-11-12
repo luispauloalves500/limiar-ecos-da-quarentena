@@ -32,12 +32,12 @@ page.on("pageerror", (e) => console.log("PAGEERROR", String(e)));
 const state = () => page.evaluate(() => window.limiar);
 const hud = () =>
   page.evaluate(() => ({
-    notice: document.getElementById("notice")?.textContent || "",
-    region: document.getElementById("region")?.textContent || "",
-    health: document.getElementById("health")?.textContent || "",
-    ammo: document.getElementById("ammo")?.textContent || "",
-    objective: document.getElementById("objective")?.textContent || "",
-    targetDisplay: document.getElementById("target")?.style.display || "",
+    notice: globalThis.globalThis.document.getElementById("notice")?.textContent || "",
+    region: globalThis.globalThis.document.getElementById("region")?.textContent || "",
+    health: globalThis.globalThis.document.getElementById("health")?.textContent || "",
+    ammo: globalThis.globalThis.document.getElementById("ammo")?.textContent || "",
+    objective: globalThis.globalThis.document.getElementById("objective")?.textContent || "",
+    targetDisplay: globalThis.globalThis.document.getElementById("target")?.style.display || "",
   }));
 
 async function diag(tag) {
@@ -218,7 +218,7 @@ async function travel(x, z, to) {
 }
 
 /** Disparo tank com entrada real: vira o corpo, segura J, 2, K. Não chama fire(). */
-async function realTankShots(enemyId, shots, opts = {}) {
+async function realTankShots(enemyId, shots) {
   const result = { enemyId, shots: [], aimingLatencies: [], error: null };
   const s0 = await state();
   const e0 = s0.enemies[enemyId];

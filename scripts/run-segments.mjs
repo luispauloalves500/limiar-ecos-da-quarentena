@@ -11,7 +11,7 @@
  *   GAME_URL=... GAME_MODES=shoulder,tank SEGMENT_OUT=... node scripts/run-segments.mjs
  */
 import { spawn } from "node:child_process";
-import { mkdir, access, writeFile, appendFile } from "node:fs/promises";
+import { mkdir, writeFile, appendFile } from "node:fs/promises";
 import { createWriteStream, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,0 +1,121 @@
+{
+  "version": "0.7.0",
+  "method": "segmentos encadeados por gravações reais do jogo (limiar-save-v1), setsid/nohup, ombro e tank em série, no máximo 2 tentativas por segmento. Sem teleporte, HP falso ou save fabricado.",
+  "zone": "America/Sao_Paulo",
+  "preview": "http://127.0.0.1:4179/limiar-ecos-da-quarentena/",
+  "saves": {
+    "shoulderAbrigo": {
+      "path": "/workspace/limiar-v070-smoke/segments/shoulder/saves/save-abrigo.json",
+      "sha256_12": "766da33c509f",
+      "hp": 100,
+      "kits": 2,
+      "ammo": 12,
+      "reserve": 63,
+      "contentVersion": 4,
+      "flags.final": true
+    },
+    "tankAbrigo": {
+      "path": "/workspace/limiar-v070-smoke/segments/tank/saves/save-abrigo.json",
+      "sha256_12": "a93fc6c7db24",
+      "hp": 100,
+      "kits": 1,
+      "ammo": 12,
+      "reserve": 62,
+      "contentVersion": 4,
+      "flags.final": true
+    }
+  },
+  "segment1": {
+    "shoulder": {
+      "passed": true,
+      "attempts": 1,
+      "when": "2026-11-12 17:59:33–18:07:33 -03"
+    },
+    "tank": {
+      "passed": true,
+      "attempts": 1,
+      "when": "2026-11-12 18:15:31–18:25:39 -03"
+    },
+    "covers": "recepção até o plantão da pediatria, inclusive Porteiro (B01) e Porta 13 em modo play"
+  },
+  "segment2": {
+    "passed": false,
+    "bestRemainingBossHp": 22,
+    "bestRun": "C7b shoulder attempt 1, 18:37–18:41 -03, died walking to generator at bossToGen 4.59 m; phases 2 and 3 and generator windows all occurred",
+    "runs": {
+      "C7_official": {
+        "when": "17:59–18:32 -03",
+        "shoulder": [
+          "a1 died aiming helper, boss 535",
+          "a2 24-cycle cap, boss 639, Helena alive 52"
+        ],
+        "tank": [
+          "a1 and a2 24-cycle cap, boss 700, 0 damage: automation aborted !aiming"
+        ]
+      },
+      "C7b": {
+        "when": "18:37–18:45 -03",
+        "shoulder": [
+          "a1 boss 22 HP (best)",
+          "a2 failed prontuarios in leitos"
+        ],
+        "tank": [
+          "a1 and a2 died in recreio aiming rastejador01 (long ADS loop)"
+        ]
+      },
+      "C7d": {
+        "when": "19:00–19:24 -03",
+        "shoulder": [
+          "a1 90-cycle cap, boss 306, Helena 100, lure stuck",
+          "a2 died fleeing at boss 196 (phase 3)"
+        ],
+        "tank": [
+          "a1 dealt damage 700→581 then 90-cycle lure stuck, Helena 100",
+          "a2 700→691, same cap"
+        ]
+      }
+    }
+  },
+  "tankAdsInvestigation": {
+    "gameBug": false,
+    "evidence": "scripts/tank-hit-probe.mjs, real J/2/K from real tank abrigo save",
+    "adsLatencyMs": [
+      108,
+      124
+    ],
+    "regularDamage": [
+      22,
+      22,
+      4
+    ],
+    "bossClosedArmor": {
+      "before": 700,
+      "after": 694,
+      "perShot": 3,
+      "notice": "Armadura fechada. Use a trava elétrica."
+    },
+    "screenshot": "docs/screenshots/v070/b02-tank-ads.png",
+    "report": "/workspace/limiar-v070-smoke/tank-probe-run2/report.json",
+    "officialC7ZeroDamageCause": "automation: 100 ms ADS wait + shoot() aborted on !aiming without firing"
+  },
+  "verifiedEndToEnd": [
+    "segment 1 start→abrigo, shoulder and tank, real saves",
+    "pediatric path abrigo→circulo, both modes, multiple times",
+    "B02 mechanics: generator 15/20, phases 2 and 3, open and closed armor damage, tank ADS",
+    "19-room review fixture brightness"
+  ],
+  "notVerifiedEndToEnd": [
+    "defeating Preceptora to 0 HP (best remainder 22)",
+    "post-boss visor door, badge register, flags.cirurgia, pediatricWin 'Água do outro lado' in a live continuous session"
+  ],
+  "brightness": {
+    "minRgbMean255": 9.112,
+    "minSceneWithoutHud": 9.478,
+    "room": "gerador",
+    "thresholds": {
+      "mean": 7,
+      "scene": 5
+    },
+    "allPassed": true
+  }
+}
