@@ -532,6 +532,9 @@ try {
     await tap("e");
     await tap("Escape");
     await travel(0, -7, "internacao");
+    await moveTo(-4, 6);
+    await tap("e");
+    if ((await state()).hp < 90) await tap("h");
     await moveTo(0, 4.5);
     await shoot("enfermeiro01", "1", 4);
     assert.ok((await state()).enemies.enfermeiro01.dead);
@@ -540,7 +543,11 @@ try {
     await tap("e");
     await tap("r");
     await page.waitForFunction(() => !window.limiar.reloading);
+    if ((await state()).hp < 90) await tap("h");
     await travel(5, -3, "enfermaria");
+    await moveTo(4, 5);
+    await tap("e");
+    if ((await state()).hp < 90) await tap("h");
     await moveTo(0, 4.5);
     await shoot("enfermeiro02", "1", 4);
     await moveTo(0, 3);
