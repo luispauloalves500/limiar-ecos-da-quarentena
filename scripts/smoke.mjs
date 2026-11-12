@@ -270,8 +270,31 @@ async function travel(x, z, to) {
       { timeout: 30000 },
     );
   } catch (err) {
-    const s = await state();
-    if (s.room !== to || s.transition || s.mode !== "play") throw err;
+    // A porta às vezes termina logo após o timeout (C6l3, C6n).
+    let ok = false;
+    for (let n = 0; n < 16; n++) {
+      await page.waitForTimeout(400);
+      const s = await state();
+      if (s.room === to && !s.transition && s.mode === "play") {
+        ok = true;
+        break;
+      }
+    }
+    if (!ok) {
+      const s = await state();
+      throw Error(
+        "travel to " +
+          to +
+          " failed: room=" +
+          s.room +
+          " mode=" +
+          s.mode +
+          " transition=" +
+          s.transition +
+          " — " +
+          err,
+      );
+    }
   }
   await page.waitForFunction(() => window.limiar.fade < 0.02, {
     timeout: 15000,
