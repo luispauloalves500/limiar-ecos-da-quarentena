@@ -1590,5 +1590,70 @@
       "drawChangePercent": -42.81045751633987
     }
   ],
-  "contaminationNote": "Uma campanha ombro concorrente (smoke.mjs) iniciou às 10:50 (UTC-3) durante a medição iniciada às 10:36. workMean no Baixo ficou +5,9% (cauda); workMedian −2,0%. Médio e Alto: workMedian −0,1% e −1,5%."
+  "contaminationNote": "Uma campanha ombro concorrente (smoke.mjs) iniciou às 10:50 (UTC-3) durante a medição iniciada às 10:36. workMean no Baixo ficou +5,9% (cauda); workMedian −2,0%. Médio e Alto: workMedian −0,1% e −1,5%.",
+  "sixZombies": {
+    "method": "scripts/zombie-smoke.mjs BENCH_ONLY, sequencial baseline :4175 depois 0.6 :4173, galeria isolamento, 6 clones, ombro, Baixo, 3 s de espera + 8 s de amostra. Sem browsers concorrentes nesta passagem (load 4–7). Mesmo fixture Z da galeria da 0.5.",
+    "browser": "158.0.8127.18",
+    "renderer": "SwiftShader",
+    "models": [
+      {
+        "model": "procedural",
+        "before": {
+          "meanMs": 51.7541935483895,
+          "medianMs": 50,
+          "p99Ms": 133.3000000000011,
+          "samples": 155,
+          "over100ms": 6,
+          "drawCalls": 236,
+          "triangles": 17180,
+          "uniqueGeometries": 0,
+          "uniqueMaterials": 0,
+          "uniqueSkeletons": 0
+        },
+        "after": {
+          "meanMs": 51.40318471337579,
+          "medianMs": 50,
+          "p99Ms": 150,
+          "samples": 157,
+          "over100ms": 6,
+          "drawCalls": 206,
+          "triangles": 21980,
+          "uniqueGeometries": 0,
+          "uniqueMaterials": 0,
+          "uniqueSkeletons": 0
+        },
+        "meanChangePercent": -0.6782229824246366,
+        "drawChangePercent": -12.711864406779661
+      },
+      {
+        "model": "asset",
+        "before": {
+          "meanMs": 74.38333333333678,
+          "medianMs": 66.70000000000073,
+          "p99Ms": 150,
+          "samples": 108,
+          "over100ms": 15,
+          "drawCalls": 109,
+          "triangles": 66288,
+          "uniqueGeometries": 2,
+          "uniqueMaterials": 4,
+          "uniqueSkeletons": 12
+        },
+        "after": {
+          "meanMs": 72.26126126127133,
+          "medianMs": 66.70000000000073,
+          "p99Ms": 150,
+          "samples": 111,
+          "over100ms": 13,
+          "drawCalls": 79,
+          "triangles": 71088,
+          "uniqueGeometries": 2,
+          "uniqueMaterials": 4,
+          "uniqueSkeletons": 12
+        },
+        "meanChangePercent": -2.852886496166729,
+        "drawChangePercent": -27.522935779816514
+      }
+    ]
+  }
 }
