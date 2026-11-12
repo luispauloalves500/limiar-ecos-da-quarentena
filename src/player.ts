@@ -36,7 +36,13 @@ export function setPlayerProbe(c: T.Color) {
   probe.copy(c);
   materials.forEach((m) => m.emissive.copy(c));
 }
-const LOCOMOTION = ["Walking", "Running", "Sneaky_Walk_inplace", "InjuredWalk", "WalkAim"];
+const LOCOMOTION = [
+  "Walking",
+  "Running",
+  "Sneaky_Walk_inplace",
+  "InjuredWalk",
+  "WalkAim",
+];
 let pending: Promise<void> | undefined;
 export const playerAsset = { status: "loading", error: "", progress: 0 };
 const textures = new Set<T.Texture>(),
@@ -238,9 +244,7 @@ export class PlayerAnimator {
         "RightUpLeg",
         "LeftLeg",
         "RightLeg",
-      ].map(
-        (n) => this.bones.get(n)!,
-      ),
+      ].map((n) => this.bones.get(n)!),
     );
     this.mesh = mesh!;
     for (const b of bones) {
@@ -314,7 +318,11 @@ export class PlayerAnimator {
     if (!bone || !b) return;
     const delta = new T.Quaternion().setFromEuler(new T.Euler(x, y, z, "YXZ"));
     bone.quaternion.premultiply(
-      b.parentRotation.clone().invert().multiply(delta).multiply(b.parentRotation),
+      b.parentRotation
+        .clone()
+        .invert()
+        .multiply(delta)
+        .multiply(b.parentRotation),
     );
   }
   trigger(name: string) {
@@ -390,15 +398,23 @@ export class PlayerAnimator {
     }
     const lx = f.localX ?? 0,
       lz = f.localZ ?? (f.moving ? 1 : 0),
-      speed = f.localX === undefined && f.localZ === undefined
-        ? f.moving ? 1 : 0
-        : Math.hypot(lx, lz);
+      speed =
+        f.localX === undefined && f.localZ === undefined
+          ? f.moving
+            ? 1
+            : 0
+          : Math.hypot(lx, lz);
     this.speed = approach(this.speed, speed, dt, 12);
     const mb = moveBlend(lx, lz, f.aiming && f.moving && f.hp > 0);
     this.blend = f.moving ? mb.mode : "idle";
     // Aiming locomotion: legs walk the real direction (back-pedal or twisted
     // hips for a sidestep) while the chest stays on the reticle.
-    this.hipsYaw = approach(this.hipsYaw, f.moving && f.hp > 0 && !this.preview ? mb.hipsYaw : 0, dt, 10);
+    this.hipsYaw = approach(
+      this.hipsYaw,
+      f.moving && f.hp > 0 && !this.preview ? mb.hipsYaw : 0,
+      dt,
+      10,
+    );
     this.state = upper === "PlayerIdle" ? base : upper;
     [base, upper].forEach((name, index) => {
       const channel = this.channels[index];
@@ -442,14 +458,24 @@ export class PlayerAnimator {
     this.poseRestore.capture();
     if (f.hp > 0 && !this.preview) {
       // Lean into turns, hips twist for aimed sidesteps, counter-rotated spine.
-      this.lean = approach(this.lean, f.moving ? leanAngle(f.yawRate ?? 0, this.speed) : 0, dt, 8);
+      this.lean = approach(
+        this.lean,
+        f.moving ? leanAngle(f.yawRate ?? 0, this.speed) : 0,
+        dt,
+        8,
+      );
       this.rotate("Hips", 0, this.hipsYaw, this.lean);
       this.rotate("Spine", 0, -this.hipsYaw * 0.5, -this.lean * 0.4);
       this.rotate("Spine1", 0, -this.hipsYaw * 0.5, 0);
       // Breathing/micro-motion, stronger and faster when hurt.
       const b = breath(this.time, f.hp),
         still = f.moving ? 0.35 : 1;
-      this.rotate("Spine2", b.chest * still * (f.aiming ? 0.4 : 1), 0, b.sway * still);
+      this.rotate(
+        "Spine2",
+        b.chest * still * (f.aiming ? 0.4 : 1),
+        0,
+        b.sway * still,
+      );
       // Directional damage: bend away from the hit, twist toward its side.
       const yaw = this.root.parent?.rotation.y ?? 0,
         h = hitReaction(wrap(this.hitAngle - yaw), this.time - this.hitAt);
@@ -498,7 +524,9 @@ export class PlayerAnimator {
       const handTarget = actor.localToWorld(
         new T.Vector3(
           -0.19,
-          1.43 + Math.sin(f.pitch) * 0.35 + recoilKick(this.time - this.fireAt) * 0.045,
+          1.43 +
+            Math.sin(f.pitch) * 0.35 +
+            recoilKick(this.time - this.fireAt) * 0.045,
           0.44 - recoilKick(this.time - this.fireAt) * 0.06,
         ),
       );
@@ -613,7 +641,14 @@ export class PlayerAnimator {
     const w = new T.Vector3();
     if (dead) {
       let low = Infinity;
-      for (const n of ["Head", "Hips", "LeftHand", "RightHand", "LeftFoot", "RightFoot"]) {
+      for (const n of [
+        "Head",
+        "Hips",
+        "LeftHand",
+        "RightHand",
+        "LeftFoot",
+        "RightFoot",
+      ]) {
         const b = this.bones.get(n);
         if (b) low = Math.min(low, b.getWorldPosition(w).y - this.lift);
       }

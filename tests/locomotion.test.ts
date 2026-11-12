@@ -72,7 +72,10 @@ describe("locomoção 0.6", () => {
     expect(back.reverse).toBe(true);
     expect(moveBlend(1, 0, true).mode).toBe("strafeL");
     expect(moveBlend(-1, 0, true).hipsYaw).toBeLessThan(0);
-    expect(moveBlend(0, -1, false)).toMatchObject({ mode: "forward", reverse: false });
+    expect(moveBlend(0, -1, false)).toMatchObject({
+      mode: "forward",
+      reverse: false,
+    });
     expect(moveBlend(0, 0, true).mode).toBe("idle");
   });
   it("inclinação na curva, reação direcional, respiração e telegraph", () => {
@@ -83,7 +86,9 @@ describe("locomoção 0.6", () => {
     expect(front.bend).toBeLessThan(0);
     expect(Math.abs(side.twist)).toBeGreaterThan(Math.abs(side.bend));
     expect(hitReaction(0, 1)).toEqual({ bend: 0, twist: 0 });
-    expect(Math.abs(breath(1, 20).chest)).toBeGreaterThan(Math.abs(breath(1, 100).chest) - 1e-9);
+    expect(Math.abs(breath(1, 20).chest)).toBeGreaterThan(
+      Math.abs(breath(1, 100).chest) - 1e-9,
+    );
     expect(telegraphScale(0.1)).toBeLessThan(1);
     expect(telegraphScale(0.8)).toBeGreaterThan(1);
     expect(recoilKick(0.04)).toBeCloseTo(1);

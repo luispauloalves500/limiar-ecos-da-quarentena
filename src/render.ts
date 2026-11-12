@@ -53,7 +53,17 @@ export class View {
   playerFrame: Partial<PlayerFrame> = {};
   enemyYaw = new Map<string, number>();
   /** Smoothed body-local velocity/yaw rate for Helena's locomotion layers. */
-  playerMotion = { x: 0, z: 0, yaw: 0, px: NaN, pz: NaN, pyaw: 0, lx: 0, lz: 0, rate: 0 };
+  playerMotion = {
+    x: 0,
+    z: 0,
+    yaw: 0,
+    px: NaN,
+    pz: NaN,
+    pyaw: 0,
+    lx: 0,
+    lz: 0,
+    rate: 0,
+  };
   enemyMeshes = new Map<string, Actor>();
   proceduralZombies = false;
   animationPreview: string | undefined;
@@ -639,7 +649,17 @@ export class View {
     this.applyCutaway();
   }
   sceneStats() {
-    const out = { meshes: 0, baked: 0, instanced: 0, lights: 0, transparent: 0, vertices: 0, bakedVertices: 0, nonIndexed: 0, other: {} as Record<string, number> };
+    const out = {
+      meshes: 0,
+      baked: 0,
+      instanced: 0,
+      lights: 0,
+      transparent: 0,
+      vertices: 0,
+      bakedVertices: 0,
+      nonIndexed: 0,
+      other: {} as Record<string, number>,
+    };
     this.scene.traverseVisible((o) => {
       if (o instanceof T.Light) out.lights++;
       if (!(o instanceof T.Mesh)) return;
@@ -650,13 +670,21 @@ export class View {
       if (o.name === "baked") {
         out.baked++;
         out.bakedVertices += vc;
-      }
-      else if (o instanceof T.InstancedMesh) out.instanced++;
-      else if (!Array.isArray(o.material) && o.material.transparent) out.transparent++;
+      } else if (o instanceof T.InstancedMesh) out.instanced++;
+      else if (!Array.isArray(o.material) && o.material.transparent)
+        out.transparent++;
       else {
         let top: T.Object3D = o;
-        while (top.parent && top.parent !== this.scene && top.parent !== this.group) top = top.parent;
-        const k = top === o ? o.type + ":" + (o.material as T.Material).type : top.type + ":" + (top.name || "grp");
+        while (
+          top.parent &&
+          top.parent !== this.scene &&
+          top.parent !== this.group
+        )
+          top = top.parent;
+        const k =
+          top === o
+            ? o.type + ":" + (o.material as T.Material).type
+            : top.type + ":" + (top.name || "grp");
         out.other[k] = (out.other[k] || 0) + 1;
       }
     });
@@ -860,10 +888,11 @@ export class View {
     for (const l of this.probeLights) {
       const d = Math.hypot(l.x - p.x, l.y - 1.2, l.z - p.z);
       if (d >= l.range) continue;
-      const k = (1 - d / l.range) ** 1.5 * l.intensity * bakedGain.value * PROBE_GAIN;
-      this.probeColor.r += ((l.color >> 16) & 255) / 255 * k;
-      this.probeColor.g += ((l.color >> 8) & 255) / 255 * k;
-      this.probeColor.b += (l.color & 255) / 255 * k;
+      const k =
+        (1 - d / l.range) ** 1.5 * l.intensity * bakedGain.value * PROBE_GAIN;
+      this.probeColor.r += (((l.color >> 16) & 255) / 255) * k;
+      this.probeColor.g += (((l.color >> 8) & 255) / 255) * k;
+      this.probeColor.b += ((l.color & 255) / 255) * k;
     }
     setPlayerProbe(this.probeColor);
     this.camera.updateMatrixWorld();
@@ -962,7 +991,12 @@ export class View {
               : Math.atan2(p.x - e.x, p.z - e.z),
           before = this.enemyYaw.get(e.id) ?? want,
           after = a.animation
-            ? turnToward(before, want, e.state === "windup" ? 7 : e.state === "stun" ? 1.2 : 3.4, dt)
+            ? turnToward(
+                before,
+                want,
+                e.state === "windup" ? 7 : e.state === "stun" ? 1.2 : 3.4,
+                dt,
+              )
             : want;
         turning = Math.abs(wrap(after - before)) / Math.max(dt, 1e-3);
         this.enemyYaw.set(e.id, after);

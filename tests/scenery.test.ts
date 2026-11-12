@@ -2,8 +2,19 @@ import { describe, it, expect } from "vitest";
 import * as T from "three";
 import renderSource from "../src/render.ts?raw";
 import bakeSource from "../src/bake.ts?raw";
-import { bakeStatic, bakeVertex, mergeable, type BakeOptions } from "../src/bake";
-import { architecture, looks, segments, HALF_X, HALF_Z } from "../src/architecture";
+import {
+  bakeStatic,
+  bakeVertex,
+  mergeable,
+  type BakeOptions,
+} from "../src/bake";
+import {
+  architecture,
+  looks,
+  segments,
+  HALF_X,
+  HALF_Z,
+} from "../src/architecture";
 import { rooms } from "../src/world";
 
 const opts: BakeOptions = {
@@ -27,23 +38,53 @@ describe("cenários 0.6: bake de AO/luz e merge estático", () => {
   it("AO por vértice fica no intervalo e escurece o encontro com o piso", () => {
     const out = new T.Color(),
       light = new T.Color();
-    bakeVertex(new T.Vector3(0, 0.02, 0), new T.Vector3(1, 0, 0), opts, out, light);
+    bakeVertex(
+      new T.Vector3(0, 0.02, 0),
+      new T.Vector3(1, 0, 0),
+      opts,
+      out,
+      light,
+    );
     const low = out.r;
-    bakeVertex(new T.Vector3(0, 2, 0), new T.Vector3(1, 0, 0), opts, out, light);
+    bakeVertex(
+      new T.Vector3(0, 2, 0),
+      new T.Vector3(1, 0, 0),
+      opts,
+      out,
+      light,
+    );
     expect(low).toBeLessThan(out.r);
     for (const v of [low, out.r]) {
       expect(v).toBeGreaterThanOrEqual(0.2);
       expect(v).toBeLessThanOrEqual(1);
     }
     // Baked light: faces toward the light receive it; faces away do not.
-    bakeVertex(new T.Vector3(1, 2.6, 0), new T.Vector3(-1, 0, 0), opts, out, light);
+    bakeVertex(
+      new T.Vector3(1, 2.6, 0),
+      new T.Vector3(-1, 0, 0),
+      opts,
+      out,
+      light,
+    );
     const facing = light.r;
     expect(facing).toBeGreaterThan(0.2);
     // Faces away get only the soft wrap term (bounce), never full light.
-    bakeVertex(new T.Vector3(1, 2.6, 0), new T.Vector3(1, 0, 0), opts, out, light);
+    bakeVertex(
+      new T.Vector3(1, 2.6, 0),
+      new T.Vector3(1, 0, 0),
+      opts,
+      out,
+      light,
+    );
     expect(light.r).toBeLessThan(facing * 0.4);
     // Out of range: nothing.
-    bakeVertex(new T.Vector3(6, 0.5, 8), new T.Vector3(0, 1, 0), opts, out, light);
+    bakeVertex(
+      new T.Vector3(6, 0.5, 8),
+      new T.Vector3(0, 1, 0),
+      opts,
+      out,
+      light,
+    );
     expect(light.r).toBe(0);
   });
   it("funde estáticos por material sem mudar o volume, e preserva cores", () => {
@@ -70,20 +111,32 @@ describe("cenários 0.6: bake de AO/luz e merge estático", () => {
     expect(green).toBeGreaterThan(0);
   });
   it("não funde transparentes, instanciados, marcadores nem dinâmicos", () => {
-    const glass = box(0, 0, 0xffffff, new T.MeshStandardMaterial({ transparent: true, opacity: 0.4 }));
-    const inst = new T.InstancedMesh(new T.BoxGeometry(), new T.MeshStandardMaterial(), 3);
+    const glass = box(
+      0,
+      0,
+      0xffffff,
+      new T.MeshStandardMaterial({ transparent: true, opacity: 0.4 }),
+    );
+    const inst = new T.InstancedMesh(
+      new T.BoxGeometry(),
+      new T.MeshStandardMaterial(),
+      3,
+    );
     const marker = box(1, 1, 0xffffff);
     marker.name = "pickup-marker";
     const dyn = box(2, 2, 0xffffff);
     dyn.userData.dynamic = true;
     const ex = box(3, 3, 0xffffff);
-    for (const o of [glass, inst, marker, dyn]) expect(mergeable(o, new Set())).toBe(false);
+    for (const o of [glass, inst, marker, dyn])
+      expect(mergeable(o, new Set())).toBe(false);
     expect(mergeable(ex, new Set([ex]))).toBe(false);
     expect(mergeable(box(0, 0, 1), new Set())).toBe(true);
   });
   it("arquitetura cobre as 12 salas com identidade própria e vãos de porta", () => {
     expect(Object.keys(looks).sort()).toEqual(Object.keys(rooms).sort());
-    const ids = new Set(Object.values(looks).map((l) => `${l.tint}/${l.band}/${l.trim}`));
+    const ids = new Set(
+      Object.values(looks).map((l) => `${l.tint}/${l.band}/${l.trim}`),
+    );
     expect(ids.size).toBe(12);
     for (const id of Object.keys(rooms) as (keyof typeof rooms)[]) {
       const a = architecture(id, [

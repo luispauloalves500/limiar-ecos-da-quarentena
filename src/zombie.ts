@@ -354,12 +354,20 @@ class Rig {
                   : "Idle");
     if ((e.hitSerial || 0) !== this.lastHit) {
       this.hitAt = this.elapsed;
-      this.hitSide = e.lastHit === "legL" ? 1 : e.lastHit === "legR" ? -1 : ((e.hitSerial || 0) % 2 ? 1 : -1);
+      this.hitSide =
+        e.lastHit === "legL"
+          ? 1
+          : e.lastHit === "legR"
+            ? -1
+            : (e.hitSerial || 0) % 2
+              ? 1
+              : -1;
     }
     // Perceive/react: entering an aggressive state from recovery gives a
     // short head-snap before the approach.
     if (e.state !== this.lastState) {
-      if (e.state === "chase" && this.lastState === "recover") this.noticedAt = this.elapsed;
+      if (e.state === "chase" && this.lastState === "recover")
+        this.noticedAt = this.elapsed;
       this.lastState = e.state;
     }
     const restart =
@@ -388,7 +396,11 @@ class Rig {
     if (e.dead && this.current) {
       this.current.time = Math.min(
         this.current.getClip().duration - 0.001,
-        Math.max(0, ((Date.now() - e.deathAt) / 1000) * (preview ? 1 : this.gait.deathSpeed)),
+        Math.max(
+          0,
+          ((Date.now() - e.deathAt) / 1000) *
+            (preview ? 1 : this.gait.deathSpeed),
+        ),
       );
       this.mixer.update(0);
     }
@@ -424,15 +436,26 @@ class Rig {
         : 0;
       this.rotate("Spine", g.lean * 0.5, 0, g.lean);
       this.rotate("Spine1", g.hunch, 0, 0);
-      this.rotate("Hips", 0, 0, name === "Idle" ? 0 : Math.sin(cycle) * g.limp * 0.12);
+      this.rotate(
+        "Hips",
+        0,
+        0,
+        name === "Idle" ? 0 : Math.sin(cycle) * g.limp * 0.12,
+      );
     }
     if (!e.dead) {
       const age = this.elapsed - this.hitAt,
         leg = e.lastHit === "legL" || e.lastHit === "legR",
-        h = hitReaction(leg ? this.hitSide * 1.2 : this.hitSide * 0.35, age, leg ? 0.42 : 0.3, 0.5);
+        h = hitReaction(
+          leg ? this.hitSide * 1.2 : this.hitSide * 0.35,
+          age,
+          leg ? 0.42 : 0.3,
+          0.5,
+        );
       if (h.bend || h.twist) {
         this.rotate("Spine1", h.bend, h.twist, leg ? h.twist * 0.6 : 0);
-        if (leg) this.rotate("Hips", 0, 0, -this.hitSide * Math.abs(h.bend) * 0.5);
+        if (leg)
+          this.rotate("Hips", 0, 0, -this.hitSide * Math.abs(h.bend) * 0.5);
       }
       const notice = this.elapsed - this.noticedAt;
       if (notice >= 0 && notice < 0.45) {
@@ -441,14 +464,24 @@ class Rig {
         this.rotate("Spine2", -0.14 * k, 0, 0);
       }
     }
-    const death = e.dead ? Math.min(1, Math.max(0, (Date.now() - e.deathAt) / 700)) : 0;
+    const death = e.dead
+      ? Math.min(1, Math.max(0, (Date.now() - e.deathAt) / 700))
+      : 0;
     this.root.rotation.y = g.deathYaw * death;
     this.root.position.y = 0;
     if (e.dead || e.crawl || name === "LegFall") {
       this.root.updateMatrixWorld(true);
       let low = Infinity;
       const w = new T.Vector3();
-      for (const n of ["Head", "Hips", "Spine2", "LeftHand", "RightHand", "LeftFoot", "RightFoot"]) {
+      for (const n of [
+        "Head",
+        "Hips",
+        "Spine2",
+        "LeftHand",
+        "RightHand",
+        "LeftFoot",
+        "RightFoot",
+      ]) {
         const b = this.boneMap.get(n);
         if (b) low = Math.min(low, b.getWorldPosition(w).y);
       }

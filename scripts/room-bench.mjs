@@ -100,26 +100,27 @@ for (let rep = 0; rep < REPEAT; rep++)
               JSON.stringify({ version: 1, mode: "shoulder", quality }),
             );
             // Frame work = JS + GPU (gl.finish) per RAF callback, excluding vsync
-        // idle; much less sensitive to the compositor than RAF intervals.
-        let gl;
-        const getContext = HTMLCanvasElement.prototype.getContext;
-        HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
-          const c = getContext.call(this, type, ...rest);
-          if (c && /webgl/.test(type)) gl = c;
-          return c;
-        };
-        window.__work = [];
-        const px = new Uint8Array(4);
-        const raf = window.requestAnimationFrame.bind(window);
-        window.requestAnimationFrame = (cb) =>
-          raf((ts) => {
-            const t0 = performance.now();
-            cb(ts);
-            // 1-pixel readback forces the GPU process to finish this frame.
-            if (gl) gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-            window.__work.push(performance.now() - t0);
-          });
-        const tex = new Map();
+            // idle; much less sensitive to the compositor than RAF intervals.
+            let gl;
+            const getContext = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+              const c = getContext.call(this, type, ...rest);
+              if (c && /webgl/.test(type)) gl = c;
+              return c;
+            };
+            window.__work = [];
+            const px = new Uint8Array(4);
+            const raf = window.requestAnimationFrame.bind(window);
+            window.requestAnimationFrame = (cb) =>
+              raf((ts) => {
+                const t0 = performance.now();
+                cb(ts);
+                // 1-pixel readback forces the GPU process to finish this frame.
+                if (gl)
+                  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+                window.__work.push(performance.now() - t0);
+              });
+            const tex = new Map();
             let bytes = 0;
             window.__texBytes = () => bytes;
             for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
@@ -170,7 +171,7 @@ for (let rep = 0; rep < REPEAT; rep++)
         const enterMs = Date.now() - t0;
         await page.waitForTimeout(warm);
         await page.evaluate(() => (window.__work.length = 0));
-    const times = await page.evaluate(
+        const times = await page.evaluate(
           (ms) =>
             new Promise((resolve) => {
               const v = [];
@@ -187,7 +188,7 @@ for (let rep = 0; rep < REPEAT; rep++)
           sample,
         );
         const work = stats(await page.evaluate(() => window.__work.slice()));
-    const d = await page.evaluate(() => ({
+        const d = await page.evaluate(() => ({
           drawCalls: window.limiar.drawCalls,
           triangles: window.limiar.triangles,
           texMB: window.__texBytes() / 1048576,
@@ -206,10 +207,10 @@ for (let rep = 0; rep < REPEAT; rep++)
           quality,
           room,
           ...stats(times),
-      workMeanMs: work.meanMs,
-      workMedianMs: work.medianMs,
-      workP95Ms: work.p95Ms,
-      workP99Ms: work.p99Ms,
+          workMeanMs: work.meanMs,
+          workMedianMs: work.medianMs,
+          workP95Ms: work.p95Ms,
+          workP99Ms: work.p99Ms,
           ...d,
           loadMs,
           enterMs,

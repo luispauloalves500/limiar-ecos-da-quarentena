@@ -37,12 +37,14 @@ export function bakeVertex(
     edgeZ = o.halfZ - Math.abs(p.z),
     edge = Math.max(0, Math.min(edgeX, edgeZ));
   // Contact shadow at the base of every vertical surface.
-  if (p.y < 0.45 && Math.abs(n.y) < 0.6) ao *= 0.55 + 0.45 * Math.max(0, p.y) / 0.45;
+  if (p.y < 0.45 && Math.abs(n.y) < 0.6)
+    ao *= 0.55 + (0.45 * Math.max(0, p.y)) / 0.45;
   // Floor darkens toward walls and under the 0.6 m skirt of props.
   if (n.y > 0.6 && p.y < 0.15) ao *= 0.6 + 0.4 * Math.min(1, edge / 0.9);
   // Wall/ceiling and wall/wall creases.
-  if (p.y > o.height - 0.6) ao *= 0.72 + 0.28 * (o.height - p.y) / 0.6;
-  if (edgeX < 0.7 && edgeZ < 0.7) ao *= 0.7 + 0.3 * Math.max(edgeX, edgeZ) / 0.7;
+  if (p.y > o.height - 0.6) ao *= 0.72 + (0.28 * (o.height - p.y)) / 0.6;
+  if (edgeX < 0.7 && edgeZ < 0.7)
+    ao *= 0.7 + (0.3 * Math.max(edgeX, edgeZ)) / 0.7;
   // Underside faces receive less bounce.
   if (n.y < -0.6) ao *= 0.78;
   ao = Math.max(0.45, Math.min(1, ao));
@@ -96,11 +98,22 @@ function key(m: T.Material) {
   return "";
 }
 export function mergeable(o: T.Object3D, exclude: Set<T.Object3D>) {
-  if (!(o instanceof T.Mesh) || o instanceof T.InstancedMesh || o instanceof T.SkinnedMesh)
+  if (
+    !(o instanceof T.Mesh) ||
+    o instanceof T.InstancedMesh ||
+    o instanceof T.SkinnedMesh
+  )
     return false;
-  if (Array.isArray(o.material) || o.material.transparent || !o.visible) return false;
-  if (o.name === "pickup-marker" || o.userData.dynamic || o.morphTargetInfluences) return false;
-  for (let p: T.Object3D | null = o; p; p = p.parent) if (exclude.has(p)) return false;
+  if (Array.isArray(o.material) || o.material.transparent || !o.visible)
+    return false;
+  if (
+    o.name === "pickup-marker" ||
+    o.userData.dynamic ||
+    o.morphTargetInfluences
+  )
+    return false;
+  for (let p: T.Object3D | null = o; p; p = p.parent)
+    if (exclude.has(p)) return false;
   return key(o.material) !== "";
 }
 /** Re-tessellate large boxes so per-vertex AO has resolution. */
@@ -114,11 +127,15 @@ function tessellated(g: T.BufferGeometry) {
 function strip(g: T.BufferGeometry, indexed: boolean) {
   let out = indexed ? g : g.index ? g.toNonIndexed() : g;
   for (const name of Object.keys(out.attributes))
-    if (!["position", "normal", "uv", "color", "bakedLight"].includes(name)) out.deleteAttribute(name);
+    if (!["position", "normal", "uv", "color", "bakedLight"].includes(name))
+      out.deleteAttribute(name);
   if (!out.attributes.uv)
     out.setAttribute(
       "uv",
-      new T.BufferAttribute(new Float32Array(out.attributes.position.count * 2), 2),
+      new T.BufferAttribute(
+        new Float32Array(out.attributes.position.count * 2),
+        2,
+      ),
     );
   out = out.index && !indexed ? out.toNonIndexed() : out;
   return out;
@@ -151,10 +168,19 @@ export function useBakedLight(m: T.MeshStandardMaterial) {
   m.onBeforeCompile = (shader) => {
     shader.uniforms.bakedGain = bakedGain;
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute vec3 bakedLight;\nvarying vec3 vBakedLight;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvBakedLight = bakedLight;");
+      .replace(
+        "#include <common>",
+        "#include <common>\nattribute vec3 bakedLight;\nvarying vec3 vBakedLight;",
+      )
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvBakedLight = bakedLight;",
+      );
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vBakedLight;\nuniform float bakedGain;")
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vBakedLight;\nuniform float bakedGain;",
+      )
       .replace(
         "#include <emissivemap_fragment>",
         "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vBakedLight * diffuseColor.rgb * bakedGain;",
@@ -188,7 +214,8 @@ export function bakeStatic(
   const merged: T.Mesh[] = [];
   for (const meshes of buckets.values()) {
     const indexed = meshes.every((m) => !!m.geometry.index);
-    const src = meshes[0].material as T.MeshStandardMaterial | T.MeshBasicMaterial,
+    const src = meshes[0].material as
+        T.MeshStandardMaterial | T.MeshBasicMaterial,
       std = src instanceof T.MeshStandardMaterial;
     const parts = meshes.map((m) => {
       const g = strip(tessellated(m.geometry), indexed);
