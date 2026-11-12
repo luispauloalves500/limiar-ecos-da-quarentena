@@ -225,6 +225,11 @@ async function moveTo(x, z, tolerance = 0.6) {
     let count = 0;
     while (true) {
       s = await state();
+      if (s.mode === "pause" || s.mode === "document" || s.mode === "inventory") {
+        await tap("Escape");
+        await page.waitForTimeout(250);
+        s = await state();
+      }
       if (s.mode !== "play") throw Error("Not playing: " + s.mode);
       const d = Math.hypot(goal.x - s.player.x, goal.z - s.player.z);
       if (d < tolerance) break;
@@ -634,7 +639,6 @@ try {
   await moveTo(0, -2);
   await tap("e");
   await page.screenshot({ path: out + "/17-abrigo.png" });
-  await tap("Escape");
   await travel(5, 4, "espera");
   await travel(5, 4, "recreio");
   await moveTo(0, 5);
