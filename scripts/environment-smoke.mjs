@@ -61,7 +61,7 @@ let result;
 try {
   await page.goto(url, { waitUntil: "networkidle" });
   await page.locator("#new").click();
-  assert.equal((await state()).version, "0.6.0");
+  assert.equal((await state()).version, "0.7.0");
   await page.waitForFunction(
     () => window.limiar.environment.lastEvent === "telefone",
   );

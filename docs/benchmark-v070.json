@@ -1,0 +1,117 @@
+{
+  "version": "0.7.0",
+  "baselineSha": "4964c5bdbeb45d9e0c67d9eb12573eeec55b6c7b",
+  "devCommitAtBench": "a4f84eee69a519446ce1e06336318f10fa709fa3",
+  "method": "scripts/room-bench.mjs, intercalado ABBA por sala para as 12 antigas. Baseline 0.6.0 (git archive 4964c5b) em :4177, 0.7 em :4173 (dist ainda rotulado 0.6.0 no momento da medi\u00e7\u00e3o; geometria e bake j\u00e1 da 0.7). Room-bench executado a partir da \u00e1rvore 0.6 para gerar saves contentVersion 3. Fixture de save v1, inimigos mortos, c\u00e2mera de ombro parada ap\u00f3s a porta. 12 salas, perfis Baixo/M\u00e9dio/Alto, REPEAT=2, aquecimento 1,5 s + amostra 4 s. work* = tempo JS+GPU por quadro (readPixels 1 px), independente do vsync. A primeira passagem parou aos 25 registros (timeout no clique de #load); as 119 restantes seguiram na mesma sess\u00e3o, mesmos URLs e fixture, com clique mais resiliente. As 7 salas novas foram medidas em seguida s\u00f3 em :4173, a partir da \u00e1rvore 0.7 (contentVersion 4), mesmos tempos e perfis, REPEAT=2, 42 registros. GPU de software (Chromium 158, ANGLE SwiftShader, 1280\u00d7800), n\u00e3o certifica\u00e7\u00e3o de hardware f\u00edsico.",
+  "old12": {
+    "low": {
+      "base": {
+        "n": 24,
+        "workMedian": 56.8208333333799,
+        "workMean": 33.00316206556539,
+        "draws": 63.416666666666664,
+        "tris": 19145.666666666668,
+        "enter": 2870.625,
+        "texMB": 2.8867705790201823,
+        "transferKB": 1511.3408203125
+      },
+      "dev": {
+        "n": 24,
+        "workMedian": 56.18750000007761,
+        "workMean": 32.56512631613862,
+        "draws": 62.125,
+        "tris": 19102.333333333332,
+        "enter": 2835.9583333333335,
+        "texMB": 2.833085683186849,
+        "transferKB": 1515.724609375
+      }
+    },
+    "medium": {
+      "base": {
+        "n": 24,
+        "workMedian": 204.16666666635624,
+        "workMean": 116.34809387290946,
+        "draws": 90.33333333333333,
+        "tris": 24822.083333333332,
+        "enter": 4710.708333333333,
+        "texMB": 18.197395579020178,
+        "transferKB": 1511.3408203125
+      },
+      "dev": {
+        "n": 24,
+        "workMedian": 202.1708333331626,
+        "workMean": 114.2044137331812,
+        "draws": 89,
+        "tris": 24781.541666666668,
+        "enter": 4928.916666666667,
+        "texMB": 18.143710683186846,
+        "transferKB": 1515.724609375
+      }
+    },
+    "high": {
+      "base": {
+        "n": 24,
+        "workMedian": 246.20416666629413,
+        "workMean": 139.7606734105038,
+        "draws": 91.25,
+        "tris": 35005.333333333336,
+        "enter": 5290.625,
+        "texMB": 25.68177057902018,
+        "transferKB": 1511.3408203125
+      },
+      "dev": {
+        "n": 24,
+        "workMedian": 244.1791666665425,
+        "workMean": 137.61802330581364,
+        "draws": 90.08333333333333,
+        "tris": 34969.166666666664,
+        "enter": 5299.958333333333,
+        "texMB": 25.62808568318685,
+        "transferKB": 1515.724609375
+      }
+    }
+  },
+  "new7": {
+    "low": {
+      "n": 14,
+      "workMedian": 50.67857142857143,
+      "workMean": 29.131884294242333,
+      "draws": 60.714285714285715,
+      "tris": 18707,
+      "enter": 2668.4285714285716,
+      "texMB": 2.799068756103516,
+      "transferKB": 1515.724609375
+    },
+    "medium": {
+      "n": 14,
+      "workMedian": 183.12857142862464,
+      "workMean": 103.35407213772231,
+      "draws": 88.5,
+      "tris": 24537.5,
+      "enter": 4487.571428571428,
+      "texMB": 18.109693756103514,
+      "transferKB": 1515.724609375
+    },
+    "high": {
+      "n": 14,
+      "workMedian": 225.7928571424314,
+      "workMean": 128.76452067666344,
+      "draws": 88.14285714285714,
+      "tris": 34704.28571428572,
+      "enter": 4964.285714285715,
+      "texMB": 25.594068756103514,
+      "transferKB": 1515.724609375
+    }
+  },
+  "errors": {
+    "ab": [],
+    "new": []
+  },
+  "notes": {
+    "isolamentoDraws": "isolamento 0.7 tem +3 ou +4 draws (uma malha assada a mais); workMedian \u22123,2% / +3,1% / \u22123,2%. M\u00e9dias das 12 mais leves.",
+    "bercarioDraws": "bercario no M\u00e9dio: 98 draws (m\u00e1ximo 0.6 nesta sess\u00e3o: escadaria 99). workMedian abaixo do or\u00e7amento.",
+    "tris": "circulo e leitos t\u00eam mais tri\u00e2ngulos pelo mobili\u00e1rio; draws e workMedian dentro do or\u00e7amento.",
+    "enterMedium": "Entrada no M\u00e9dio das 12: +4,6% (ru\u00eddo de carga/retomada).",
+    "texMB": "texMB m\u00e9dio/alto inflado pelo hook WebGL (~18\u201326); Baixo ~2,8\u20132,9 bate com a 0.6 oficial. Comparar s\u00f3 com o mesmo m\u00e9todo."
+  }
+}

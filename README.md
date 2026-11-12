@@ -1,10 +1,20 @@
-# LIMIAR: Ecos da Quarentena — 0.6.0
+# LIMIAR: Ecos da Quarentena — 0.7.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.6.0 — luz assada e animações no chão
+## Novo na 0.7.0 — pediatria, parede clara e mais contraste
+
+- **Correção da faixa clara:** nas entradas laterais (arquivo, enfermaria e outras), a câmera de ombro encostava ou atravessava a parede da porta; o near plane enchia o lado esquerdo com uma laje lisa e clara demais. A 0.7 impõe 1,2 m de folga no interior, afasta o spawn lateral e limita o bake (desgaste por vértice, wrap mais direcional, atenuação **1,85, teto de emissão e lâmpada da porta mais curta).
+- **Capítulo 2 da pediatria (GDD 1.6):** sete salas após a Porta 13 — espera, plantão seguro (3º gravador), brinquedoteca (E05 Rastejador), berçário, leitos infantis (puzzle P03: baleia, pássaro, árvore), enfermaria circular (B02 Preceptora) e ante-sala cirúrgica (final desta versão e gancho para o centro cirúrgico, ainda não construído). Documentos só no leitor; sem texto nas paredes. Saves da 0.6 (contentVersion 3) migram para a 4 e entram na ala se a fita já tiver sido transmitida. A Porta 13 deixa de encerrar a campanha.
+- **P03, E05 e B02:** os três leitos marcados podem ser confirmados em qualquer ordem; um leito isca só dá dica. O Rastejador usa os clips de crawl do Mixamo, anda mais baixo e pede mira baixa. A Preceptora tem 700 de HP (o GDD cita 850; o valor foi afinado à economia atual), três fases, gerador de 15 s de vulnerabilidade (recarga 20 s), escurecimento na fase 2 e até dois rastejadores auxiliares. O crachá abre o visor.
+- **As 12 salas antigas:** desgaste, sujeira e umidade no bake, props de história só com materiais já instanciados, luz prática assada com mais contraste. Sem PointLights novas; merge, instancing e culling iguais aos da 0.6.
+- **Medição da 0.7:** room-bench intercalado com a 0.6.0 exata (SHA 4964c5b, 12 salas, 3 perfis, REPEAT=2, 1,5 s de aquecimento + 4 s de amostra, SwiftShader, a partir da árvore 0.6 para saves v3). workMedian **−1,1% / −1,0% / −0,8%**; draws **63,4 → 62,1 (−2,0%)**, **90,3 → 89,0 (−1,5%)**, **91,2 → 90,1 (−1,3%)**. Triângulos praticamente iguais (−0,2% ou menos). Transferência HTTP +4 KB; JS de render 819 → 829 KB; GLBs iguais; 3 luzes dinâmicas. As sete salas novas ficam abaixo do orçamento desta sessão (workMedian **−10,8% / −10,3% / −8,3%**; draws **−4,2% / −2,0% / −3,4%**). Amostra em GPU de software, não garantia de FPS físico. 190 testes.
+
+[QA e medições](docs/QA.md) · [19 salas](docs/screenshots/v070/README.md)
+
+## 0.6.0 preservada — luz assada e animações no chão
 
 - **Luz e AO por vértice:** cada sala recebe arquitetura procedural e um bake de AO/luz prática no vértice, com caixas grandes retesseladas e malhas estáticas unidas por material. As PointLights práticas e o fill preso à câmera saem da cena; o flicker das lâmpadas passa por um ganho compartilhado, e Helena/zumbis leem um light probe da sala. A lanterna, o hemisfério e as sombras da qualidade Médio/Alto continuam em tempo real.
 - **Helena no chão:** a passada acompanha a velocidade real, com quadril em backpedal/strafe, inclinação, respiração, recuo com as duas mãos, IK dos pés em chão plano, corpo morto que não afunda e rampa de aceleração (o smoke da 0.5 precisou mirar mais perto da nota por causa dessa rampa).
@@ -92,7 +102,7 @@ Fechar um menu solta as teclas. No ombro, clique novamente na cena para recaptur
 
 ## Rota curta
 
-Leia o bilhete na recepção → corredor → posto de rádio à esquerda (salve no gravador) → arquivo (relógio **03:15**, obtenha a chave) → manutenção (pegue fusível na entrada e instale no fundo à direita) → átrio. Contorne colunas, fuja dos avisos e use a trava no fundo para expor/danificar o Porteiro. O circuito recarrega em 12 s. Após B01, use a porta à direita do átrio → patamar → internação. Pegue a pulseira no leito 203, visite/salve no posto de enfermagem, entre na lavanderia e purgue **3 → 1 → 2**. Na galeria de isolamento, neutralize o Febril e use o terminal no fundo para transmitir a fita e selar a Porta 13. O atalho administrativo continua permitindo retorno à recepção. Salve novamente no posto para preservar exploração posterior.
+Leia o bilhete na recepção → corredor → posto de rádio à esquerda (salve no gravador) → arquivo (relógio **03:15**, obtenha a chave) → manutenção (pegue fusível na entrada e instale no fundo à direita) → átrio. Contorne colunas, fuja dos avisos e use a trava no fundo para expor/danificar o Porteiro. O circuito recarrega em 12 s. Após B01, use a porta à direita do átrio → patamar → internação. Pegue a pulseira no leito 203, visite/salve no posto de enfermagem, entre na lavanderia e purgue **3 → 1 → 2**. Na galeria de isolamento, neutralize o Febril e use o terminal no fundo: a Porta 13 abre a pediatria e **já não encerra** a campanha. Na espera, o plantão à esquerda é o terceiro gravador; a brinquedoteca à direita tem um Rastejador — aponte a mira para baixo. No berçário e nos leitos, confirme os três leitos marcados (baleia, pássaro, árvore; um leito sem marca é isca). Na enfermaria circular, use o gerador auxiliar (15 s de vulnerabilidade, 20 s de recarga) contra a Preceptora. O registro no visor da ante-sala é o final desta versão; o documento aponta o centro cirúrgico, ainda não construído. O atalho administrativo continua permitindo retorno à recepção.
 
 ## Executar e testar
 
@@ -123,7 +133,7 @@ npm run smoke:poses
 npm run verify:published # compara HTTP público com dist local
 ```
 
-Os playthroughs usam somente comandos reais e diagnósticos somente leitura; não alteram HP, inimigos ou progressão. A automação de mira usa as setas acessíveis para alinhar a retícula física; a captura de mouse é exercitada separadamente pelo smoke curto. Evidências padrão: `/workspace/limiar-v060-smoke/shoulder`, `/workspace/limiar-v060-smoke/tank`. `GAME_URL` e `SMOKE_OUT` são configuráveis. Não confundir testes de unidade de 100 passagens com 100 passagens renderizadas em hardware real.
+Os playthroughs usam somente comandos reais e diagnósticos somente leitura; não alteram HP, inimigos ou progressão. A automação de mira usa as setas acessíveis para alinhar a retícula física; a captura de mouse é exercitada separadamente pelo smoke curto. Evidências padrão da 0.7: `/workspace/limiar-v070-smoke/shoulder`, `/workspace/limiar-v070-smoke/tank`. `GAME_URL` e `SMOKE_OUT` são configuráveis. Não confundir testes de unidade de 100 passagens com 100 passagens renderizadas em hardware real.
 
 ## Organização e autoria
 
@@ -133,10 +143,10 @@ Cenário, props, placas, efeitos e síntese sonora foram criados para esta imple
 
 ## Limitações
 
-- São doze salas, três arquétipos comuns e B01 simplificado; não são 8 capítulos, 64 salas, 18 arquétipos ou 7 chefes completos. Sem R-18, destruição de cenário, campanha posterior ou finais ramificados.
+- São dezenove salas (doze da fatia anterior e sete na pediatria), com B01 e B02. Não são 8 capítulos, 64 salas, 18 arquétipos ou 7 chefes completos. Sem R-18 (previsto para o cap. 6), centro cirúrgico/Mergulhador (cap. 3), destruição de cenário ou finais ramificados. A Preceptora usa 700 de HP, não os 850 do GDD.
 - Modelos recebidos são estilizados; clips adicionais são keyframes, não mocap/ragdoll. A 0.6 acrescenta IK dos pés só em chão plano, sincronia de passada e camadas de postura; não é blend tree contínua nem plantio em escadas/desníveis. Pode haver deslizamento ou clipping em extremos. A mira recebe CCD limitado em runtime para braços/mãos e orientação física da pistola. Recarga não possui carregador físico; agarrão curto orienta participantes e limita movimento por 0,5 s; Espaço pode interromper, mas não é QTE de mash ou sync de mocap. Interação de porta roda na passagem, mas não mostra mão casando geometricamente com cada maçaneta. Hitboxes são aproximações presas aos ossos. Colisão corporal e navegação continuam 2D.
-- Colisão de câmera testa o boom e margem, não uma cápsula física completa. Em cantos muito apertados pode aproximar/ocultar Helena. O tank oculta teto e paredes próximas intencionalmente.
+- Colisão de câmera testa o boom e uma folga de 1,2 m no interior da sala, não uma cápsula física completa. Em cantos muito apertados pode aproximar/ocultar Helena. O tank oculta teto e paredes próximas intencionalmente.
 - A luz prática da 0.6 é assada por vértice (AO + contribuições das lâmpadas da sala), não GI, lightmaps de textura, SSR ou RT. Objetos dinâmicos e atores não projetam no bake; recebem um light probe aproximado. Pós continua um glow econômico de cinco amostras, não bloom multi-mip/HDR cinematográfico ou SSAO. Sombras/cookie/bump são desligados no Baixo (texturas de cor e o bake permanecem). Queda real de contexto WebGL e hardware fraco ainda precisam de QA adicional.
-- Sem gamepad, remapeamento completo, inventário Tetris/gestão de espaço, baú, outras armas, faca ou esquiva com rolamento (há empurrão). R-18 não foi acrescentado nesta atualização gráfica.
+- Sem gamepad, remapeamento completo, inventário Tetris/gestão de espaço, baú, outras armas, faca ou esquiva com rolamento (há empurrão). R-18 não foi acrescentado nesta fatia.
 - Salas são procedurais e suas definições cabem no bundle inicial; sem streaming remoto de capítulos, PWA/service worker ou garantia offline.
 - Performance e matrizes completas do GDD não estão certificadas. O GLB melhora a qualidade visual, mas skeletal skinning/mixers custam mais CPU que bonecos procedurais. Não prometemos 30/60 FPS: benchmark comparativo real e regressões estão em `docs/QA.md`/`docs/MODELOS.md`. SwiftShader não representa GPU física. Há aviso de chunk JS >500 KB no build, não escondido.
