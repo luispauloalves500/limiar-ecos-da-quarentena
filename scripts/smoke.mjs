@@ -249,6 +249,14 @@ async function aimAtEnemy(id, region) {
   const wanted = region === "3" ? "legL" : region === "2" ? "body" : "head";
   for (let i = 0; i < 64; i++) {
     const s = await state();
+    if (s.mode !== "play")
+      throw Error("Not playing while aiming " + id + ": " + s.mode);
+    if (s.hp < 65 && s.hp > 0) {
+      await page.keyboard.up("j");
+      await tap("h");
+      await page.keyboard.down("j");
+      await page.waitForTimeout(180);
+    }
     if (s.enemies[id].dead) return;
     if (
       s.rayHit?.id === id &&
@@ -537,7 +545,7 @@ try {
   }
   await travel(5, 4, "internacao");
   await travel(0, -7, "lavanderia");
-  await moveTo(0, 4.5);
+  await moveTo(0, 5.5);
   await shoot("febril01", "3", 2);
   if (!(await state()).enemies.febril01.dead) await shoot("febril01", "2", 2);
   await moveTo(0, 4);
@@ -557,7 +565,7 @@ try {
   assert.ok((await state()).flags.pressao);
   await page.screenshot({ path: out + "/14-lavanderia.png" });
   await travel(0, -7, "isolamento");
-  await moveTo(0, 4.5);
+  await moveTo(0, 5.5);
   await shoot("febril02", "3", 2);
   if (!(await state()).enemies.febril02.dead) await shoot("febril02", "2", 2);
   await page.screenshot({ path: out + "/15-isolamento.png" });

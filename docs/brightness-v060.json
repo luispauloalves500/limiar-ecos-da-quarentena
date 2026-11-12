@@ -1,0 +1,93 @@
+{
+  "version": "0.6.0",
+  "source": "/workspace/limiar-v060-smoke/final-shoulder/sala-*.png",
+  "method": "M\u00e9dia RGB sRGB 0\u2013255 do PNG original, sem ajuste de brilho. scene exclui faixas aproximadas do HUD (40 px laterais, 70 superiores, 90 inferiores).",
+  "minMean": 13.942863606770834,
+  "minScene": 14.611644097222221,
+  "rooms": [
+    {
+      "room": "recepcao",
+      "mean": 16.457115559895833,
+      "scene": 17.67298654513889,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "corredor",
+      "mean": 19.063921223958335,
+      "scene": 18.966907118055556,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "segura",
+      "mean": 28.074497395833333,
+      "scene": 29.397860677083333,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "arquivo",
+      "mean": 17.990131510416667,
+      "scene": 17.239973958333334,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "gerador",
+      "mean": 13.942863606770834,
+      "scene": 14.611644097222221,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "atrio",
+      "mean": 15.617150065104166,
+      "scene": 16.311371961805555,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "escadaria",
+      "mean": 20.369392578125,
+      "scene": 20.00653342013889,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "internacao",
+      "mean": 17.317872721354167,
+      "scene": 18.409889756944445,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "enfermaria",
+      "mean": 19.915086588541666,
+      "scene": 19.356146701388887,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "posto",
+      "mean": 25.89753873697917,
+      "scene": 27.248285590277778,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "lavanderia",
+      "mean": 19.763808919270833,
+      "scene": 21.35203689236111,
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "room": "isolamento",
+      "mean": 16.644193359375,
+      "scene": 17.890645399305555,
+      "width": 1280,
+      "height": 800
+    }
+  ]
+}

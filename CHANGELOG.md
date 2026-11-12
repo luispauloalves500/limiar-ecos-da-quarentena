@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+- Assa luz prática e AO por vértice nas 12 salas, com tessellation das caixas grandes e merge por material. Luzes práticas saem da cena: o flicker vai por um ganho compartilhado e Helena/zumbis leem um light probe. O fill de câmera e as PointLights por porta deixam de existir.
+- Remove as flags temporárias de experimento (`?exp=`); fica a configuração vencedora (arquitetura + bake completo + tessellation + luz assada + cores por vértice, casters separados para a sombra da lanterna).
+- Animações de Helena: sincronia da passada, backpedal/strafe com quadril, inclinação, respiração, recuo com as duas mãos, IK dos pés em chão plano, corpo morto que não afunda e rampa de aceleração.
+- Zumbis: sincronia da passada, telegraph de ataque, marcha e postura por ID (mais contida, sem cobrir a cabeça), impacto por região, giro limitado, orientação da morte e clamp no chão. As camadas de postura também aparecem nas páginas de QA.
+- Testes de locomoção e cenário (184 no total), script de folha de poses, campanhas reais de ombro e tank, meta description corrigida para 0.6.0.
+- Medição intercalada 0.5.0×0.6.0 em SwiftShader, 12 salas, 3 perfis, REPEAT=2: draws −41% a −44%; workMedian −2,0% / −0,1% / −1,5% (Baixo/Médio/Alto); entrada igual ou um pouco mais rápida. workMean no Baixo ficou +5,9% com campanha concorrente (load 15); a mediana e uma passagem anterior mais ociosa indicam custo igual ou menor. Triângulos +33% a +55% pela tessellation. Sem garantia de FPS físico.
+
 ## 0.5.0
 - Retira frases/etiquetas do mundo; preserva pistas em documentos, HUD, mapa e diário. Números pequenos nas portas e brilho de coleta próximo.
 - Corrige câmera atrás de folhas fechadas (mundo preto), elapsed negativo de RAF na porta e fade prolongado por delta limitado, reforça luz mínima e espera opacidade zero nas capturas.

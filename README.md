@@ -1,10 +1,20 @@
-# LIMIAR: Ecos da Quarentena — 0.5.0
+# LIMIAR: Ecos da Quarentena — 0.6.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.5.0 — menos ruído, mais presença
+## Novo na 0.6.0 — luz assada e animações no chão
+
+- **Luz e AO por vértice:** cada sala recebe arquitetura procedural e um bake de AO/luz prática no vértice, com caixas grandes retesseladas e malhas estáticas unidas por material. As PointLights práticas e o fill preso à câmera saem da cena; o flicker das lâmpadas passa por um ganho compartilhado, e Helena/zumbis leem um light probe da sala. A lanterna, o hemisfério e as sombras da qualidade Médio/Alto continuam em tempo real.
+- **Helena no chão:** a passada acompanha a velocidade real, com quadril em backpedal/strafe, inclinação, respiração, recuo com as duas mãos, IK dos pés em chão plano, corpo morto que não afunda e rampa de aceleração (o smoke da 0.5 precisou mirar mais perto da nota por causa dessa rampa).
+- **Zumbis mais contidos:** passada sincronizada, aviso de ataque, marcha e postura por ID (inclinação e corcunda reduzidas para não cobrir a cabeça), impacto por região, giro limitado e corpo preso ao chão. As mesmas camadas aparecem nas páginas de QA e na folha de poses.
+- **Sem flags de experimento:** `?exp=` foi retirado. Fica o resultado medido: arquitetura + bake completo + tessellation + luz assada + cores por vértice, com casters e não-casters em malhas separadas para a sombra da lanterna.
+- **Medição da 0.6:** room-bench intercalado com a 0.5.0 (12 salas, 3 perfis, REPEAT=2, 1,5 s de aquecimento + 4 s de amostra, SwiftShader). Draws **107 → 63 (−41%)** no Baixo, **161 → 91 (−44%)** no Médio e **162 → 91 (−44%)** no Alto. workMedian (JS+GPU, independente do vsync) **−2,0% / −0,1% / −1,5%**. Entrada igual ou um pouco mais rápida; textura estimada idêntica; transferência HTTP +6 KB; GLBs iguais; JS de render 801 → 819 KB. workMean no Baixo ficou +5,9% numa passagem com campanha concorrente (load ~15); a mediana e uma passagem anterior mais ociosa apontam custo igual ou menor. Triângulos **+33% a +55%** pela tessellation, compensados pelo merge e pela retirada das PointLights práticas/de porta (3 luzes dinâmicas no total: hemisfério, lanterna, flash). Amostra em GPU de software, não garantia de FPS físico. Campanhas completas de ombro e tank passaram; 184 testes.
+
+[QA e medições](docs/QA.md) · [12 salas, menu e poses reais](docs/screenshots/v060/README.md)
+
+## 0.5.0 preservada — menos ruído, mais presença
 
 - **Cenário sem cartazes explicativos:** prosa e etiquetas flutuantes foram retiradas. Restam números discretos nas portas; nome da sala no HUD, prompts só perto do objeto e sinal de coleta sutil a menos de 2,6 m. Relógio/purga continuam explicados nos documentos, mapa e objetivos. Narrativa ambiental recuperável no diário do inventário.
 - **Entrada legível:** folhas/batentes entram na colisão para impedir câmera atrás da porta fechada (o mundo preto não era só fade). O fade final usa relógio real, independente do delta limitado da simulação e de travadas de compilação de shader. A QA espera a transição e opacidade zero antes de fotografar. Luz mínima e práticas reforçadas sem apagar a atmosfera escura.
@@ -14,7 +24,7 @@ Survival horror original em português, com Helena Duarte no hospital fictício 
 - **Medição da 0.5:** no fixture comum de seis GLBs em SwiftShader, média 80,47 → 75,97 ms (−5,6%), draws 116 → 109; amostra curta/ruidosa, sem garantia de FPS ou dos piores frames. Campanhas completas passaram em ombro e tank; 171 testes, 18 poses reais e as 12 entradas fotografadas/inspecionadas.
 - **Título 3D:** corredor original animado, chuva leve, luz oscilante, silhueta e logo. Navegação por ↑/↓/Enter, mouse/Tab, créditos e opções. O tema só começa após gesto real do navegador.
 
-[QA e medições](docs/QA.md) · [12 salas, menu e poses reais](docs/screenshots/v050/README.md)
+[Arquivo histórico de capturas 0.5](docs/screenshots/v050/README.md)
 
 ## Ambiente 0.4.0 preservado (sem as antigas placas)
 
@@ -109,23 +119,24 @@ npm run smoke:environment
 npm run smoke:quality
 npm run smoke:zombie
 npm run smoke:player
+npm run smoke:poses
 npm run verify:published # compara HTTP público com dist local
 ```
 
-Os playthroughs usam somente comandos reais e diagnósticos somente leitura; não alteram HP, inimigos ou progressão. A automação de mira usa as setas acessíveis para alinhar a retícula física; a captura de mouse é exercitada separadamente pelo smoke curto. Evidências padrão: `/workspace/limiar-v050-smoke/shoulder`, `/workspace/limiar-v050-smoke/tank`. `GAME_URL` e `SMOKE_OUT` são configuráveis. Não confundir testes de unidade de 100 passagens com 100 passagens renderizadas em hardware real.
+Os playthroughs usam somente comandos reais e diagnósticos somente leitura; não alteram HP, inimigos ou progressão. A automação de mira usa as setas acessíveis para alinhar a retícula física; a captura de mouse é exercitada separadamente pelo smoke curto. Evidências padrão: `/workspace/limiar-v060-smoke/shoulder`, `/workspace/limiar-v060-smoke/tank`. `GAME_URL` e `SMOKE_OUT` são configuráveis. Não confundir testes de unidade de 100 passagens com 100 passagens renderizadas em hardware real.
 
 ## Organização e autoria
 
-`environment.ts`/`environment-logic.ts`: ambiente reativo e persistência; `world.ts`: salas/grafo/colisões; `logic.ts`: dano, luz, save e transações; `controls.ts`: preferências e regras de controles; `aim.ts`: raycast e colisão de câmera; `actors.ts`: fallback/B01; `player.ts`/`zombie.ts`: assets/mixers/LOD; `player-clips.ts`/`zombie-clips.ts`: keyframes; `art.ts`: texturas/geometria procedural; `post.ts`: pós leve; `render.ts`: cenas/câmeras/efeitos; `main.ts`: coordenação, UI e simulação; `audio.ts`/`sound-design.ts`: síntese e mixagem WebAudio; `title.ts`: título 3D; `presentation.ts`: relógio visual/luz/variações; `gameplay.ts`: empurrão testável.
+`environment.ts`/`environment-logic.ts`: ambiente reativo e persistência; `world.ts`: salas/grafo/colisões; `logic.ts`: dano, luz, save e transações; `controls.ts`: preferências e regras de controles; `aim.ts`: raycast e colisão de câmera; `actors.ts`: fallback/B01; `player.ts`/`zombie.ts`: assets/mixers/LOD; `player-clips.ts`/`zombie-clips.ts`: keyframes; `art.ts`: texturas/geometria procedural; `post.ts`: pós leve; `render.ts`: cenas/câmeras/efeitos; `main.ts`: coordenação, UI e simulação; `audio.ts`/`sound-design.ts`: síntese e mixagem WebAudio; `title.ts`: título 3D; `presentation.ts`: relógio visual/luz/variações; `gameplay.ts`: empurrão testável; `architecture.ts`/`bake.ts`: trim por sala e AO/luz por vértice; `locomotion.ts`/`stride.ts`: rampa, giro, passada e variação de marcha.
 
 Cenário, props, placas, efeitos e síntese sonora foram criados para esta implementação. **Os dois modelos e clips incluídos vieram do usuário**, não são de nossa autoria. Sua origem/licença original não foi verificada independentemente e não é apresentada como licença aberta. Consulte `docs/CREDITS.md`. Não foram importados assets de Resident Evil. Three.js/ferramentas mantêm suas licenças próprias; este repositório não atribui nova licença ao GDD ou aos assets recebidos.
 
 ## Limitações
 
 - São doze salas, três arquétipos comuns e B01 simplificado; não são 8 capítulos, 64 salas, 18 arquétipos ou 7 chefes completos. Sem R-18, destruição de cenário, campanha posterior ou finais ramificados.
-- Modelos recebidos são estilizados; clips adicionais são keyframes, não mocap/ragdoll. A mira recebe CCD limitado em runtime para braços/mãos e orientação física da pistola; os clips continuam sendo keyframes estilizados. Recarga não possui carregador físico; agarrão curto orienta participantes e limita movimento por 0,5 s; Espaço pode interromper, mas não é QTE de mash ou sync de mocap. Interação de porta roda na passagem, mas não mostra mão casando geometricamente com cada maçaneta. Hitboxes são aproximações presas aos ossos. Colisão corporal e navegação continuam 2D.
+- Modelos recebidos são estilizados; clips adicionais são keyframes, não mocap/ragdoll. A 0.6 acrescenta IK dos pés só em chão plano, sincronia de passada e camadas de postura; não é blend tree contínua nem plantio em escadas/desníveis. Pode haver deslizamento ou clipping em extremos. A mira recebe CCD limitado em runtime para braços/mãos e orientação física da pistola. Recarga não possui carregador físico; agarrão curto orienta participantes e limita movimento por 0,5 s; Espaço pode interromper, mas não é QTE de mash ou sync de mocap. Interação de porta roda na passagem, mas não mostra mão casando geometricamente com cada maçaneta. Hitboxes são aproximações presas aos ossos. Colisão corporal e navegação continuam 2D.
 - Colisão de câmera testa o boom e margem, não uma cápsula física completa. Em cantos muito apertados pode aproximar/ocultar Helena. O tank oculta teto e paredes próximas intencionalmente.
-- Pós é um glow econômico de cinco amostras, não bloom multi-mip/HDR cinematográfico, SSAO, SSR ou iluminação global. Sombras/cookie/bump são desligados no Baixo (texturas de cor permanecem). Queda real de contexto WebGL e hardware fraco ainda precisam de QA adicional.
+- A luz prática da 0.6 é assada por vértice (AO + contribuições das lâmpadas da sala), não GI, lightmaps de textura, SSR ou RT. Objetos dinâmicos e atores não projetam no bake; recebem um light probe aproximado. Pós continua um glow econômico de cinco amostras, não bloom multi-mip/HDR cinematográfico ou SSAO. Sombras/cookie/bump são desligados no Baixo (texturas de cor e o bake permanecem). Queda real de contexto WebGL e hardware fraco ainda precisam de QA adicional.
 - Sem gamepad, remapeamento completo, inventário Tetris/gestão de espaço, baú, outras armas, faca ou esquiva com rolamento (há empurrão). R-18 não foi acrescentado nesta atualização gráfica.
 - Salas são procedurais e suas definições cabem no bundle inicial; sem streaming remoto de capítulos, PWA/service worker ou garantia offline.
 - Performance e matrizes completas do GDD não estão certificadas. O GLB melhora a qualidade visual, mas skeletal skinning/mixers custam mais CPU que bonecos procedurais. Não prometemos 30/60 FPS: benchmark comparativo real e regressões estão em `docs/QA.md`/`docs/MODELOS.md`. SwiftShader não representa GPU física. Há aviso de chunk JS >500 KB no build, não escondido.

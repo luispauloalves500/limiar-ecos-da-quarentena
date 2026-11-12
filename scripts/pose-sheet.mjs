@@ -22,8 +22,17 @@ async function sheet(file, ready, poses, prefix, extra = async () => {}) {
   await page.goto(new URL(file, base).href, { waitUntil: "networkidle" });
   await page.waitForFunction(ready, null, { timeout: 90000 });
   await extra(page);
+  // Hide the QA chrome after controls are used, so the sheet is the
+  // character. Hidden <select> is changed via the input event, not the UI.
+  await page.addStyleTag({
+    content: "aside,#tools{display:none!important}canvas{width:100%!important}",
+  });
   for (const [pose, wait] of poses) {
-    await page.locator("#pose").selectOption(pose);
+    await page.evaluate((value) => {
+      const el = window.document.querySelector("#pose");
+      el.value = value;
+      el.dispatchEvent(new window.Event("change", { bubbles: true }));
+    }, pose);
     await page.waitForTimeout(wait);
     await page.screenshot({ path: `${out}/${prefix}-${pose}.png` });
   }
