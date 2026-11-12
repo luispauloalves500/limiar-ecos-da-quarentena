@@ -629,6 +629,7 @@ try {
     await tap("e");
     assert.equal((await state()).flags.energia, true);
     await note("power restored");
+    if ((await state()).hp < 90) await tap("h");
     await travel(0, -7, "atrio");
     await page.screenshot({ path: out + "/08-chefe.png" });
     await moveTo(-4, 6);
