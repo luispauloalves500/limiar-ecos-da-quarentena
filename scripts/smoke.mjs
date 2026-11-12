@@ -405,9 +405,15 @@ async function shoot(id, region = "1", count = 2) {
   await tap(region);
   for (let i = 0; i < count; i++) {
     if ((await state()).enemies[id].dead || (await state()).ammo === 0) break;
-    await page.waitForFunction(() => window.limiar.weaponReady, {
-      timeout: 10000,
-    });
+    try {
+      await page.waitForFunction(() => window.limiar.weaponReady, {
+        timeout: 8000,
+      });
+    } catch {
+      if ((await state()).enemies[id]?.dead) break;
+      await tap("r");
+      await page.waitForTimeout(600);
+    }
     try {
       await aimAtEnemy(id, region);
     } catch {
@@ -448,17 +454,34 @@ async function shoot(id, region = "1", count = 2) {
       await page.keyboard.up("j");
       break;
     }
-    await page.waitForFunction(() => window.limiar.aiming, { timeout: 10000 });
+    try {
+      await page.waitForFunction(() => window.limiar.aiming, {
+        timeout: 8000,
+      });
+    } catch {
+      await page.keyboard.up("j");
+      break;
+    }
     const before = (await state()).ammo;
     await tap("k");
-    await page.waitForFunction(
-      (before) => window.limiar.ammo < before,
-      before,
-      { timeout: 10000 },
-    );
-    await page.waitForFunction(() => window.limiar.weaponReady, {
-      timeout: 10000,
-    });
+    try {
+      await page.waitForFunction(
+        (before) => window.limiar.ammo < before,
+        before,
+        { timeout: 8000 },
+      );
+    } catch {
+      await tap("k");
+      await page.waitForTimeout(400);
+      if ((await state()).ammo >= before) break;
+    }
+    try {
+      await page.waitForFunction(() => window.limiar.weaponReady, {
+        timeout: 8000,
+      });
+    } catch {
+      /* próximo ciclo tenta de novo */
+    }
   }
   await page.keyboard.up("j");
   await note("shoot " + id);
