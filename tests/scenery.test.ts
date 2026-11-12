@@ -132,12 +132,12 @@ describe("cenários 0.6: bake de AO/luz e merge estático", () => {
     expect(mergeable(ex, new Set([ex]))).toBe(false);
     expect(mergeable(box(0, 0, 1), new Set())).toBe(true);
   });
-  it("arquitetura cobre as 12 salas com identidade própria e vãos de porta", () => {
+  it("arquitetura cobre todas as salas com identidade própria e vãos de porta", () => {
     expect(Object.keys(looks).sort()).toEqual(Object.keys(rooms).sort());
     const ids = new Set(
       Object.values(looks).map((l) => `${l.tint}/${l.band}/${l.trim}`),
     );
-    expect(ids.size).toBe(12);
+    expect(ids.size).toBe(Object.keys(rooms).length);
     for (const id of Object.keys(rooms) as (keyof typeof rooms)[]) {
       const a = architecture(id, [
         [4, -5],
@@ -161,5 +161,31 @@ describe("cenários 0.6: bake de AO/luz e merge estático", () => {
     expect(src).toContain("bakeRoom(");
     expect(src).not.toContain("TEMP-EXP");
     expect(bakeSource).not.toContain("TEMP-EXP");
+  });
+  it("luz assada tem teto e a parede tem desgaste, não uma laje lisa", () => {
+    const out = new T.Color(),
+      light = new T.Color();
+    // A vertex sitting on top of a very bright lamp must still be capped.
+    bakeVertex(
+      new T.Vector3(0, 2.6, 0),
+      new T.Vector3(0, 1, 0),
+      {
+        ...opts,
+        lights: [
+          { x: 0, y: 2.6, z: 0, color: 0xffffff, intensity: 8, range: 8 },
+        ],
+      },
+      out,
+      light,
+    );
+    expect(light.r).toBeLessThanOrEqual(0.78 + 1e-9);
+    // Two mid-wall vertices a short distance apart are not identical.
+    const a = new T.Color(),
+      b = new T.Color();
+    bakeVertex(new T.Vector3(2, 1.4, -3), new T.Vector3(1, 0, 0), opts, a);
+    bakeVertex(new T.Vector3(-4.8, 2.2, 5.1), new T.Vector3(1, 0, 0), opts, b);
+    expect(
+      Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b),
+    ).toBeGreaterThan(0.01);
   });
 });

@@ -39,7 +39,7 @@ export type Enemy = Vec & {
 };
 export type GameState = {
   version: 1;
-  contentVersion?: 3;
+  contentVersion?: 3 | 4;
   room: RoomId;
   player: Vec & { hp: number; yaw: number };
   ammo: number;
@@ -69,7 +69,7 @@ export function newGame(): GameState {
         boss: !!e.boss,
         left: 42,
         right: 42,
-        crawl: false,
+        crawl: (e.kind || "") === "E05",
         dead: false,
         headGone: false,
         state: "chase",
@@ -83,7 +83,7 @@ export function newGame(): GameState {
       };
   return {
     version: 1,
-    contentVersion: 3,
+    contentVersion: 4,
     room: "recepcao",
     player: { x: 0, z: 5, hp: 100, yaw: Math.PI },
     ammo: 12,
@@ -207,7 +207,9 @@ export function parseSave(raw: string): GameState {
   if (
     !s ||
     s.version !== 1 ||
-    (s.contentVersion !== undefined && s.contentVersion !== 3) ||
+    (s.contentVersion !== undefined &&
+      s.contentVersion !== 3 &&
+      s.contentVersion !== 4) ||
     !Object.hasOwn(rooms, s.room) ||
     !s.player ||
     !finite(s.player.hp, 1, 100) ||
@@ -231,14 +233,9 @@ export function parseSave(raw: string): GameState {
     !s.enemies
   )
     throw Error("Save inválido ou versão incompatível");
-  const legacy = s.contentVersion !== 3;
+  const legacy = s.contentVersion !== 4;
   for (const [id, base] of Object.entries(initial.enemies)) {
-    if (
-      !s.enemies[id] &&
-      legacy &&
-      !["errante01", "errante02", "errante03", "porteiro"].includes(id)
-    )
-      s.enemies[id] = { ...base };
+    if (!s.enemies[id] && legacy) s.enemies[id] = { ...base };
     const raw = s.enemies[id];
     if (raw) {
       raw.kind ??= base.kind;
@@ -284,7 +281,7 @@ export function parseSave(raw: string): GameState {
       throw Error("Estado de inimigo inválido");
   }
   s.ambience = validateAmbientSave(s.ambience);
-  s.contentVersion = 3;
+  s.contentVersion = 4;
   s.items = [...new Set([...s.items, ...s.docs])];
   updateCorpses(s);
   return s;
@@ -331,7 +328,9 @@ export function enemyStats(kind: EnemyKind) {
     E01: { hp: 70, speed: 1.05, damage: 15, windup: 0.7, recover: 1.1 },
     E02: { hp: 85, speed: 0.92, damage: 18, windup: 1, recover: 1.8 },
     E04: { hp: 65, speed: 1.15, damage: 16, windup: 0.6, recover: 1.1 },
+    E05: { hp: 48, speed: 0.86, damage: 12, windup: 0.55, recover: 1.0 },
     B01: { hp: 560, speed: 1.2, damage: 20, windup: 1.2, recover: 1.6 },
+    B02: { hp: 700, speed: 1.15, damage: 18, windup: 1.0, recover: 1.5 },
   }[kind];
 }
 export function killEnemy(e: Enemy, now = Date.now()) {
@@ -387,4 +386,27 @@ export function enemyPattern(e: Enemy, d: number) {
     feint: e.kind === "E02",
     range: e.kind === "E04" ? 5 : e.kind === "E02" ? 1.8 : 1.25,
   };
+}
+
+export const BED_MARKS = ["baleia", "passaro", "arvore"] as const;
+export type BedMark = (typeof BED_MARKS)[number];
+/** P03: confirm the three marked beds. A wrong bed never softlocks; it only
+ * gives an incremental hint. Flags persist through save/load. */
+export function markBed(s: GameState, mark: string) {
+  if (s.flags.prontuarios)
+    return { ok: true, done: true, count: 3, hint: "already" };
+  if (!(BED_MARKS as readonly string[]).includes(mark)) {
+    s.flags.bedHint = true;
+    const found = BED_MARKS.filter((m) => s.flags["bed-" + m]).length;
+    return {
+      ok: false,
+      done: false,
+      count: found,
+      hint: "wrong",
+    };
+  }
+  s.flags["bed-" + mark] = true;
+  const count = BED_MARKS.filter((m) => s.flags["bed-" + m]).length;
+  if (count === 3) s.flags.prontuarios = true;
+  return { ok: true, done: count === 3, count, hint: "ok" };
 }

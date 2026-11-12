@@ -569,11 +569,115 @@ try {
   await shoot("febril02", "3", 2);
   if (!(await state()).enemies.febril02.dead) await shoot("febril02", "2", 2);
   await page.screenshot({ path: out + "/15-isolamento.png" });
-  await moveTo(0, -5.6);
+  await moveTo(0, -6.5);
+  await tap("e");
+  assert.ok((await state()).flags.final);
+  assert.equal((await state()).mode, "play");
+  await page.screenshot({ path: out + "/16-porta-13.png" });
+  await travel(0, -7, "espera");
+  await moveTo(0, 4);
+  await tap("e");
+  await tap("Escape");
+  await moveTo(4, 5);
+  await tap("e");
+  await tap("r");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  await travel(-5, 4, "abrigo");
+  await moveTo(-4, 4);
+  await tap("e");
+  await tap("Escape");
+  await moveTo(-3, 0);
+  await tap("e");
+  await tap("r");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  await moveTo(1, 1);
+  await tap("e");
+  if ((await state()).hp < 80) await tap("h");
+  await moveTo(0, -2);
+  await tap("e");
+  await page.screenshot({ path: out + "/17-abrigo.png" });
+  await tap("Escape");
+  await travel(5, 4, "espera");
+  await travel(5, 4, "recreio");
+  await moveTo(0, 5);
+  await tap("e");
+  await tap("Escape");
+  await shoot("rastejador01", "2", 4);
+  if (!(await state()).enemies.rastejador01.dead)
+    await shoot("rastejador01", "2", 3);
+  if ((await state()).hp < 65) await tap("h");
+  await moveTo(4, -5);
+  await tap("e");
+  await travel(0, -7, "bercario");
+  await moveTo(0, 4);
+  await tap("e");
+  await tap("Escape");
+  await moveTo(4, 5);
+  await tap("e");
+  await tap("r");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  await moveTo(-4, 5);
+  await tap("e");
+  await travel(0, -7, "leitos");
+  await shoot("rastejador02", "2", 4);
+  if (!(await state()).enemies.rastejador02.dead)
+    await shoot("rastejador02", "2", 3);
+  if ((await state()).hp < 65) await tap("h");
+  await moveTo(-2, -2);
+  await tap("e");
+  await moveTo(0, -5.2);
+  await tap("e");
+  await moveTo(2, -2);
+  await tap("e");
+  assert.ok((await state()).flags.prontuarios);
+  await page.screenshot({ path: out + "/18-leitos.png" });
+  await moveTo(4, 5);
+  await tap("e");
+  if ((await state()).hp < 80) await tap("h");
+  await moveTo(-4, 5);
+  await tap("e");
+  await tap("r");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  await travel(0, -7, "circulo");
+  await moveTo(0, 5);
+  await tap("e");
+  await tap("Escape");
+  await moveTo(4, 6);
+  await tap("e");
+  await tap("r");
+  await page.waitForFunction(() => !window.limiar.reloading);
+  await moveTo(-4, 6);
+  await tap("e");
+  if ((await state()).hp < 80) await tap("h");
+  for (const id of ["rastejador03", "rastejador04"]) {
+    const e = (await state()).enemies[id];
+    if (e && !e.dead) await shoot(id, "2", 4);
+    if (!(await state()).enemies[id].dead) await shoot(id, "2", 3);
+  }
+  for (let i = 0; i < 10 && !(await state()).flags.preceptora; i++) {
+    if ((await state()).hp < 65 && (await state()).hp > 0) await tap("h");
+    if ((await state()).ammo === 0) {
+      await tap("r");
+      await page.waitForFunction(() => !window.limiar.reloading, {
+        timeout: 10000,
+      });
+    }
+    await moveTo(4, -6);
+    await tap("e");
+    await shoot("preceptora", "2", 5);
+  }
+  assert.ok((await state()).flags.preceptora);
+  assert.ok((await state()).flags.cracha);
+  await page.screenshot({ path: out + "/19-preceptora.png" });
+  await travel(0, -7, "visor");
+  await moveTo(0, 4);
+  await tap("e");
+  await tap("Escape");
+  await moveTo(0, -6.5);
   await tap("e");
   assert.equal((await state()).mode, "win");
-  assert.ok((await state()).flags.final);
-  await page.screenshot({ path: out + "/16-novo-final.png" });
+  assert.ok((await state()).flags.cirurgia);
+  await page.screenshot({ path: out + "/20-final.png" });
   await note("complete");
   await page.locator("#explore").click();
   await page.keyboard.press("v");

@@ -11,7 +11,7 @@ import { newGame, parseSave } from "../src/logic";
 import { defaults, parsePreferences } from "../src/controls";
 import { rooms } from "../src/world";
 describe("vida ambiental 0.4", () => {
-  it("cobre as doze salas com identidade, superfície e evento", () => {
+  it("cobre todas as salas com identidade, superfície e evento", () => {
     expect(Object.keys(themes).sort()).toEqual(Object.keys(rooms).sort());
     for (const t of Object.values(themes)) {
       expect(t.story.length).toBeGreaterThan(25);

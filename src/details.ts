@@ -132,6 +132,35 @@ export function roomDetails(id: RoomId) {
           0.025,
           0.7,
         );
+  // 0.7: unique story props, reused colours so they join existing instanced draws.
+  if (id === "arquivo") {
+    add(0x8f8b6c, -1.2, 0.03, 6, 0.55, 0.04, 0.7, 0.4);
+    add(0x747d6b, -0.7, 0.03, 6.2, 0.4, 0.04, 0.5, -0.3);
+  }
+  if (id === "enfermaria") {
+    add(0xb6b5a0, 0, 0.92, 3, 0.55, 0.06, 0.7);
+    add(0x374e43, 0.15, 0.97, 3, 0.18, 0.05, 0.12);
+  }
+  if (id === "espera") {
+    for (const [x, z] of [
+      [-2, 2],
+      [2, 2],
+      [-2, 0],
+      [2, 0],
+    ]) {
+      add(0x745b42, x, 0.22, z, 0.38, 0.08, 0.38);
+      add(0xb0ad8a, x, 0.44, z, 0.42, 0.05, 0.42);
+      add(0x745b42, x - 0.14, 0.28, z - 0.14, 0.06, 0.4, 0.06);
+    }
+  }
+  if (id === "bercario") {
+    add(0xc9bc94, 0, 1.85, 0, 0.08, 0.02, 1.4);
+    for (const x of [-0.4, 0, 0.4]) add(0xb0ad8a, x, 1.7, 0, 0.12, 0.16, 0.04);
+  }
+  if (id === "visor") {
+    add(0x475e52, 0, 1.5, -7.2, 2.2, 2.6, 0.08);
+    add(0x8d927a, 0, 2.4, -7.15, 0.8, 0.5, 0.04);
+  }
   if (id === "lavanderia")
     for (const x of [-3.5, 3.5]) {
       const ring = new T.Mesh(

@@ -13,7 +13,7 @@ import {
   wrapAngle,
   profiles,
 } from "../src/controls";
-import { raycastShot, cameraCollision } from "../src/aim";
+import { raycastShot, cameraCollision, roomCameraClearance } from "../src/aim";
 import { slideMove } from "../src/world";
 function mesh(x: number, y: number, z: number, region = "body") {
   const m = new T.Mesh(
@@ -285,4 +285,22 @@ it("boom não fica atrás da folha fechada na entrada lateral de sala", () => {
   const fixed = cameraCollision(pivot, desired, [wall, door]);
   expect(fixed.x).toBeLessThan(5.94);
   expect(fixed.distanceTo(pivot)).toBeGreaterThan(0.8);
+});
+
+it("folga da sala impede que a parede lateral encha o quadro", () => {
+  const pivot = new T.Vector3(-4.6, 1.52, 4),
+    desired = new T.Vector3(-6.7, 1.67, 5.8),
+    wall = new T.Mesh(
+      new T.BoxGeometry(0.22, 4, 17.8),
+      new T.MeshBasicMaterial(),
+    );
+  wall.position.set(-6.65, 2, 0);
+  wall.updateMatrixWorld(true);
+  const against = cameraCollision(pivot, desired, [wall]);
+  // Collision alone still leaves the camera almost flush with the wall.
+  expect(against.x).toBeLessThan(-5.9);
+  const framed = roomCameraClearance(against);
+  expect(framed.x).toBeGreaterThanOrEqual(-6.54 + 1.2 - 1e-9);
+  expect(framed.x).toBeLessThan(-4.8);
+  expect(framed.z).toBeLessThanOrEqual(8.74 - 1.2 + 1e-9);
 });

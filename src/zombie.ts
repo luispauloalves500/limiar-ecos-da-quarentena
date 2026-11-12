@@ -147,6 +147,8 @@ function sharedMaterial(index: number, kind: string, quality: Quality) {
   m.userData.zombieShared = true;
   if (kind === "E02") m.color.multiply(new T.Color(0xb2c9bd));
   if (kind === "E04") m.color.multiply(new T.Color(0xc8aaa0));
+  if (kind === "E05") m.color.multiply(new T.Color(0x7a6a52));
+  if (kind === "B02") m.color.multiply(new T.Color(0xe4d8cc));
   if (quality === "low") {
     m.normalMap = null;
     m.roughnessMap = null;
@@ -262,6 +264,16 @@ class Rig {
       );
       cap.position.set(0, 0.22, 0);
       this.head.add(cap);
+    }
+    if (enemy.kind === "B02") {
+      this.root.scale.set(1.12, 1.3, 1.12);
+      const sash = new T.Mesh(
+        new T.BoxGeometry(0.36, 0.55, 0.08),
+        new T.MeshStandardMaterial({ color: 0xc9c0b0, roughness: 0.9 }),
+      );
+      sash.position.set(0, -0.05, 0.16);
+      const spine = this.boneMap.get("Spine2");
+      if (spine) spine.add(sash);
     }
     this.tremor = this.mixer.clipAction(
       t.clips.find((c) => c.name === "Tremor")!,

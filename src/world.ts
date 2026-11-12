@@ -10,7 +10,14 @@ export type RoomId =
   | "enfermaria"
   | "lavanderia"
   | "posto"
-  | "isolamento";
+  | "isolamento"
+  | "espera"
+  | "recreio"
+  | "bercario"
+  | "leitos"
+  | "abrigo"
+  | "circulo"
+  | "visor";
 export type Vec = { x: number; z: number };
 export type Rect = Vec & { w: number; d: number };
 export type Door = {
@@ -28,7 +35,7 @@ export type Pickup = Vec & {
   label: string;
   text?: string;
 };
-export type EnemyKind = "E01" | "E02" | "E04" | "B01";
+export type EnemyKind = "E01" | "E02" | "E04" | "E05" | "B01" | "B02";
 export type Room = {
   id: RoomId;
   name: string;
@@ -147,6 +154,65 @@ export const doors: Door[] = [
     pb: { x: 0, z: 8 },
     key: "pressao",
     label: "Barreira de isolamento",
+  },
+  {
+    id: "D13",
+    a: "isolamento",
+    b: "espera",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    key: "final",
+    label: "Porta 13 / pediatria",
+  },
+  {
+    id: "D14",
+    a: "espera",
+    b: "abrigo",
+    pa: { x: -6, z: 4 },
+    pb: { x: 6, z: 4 },
+    label: "Plantão da pediatria",
+  },
+  {
+    id: "D15",
+    a: "espera",
+    b: "recreio",
+    pa: { x: 6, z: 4 },
+    pb: { x: -6, z: 4 },
+    label: "Brinquedoteca",
+  },
+  {
+    id: "D16",
+    a: "recreio",
+    b: "bercario",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    label: "Berçário",
+  },
+  {
+    id: "D17",
+    a: "bercario",
+    b: "leitos",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    label: "Ala de leitos infantis",
+  },
+  {
+    id: "D18",
+    a: "leitos",
+    b: "circulo",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    key: "prontuarios",
+    label: "Enfermaria circular",
+  },
+  {
+    id: "D19",
+    a: "circulo",
+    b: "visor",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    key: "preceptora",
+    label: "Acesso ao centro cirúrgico",
   },
 ];
 export const rooms: Record<RoomId, Room> = {
@@ -406,7 +472,7 @@ export const rooms: Record<RoomId, Room> = {
   isolamento: {
     id: "isolamento",
     name: "Galeria de isolamento",
-    subtitle: "ÚLTIMA TRANSMISSÃO · PORTA 13",
+    subtitle: "PORTA 13 · A PEDIATRIA RESPONDE",
     color: 0x6f534e,
     obstacles: [
       { x: -3, z: -1, w: 1.5, d: 3 },
@@ -425,6 +491,165 @@ export const rooms: Record<RoomId, Room> = {
       },
     ],
     enemies: [{ id: "febril02", kind: "E04", x: 0, z: -3 }],
+  },
+  espera: {
+    id: "espera",
+    name: "Espera da pediatria",
+    subtitle: "TRANSFERÊNCIAS · CADEIRAS BAIXAS",
+    color: 0xb48a7c,
+    obstacles: [
+      { x: -3, z: -3, w: 2.2, d: 3 },
+      { x: 3.2, z: -2, w: 1.6, d: 3.5 },
+    ],
+    items: [
+      {
+        id: "esp-doc",
+        kind: "document",
+        label: "Lista de transferência — pediatria",
+        x: 0,
+        z: 4,
+        text: "Os nomes da lista de 03:16 não são óbitos. São transferências para a pediatria, assinadas pela Preceptora. Caio deixou um risco ao lado de três marcas: um animal que nada, um que voa, um que enraíza. A Porta 13 abre para baixo — e não fecha igual.",
+      },
+      { id: "esp-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
+    ],
+    enemies: [],
+  },
+  abrigo: {
+    id: "abrigo",
+    name: "Plantão da pediatria",
+    subtitle: "ÁREA SEGURA · TERCEIRO GRAVADOR",
+    color: 0xc4a07a,
+    safe: true,
+    obstacles: [
+      { x: -3, z: -4, w: 4, d: 1.4 },
+      { x: 3, z: -3, w: 1.5, d: 3 },
+    ],
+    items: [
+      { id: "abr-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: -3, z: 0 },
+      { id: "abr-kit", kind: "herb", label: "Kit médico", x: 1, z: 1 },
+      { id: "abr-bat", kind: "battery", label: "Bateria +35", x: 3, z: 4 },
+      {
+        id: "abr-doc",
+        kind: "document",
+        label: "Prontuários — três leitos",
+        x: -4,
+        z: 4,
+        text: "Confirme somente os leitos com as marcas da lista: a baleia azul no pé da cama, o pássaro vermelho pendurado, a árvore verde na cabeceira. Qualquer outro prontuário é isca. Depois da confirmação, a enfermaria circular aceita o crachá — e ela ouve o gerador auxiliar. — Lia",
+      },
+    ],
+    enemies: [],
+  },
+  recreio: {
+    id: "recreio",
+    name: "Brinquedoteca",
+    subtitle: "PEÇAS NO CHÃO · ALGO SE ARRASTA",
+    color: 0x7a9b86,
+    obstacles: [
+      { x: -3.2, z: -1, w: 2.4, d: 3.2 },
+      { x: 3.2, z: 2, w: 2, d: 2.6 },
+    ],
+    items: [
+      {
+        id: "rec-doc2",
+        kind: "document",
+        label: "Relato da brinquedoteca",
+        x: 0,
+        z: 5,
+        text: "As crianças deixaram os blocos empilhados à altura do joelho. De manhã o chão estava limpo; à noite, as peças voltam a formar um corredor baixo. Ouve-se metal raspando debaixo da mesa. Não aponte a lanterna na altura dos olhos — aponte para o chão.",
+      },
+      { id: "rec2-herb", kind: "herb", label: "Kit médico", x: 4, z: -5 },
+    ],
+    enemies: [{ id: "rastejador01", kind: "E05", x: -3, z: -1 }],
+  },
+  bercario: {
+    id: "bercario",
+    name: "Berçário",
+    subtitle: "BERÇOS VAZIOS · MÓBILE PARADO",
+    color: 0xc4a888,
+    obstacles: [
+      { x: -3, z: -2, w: 2.2, d: 3.4 },
+      { x: 3, z: -2, w: 2.2, d: 3.4 },
+    ],
+    items: [
+      {
+        id: "ber-doc",
+        kind: "document",
+        label: "Plantão do berçário",
+        x: 0,
+        z: 4,
+        text: "Todos os berços foram esvaziados no mesmo minuto em que os relógios pararam. Um móbile ainda gira quando ninguém encosta. A Preceptora passou aqui cantando baixo, a mesma canção três vezes, e pediu que ninguém visse o teto. O corredor dos leitos está no fundo.",
+      },
+      { id: "ber-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
+      { id: "ber-bat", kind: "battery", label: "Bateria +35", x: -4, z: 5 },
+    ],
+    enemies: [],
+  },
+  leitos: {
+    id: "leitos",
+    name: "Leitos infantis",
+    subtitle: "P03 · TRÊS PRONTUÁRIOS",
+    color: 0x7d917e,
+    obstacles: [
+      { x: -3.2, z: -2, w: 2.2, d: 3.6 },
+      { x: 3.2, z: -2, w: 2.2, d: 3.6 },
+      { x: 0, z: -3.6, w: 1.8, d: 1.8 },
+    ],
+    items: [
+      { id: "lei-herb", kind: "herb", label: "Kit médico", x: 4, z: 5 },
+      { id: "lei-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: -4, z: 5 },
+    ],
+    enemies: [{ id: "rastejador02", kind: "E05", x: 3, z: -2 }],
+  },
+  circulo: {
+    id: "circulo",
+    name: "Enfermaria circular",
+    subtitle: "B02 · A PRECEPTORA",
+    color: 0x8a5a58,
+    obstacles: [
+      { x: -3.6, z: 1.5, w: 2.2, d: 2.2 },
+      { x: 3.6, z: 1.5, w: 2.2, d: 2.2 },
+      { x: -3.6, z: -3.2, w: 2.2, d: 2.2 },
+      { x: 3.6, z: -3.2, w: 2.2, d: 2.2 },
+    ],
+    items: [
+      { id: "cir-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 6 },
+      { id: "cir-kit", kind: "herb", label: "Kit médico", x: -4, z: 6 },
+      {
+        id: "cir-doc",
+        kind: "document",
+        label: "Turno da Preceptora",
+        x: 0,
+        z: 5,
+        text: "Quando as luzes da fileira se apagam, ligue o gerador auxiliar no fundo à direita. Quinze segundos de claridade; depois o circuito pede vinte para recarregar. Ela reage ao som do equipamento. Não desperdice tiro na escuridão. Dois rastejadores, no máximo, saem das camas no segundo movimento. — Circuito de contenção, adendo B.",
+      },
+    ],
+    enemies: [
+      { id: "preceptora", x: 0, z: -3, boss: true, kind: "B02" },
+      { id: "rastejador03", kind: "E05", x: -3.5, z: -3 },
+      { id: "rastejador04", kind: "E05", x: 3.5, z: -3 },
+    ],
+  },
+  visor: {
+    id: "visor",
+    name: "Ante-sala cirúrgica",
+    subtitle: "CRACHÁ · O CENTRO AINDA RESPIRA",
+    color: 0x6a858c,
+    obstacles: [
+      { x: -3, z: -2, w: 1.6, d: 3 },
+      { x: 3, z: -2, w: 1.6, d: 3 },
+    ],
+    items: [
+      {
+        id: "vis-doc",
+        kind: "document",
+        label: "Memorando do centro cirúrgico",
+        x: 0,
+        z: 4,
+        text: "O crachá da Preceptora abre o visor, não a porta de cirurgia. Do outro lado há água até o tornozelo e um ruído de válvula grande demais para este andar. Caio: se você chegou até aqui, não desça sem gravar o que viu. O Mergulhador não é uma metáfora.",
+      },
+      { id: "vis-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
+    ],
+    enemies: [],
   },
 };
 export function endpoint(d: Door, room: RoomId) {
@@ -465,7 +690,10 @@ export function lineClear(a: Vec, b: Vec, obstacles: Rect[]) {
 }
 export function inward(p: Vec): Vec {
   return {
-    x: p.x === 6 ? 4.6 : p.x === -6 ? -4.6 : p.x,
+    // Side-door entries used to spawn at ±4.6, which left the 2.75 m
+    // shoulder boom inside the wall. A deeper inward spawn plus
+    // roomCameraClearance keeps the near wall out of the face.
+    x: p.x === 6 ? 3.8 : p.x === -6 ? -3.8 : p.x,
     z: p.z === 8 ? 6.5 : p.z === -8 ? -6.5 : p.z,
   };
 }

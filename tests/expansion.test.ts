@@ -11,6 +11,7 @@ import {
   Travel,
   validateGraph,
   turnValve,
+  markBed,
   enemyStats,
   enemyPattern,
 } from "../src/logic";
@@ -81,9 +82,9 @@ describe("coletáveis: uma origem de verdade", () => {
   });
 });
 describe("expansão e migração", () => {
-  it("12 salas, duas seguras, todas as portas com spawns válidos", () => {
-    expect(Object.keys(rooms)).toHaveLength(12);
-    expect(Object.values(rooms).filter((r) => r.safe)).toHaveLength(2);
+  it("19 salas, três seguras, todas as portas com spawns válidos", () => {
+    expect(Object.keys(rooms)).toHaveLength(19);
+    expect(Object.values(rooms).filter((r) => r.safe)).toHaveLength(3);
     expect(validateGraph()).toBe(true);
   });
   it("todas as novas salas são alcançáveis no grafo", () => {
@@ -94,7 +95,7 @@ describe("expansão e migração", () => {
           seen.add(d.a);
           seen.add(d.b);
         }
-    expect(seen.size).toBe(12);
+    expect(seen.size).toBe(19);
   });
   it("atravessa todas as portas nos dois sentidos preservando coleta/mortos", async () => {
     const s = newGame(),
@@ -105,6 +106,9 @@ describe("expansão e migração", () => {
       boss: true,
       pulseira: true,
       pressao: true,
+      final: true,
+      prontuarios: true,
+      preceptora: true,
     };
     collect(s, rooms.recepcao.items[0]);
     killEnemy(s.enemies.errante01, 1);
@@ -150,5 +154,58 @@ describe("expansão e migração", () => {
     damage(f, "legL");
     expect(f.crawl).toBe(true);
     expect(enemyPattern(f, 4).charge).toBe(false);
+  });
+});
+
+describe("pediatria 0.7", () => {
+  it("E05 nasce rastejando e não investe em linha reta", () => {
+    const s = newGame(),
+      e = s.enemies.rastejador01;
+    expect(e.kind).toBe("E05");
+    expect(e.crawl).toBe(true);
+    expect(enemyStats("E05").hp).toBe(48);
+    expect(enemyPattern(e, 4).charge).toBe(false);
+    expect(enemyPattern(e, 4).range).toBe(0.9);
+  });
+  it("P03 confirma três leitos, isca dá dica e não softlocka", () => {
+    let s = newGame();
+    expect(markBed(s, "errante").ok).toBe(false);
+    expect(s.flags.prontuarios).toBeFalsy();
+    expect(s.flags.bedHint).toBe(true);
+    expect(markBed(s, "baleia").count).toBe(1);
+    s = parseSave(JSON.stringify(s));
+    expect(markBed(s, "passaro").count).toBe(2);
+    expect(markBed(s, "arvore").done).toBe(true);
+    expect(s.flags.prontuarios).toBe(true);
+    expect(markBed(s, "errante").done).toBe(true);
+  });
+  it("migra save 0.6 (contentVersion 3) com a ala e os novos inimigos", () => {
+    const s = newGame();
+    s.contentVersion = 3;
+    for (const id of Object.keys(s.enemies))
+      if (
+        !["errante01", "errante02", "errante03", "porteiro"].includes(id) &&
+        !id.startsWith("enfermeiro") &&
+        !id.startsWith("febril")
+      )
+        delete s.enemies[id];
+    const r = parseSave(JSON.stringify(s));
+    expect(r.contentVersion).toBe(4);
+    expect(r.enemies.rastejador01.kind).toBe("E05");
+    expect(r.enemies.preceptora.kind).toBe("B02");
+    expect(r.enemies.preceptora.boss).toBe(true);
+    expect(enemyStats("B02").hp).toBe(700);
+  });
+  it("grafo alcança o visor a partir da recepção", () => {
+    const seen = new Set(["recepcao"]);
+    for (let n = 0; n < 30; n++)
+      for (const d of doors)
+        if (seen.has(d.a) || seen.has(d.b)) {
+          seen.add(d.a);
+          seen.add(d.b);
+        }
+    expect(seen.has("visor")).toBe(true);
+    expect(seen.has("circulo")).toBe(true);
+    expect(seen.has("abrigo")).toBe(true);
   });
 });

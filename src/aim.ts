@@ -70,3 +70,18 @@ export function cameraCollision(
   }
   return pivot.clone().addScaledVector(direction, distance);
 }
+
+/** Keep the shoulder camera a real gap inside the room, not flush with a
+ * wall. A 2.75 m boom at a side-door spawn sits in or through the west/east
+ * wall (x ≈ ±6.65) and fills the left of the frame with a blown-out slab. */
+export function roomCameraClearance(
+  pos: T.Vector3,
+  halfX = 6.54,
+  halfZ = 8.74,
+  margin = 1.2,
+) {
+  const out = pos.clone();
+  out.x = Math.max(-halfX + margin, Math.min(halfX - margin, out.x));
+  out.z = Math.max(-halfZ + margin, Math.min(halfZ - margin, out.z));
+  return out;
+}

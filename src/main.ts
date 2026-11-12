@@ -11,6 +11,7 @@ import {
   killEnemy,
   updateCorpses,
   turnValve,
+  markBed,
   enemyStats,
   enemyPattern,
 } from "./logic";
@@ -98,6 +99,7 @@ let shotCooldown = 0,
   reloadTime = 0,
   invulnerable = 1,
   trapCooldown = 0,
+  auxCooldown = 0,
   doorTime = -1,
   doorDuration = 2.6;
 let shoveCooldown = 0,
@@ -321,6 +323,7 @@ function loadGame() {
     reloadTime = 0;
     shotCooldown = 0;
     trapCooldown = 0;
+    auxCooldown = 0;
     targetId = "";
     close();
     announce("Gravação restaurada.");
@@ -353,7 +356,7 @@ function pause() {
 function inventory() {
   mode = "inventory";
   panel(
-    `<div class="eyebrow">EQUIPAMENTO DE RESGATE</div><h2>Inventário</h2><div class="inventory"><div>PISTOLA 9 MM <strong>${s.ammo} / 12</strong><small>${s.reserve} na reserva</small></div><div>LANTERNA <strong>${Math.ceil(s.battery)}%</strong><small>${s.batteries} baterias de +35</small></div><div>KIT MÉDICO <strong>${s.kits}</strong><small>Recupera 60 HP</small></div><div>MISSÃO <strong>${s.flags.chave ? "Chave de manutenção" : "—"}</strong><small>${s.flags.fusivel ? (s.flags.energia ? "Fusível instalado" : "Fusível cerâmico") : "Sem fusível"}</small><small>${s.flags.pulseira ? "Pulseira de serviço 203" : "Sem pulseira de serviço"}</small></div></div><div class="actions"><button id="heal">USAR KIT [H]</button><button id="cell">TROCAR BATERIA [B]</button><button id="back" class="primary">VOLTAR</button></div><h3>Documentos recuperados</h3><div class="actions">${
+    `<div class="eyebrow">EQUIPAMENTO DE RESGATE</div><h2>Inventário</h2><div class="inventory"><div>PISTOLA 9 MM <strong>${s.ammo} / 12</strong><small>${s.reserve} na reserva</small></div><div>LANTERNA <strong>${Math.ceil(s.battery)}%</strong><small>${s.batteries} baterias de +35</small></div><div>KIT MÉDICO <strong>${s.kits}</strong><small>Recupera 60 HP</small></div><div>MISSÃO <strong>${s.flags.chave ? "Chave de manutenção" : "—"}</strong><small>${s.flags.fusivel ? (s.flags.energia ? "Fusível instalado" : "Fusível cerâmico") : "Sem fusível"}</small><small>${s.flags.pulseira ? "Pulseira de serviço 203" : "Sem pulseira de serviço"}</small><small>${s.flags.cracha ? "Crachá cirúrgico da Preceptora" : "Sem crachá cirúrgico"}</small></div></div><div class="actions"><button id="heal">USAR KIT [H]</button><button id="cell">TROCAR BATERIA [B]</button><button id="back" class="primary">VOLTAR</button></div><h3>Documentos recuperados</h3><div class="actions">${
       s.docs
         .map(
           (id) =>
@@ -403,16 +406,16 @@ function documentView(id: string) {
 function map() {
   mode = "map";
   panel(
-    `<div class="eyebrow">PLANTA DOS SETORES A / INTERNAÇÃO</div><h2>Rotas de evacuação</h2><div class="map"><div class="maproute">RECEPÇÃO ↔ CORREDOR LESTE ↔ MANUTENÇÃO ↔ ÁTRIO<br>         ↙  ↘<br>      POSTO DE RÁDIO  ARQUIVO<br>ÁTRIO → PATAMAR → INTERNAÇÃO ↔ POSTO DE ENFERMAGEM<br>INTERNAÇÃO ↔ ENFERMARIA 203<br>INTERNAÇÃO → LAVANDERIA → ISOLAMENTO</div>${Object.values(
+    `<div class="eyebrow">PLANTA DOS SETORES A / INTERNAÇÃO / PEDIATRIA</div><h2>Rotas de evacuação</h2><div class="map"><div class="maproute">RECEPÇÃO ↔ CORREDOR LESTE ↔ MANUTENÇÃO ↔ ÁTRIO<br>         ↙  ↘<br>      POSTO DE RÁDIO  ARQUIVO<br>ÁTRIO → PATAMAR → INTERNAÇÃO ↔ POSTO DE ENFERMAGEM<br>INTERNAÇÃO ↔ ENFERMARIA 203<br>INTERNAÇÃO → LAVANDERIA → ISOLAMENTO → PORTA 13 → ESPERA<br>ESPERA ↔ PLANTÃO (SEGURO) · ESPERA → BRINQUEDOTECA → BERÇÁRIO → LEITOS → CIRCULAR → VISOR</div>${Object.values(
       rooms,
     )
       .map(
         (r) =>
-          `<div class="maproom ${s.room === r.id ? "here" : ""}"><b>${s.room === r.id ? "● " : ""}${r.name}</b><span>${r.safe ? "Sala segura" : r.id === "gerador" && !s.flags.chave ? "Exige chave" : r.id === "atrio" && !s.flags.energia ? "Exige energia" : r.id === "escadaria" && !s.flags.boss ? "Exige Porteiro neutralizado" : r.id === "lavanderia" && !s.flags.pulseira ? "Exige pulseira 203" : r.id === "isolamento" && !s.flags.pressao ? "Exige purga de pressão" : "Acessível pela rota"}</span></div>`,
+          `<div class="maproom ${s.room === r.id ? "here" : ""}"><b>${s.room === r.id ? "● " : ""}${r.name}</b><span>${r.safe ? "Sala segura" : r.id === "gerador" && !s.flags.chave ? "Exige chave" : r.id === "atrio" && !s.flags.energia ? "Exige energia" : r.id === "escadaria" && !s.flags.boss ? "Exige Porteiro neutralizado" : r.id === "lavanderia" && !s.flags.pulseira ? "Exige pulseira 203" : r.id === "isolamento" && !s.flags.pressao ? "Exige purga de pressão" : r.id === "espera" && !s.flags.final ? "Exige transmissão da Porta 13" : r.id === "circulo" && !s.flags.prontuarios ? "Exige os três prontuários" : r.id === "visor" && !s.flags.preceptora ? "Exige a Preceptora neutralizada" : "Acessível pela rota"}</span></div>`,
       )
       .join(
         "",
-      )}</div><p>Encontre o bilhete → ajuste o relógio em <b>03:15</b> → pegue a chave → instale o fusível no gerador → enfrente o Porteiro → internação / pulseira 203 → válvulas 3–1–2 → transmissão final.</p><button id="back" class="primary">FECHAR MAPA [M / ESC]</button>`,
+      )}</div><p>Encontre o bilhete → relógio <b>03:15</b> → fusível → Porteiro → pulseira 203 → válvulas 3–1–2 → Porta 13 → três prontuários da pediatria → Preceptora (gerador auxiliar) → visor / crachá.</p><button id="back" class="primary">FECHAR MAPA [M / ESC]</button>`,
   );
   buttons({ back: close });
 }
@@ -484,7 +487,13 @@ function interactions(): Interaction[] {
                 ? "Falta a pulseira de serviço do leito 203."
                 : d.key === "pressao"
                   ? "Barreira pressurizada. Regule as válvulas na lavanderia."
-                  : "O Porteiro bloqueia este acesso.",
+                  : d.key === "final"
+                    ? "A Porta 13 só abre depois da transmissão no terminal."
+                    : d.key === "prontuarios"
+                      ? "A enfermaria circular pede os três prontuários marcados."
+                      : d.key === "preceptora"
+                        ? "O visor só abre com o crachá da Preceptora."
+                        : "O Porteiro bloqueia este acesso.",
         );
         audio.tone(80, 0.18);
         return;
@@ -573,15 +582,84 @@ function interactions(): Interaction[] {
     });
   if (s.room === "isolamento")
     list.push({
-      label: "Transmitir fita e selar barreira",
+      label: s.flags.final
+        ? "Porta 13 aberta"
+        : "Transmitir fita e abrir a Porta 13",
       position: { x: 0, z: -6.5 },
       run: () => {
         if (!s.enemies.febril02.dead)
           return announce(
-            "Movimento detectado. Neutralize o Febril antes de selar.",
+            "Movimento detectado. Neutralize o Febril antes de abrir a Porta 13.",
           );
+        if (s.flags.final)
+          return announce("A Porta 13 já cedeu. A pediatria está à frente.");
         s.flags.final = true;
-        finalWin();
+        audio.tone(240, 1);
+        announce(
+          "Fita transmitida. A Porta 13 cedeu. Três batidas respondem do lado da pediatria.",
+        );
+      },
+    });
+  if (s.room === "leitos" && !s.flags.prontuarios) {
+    for (const [mark, x, z, label] of [
+      ["baleia", -2, -2, "Leito da baleia azul"],
+      ["passaro", 0, -5.2, "Leito do pássaro vermelho"],
+      ["arvore", 2, -2, "Leito da árvore verde"],
+      ["errante", 0, 3.2, "Leito sem marca"],
+    ] as const)
+      list.push({
+        label,
+        position: { x, z },
+        run: () => {
+          const r = markBed(s, mark);
+          audio.tone(r.ok ? 420 : 90, 0.2);
+          if (r.done)
+            announce(
+              "Três prontuários confirmados. A enfermaria circular se abre.",
+            );
+          else if (!r.ok)
+            announce(
+              r.count
+                ? "Este prontuário é isca. Lia falou da que nada, da que voa e da que enraíza."
+                : "Prontuário incompleto. Procure as três marcas no plantão: baleia, pássaro, árvore.",
+            );
+          else announce(r.count + "/3 leitos confirmados.");
+        },
+      });
+  }
+  if (s.room === "circulo" && !s.flags.preceptora)
+    list.push({
+      label:
+        auxCooldown > 0
+          ? `Gerador auxiliar recarregando (${Math.ceil(auxCooldown)}s)`
+          : "Ligar gerador auxiliar",
+      position: { x: 4, z: -6.2 },
+      run: () => {
+        if (auxCooldown > 0)
+          return announce("O circuito ainda recarrega. Contorne os leitos.");
+        const b = s.enemies.preceptora;
+        if (!b || b.dead) return announce("O gerador não responde mais.");
+        auxCooldown = 20;
+        b.vulnerable = 15;
+        b.state = "stun";
+        b.timer = 1.2;
+        view.dim = 1;
+        audio.tone(90, 0.8);
+        announce("Quinze segundos de claridade. A Preceptora está exposta.");
+      },
+    });
+  if (s.room === "visor")
+    list.push({
+      label: s.flags.cirurgia
+        ? "Registro concluído"
+        : "Registrar o crachá no visor",
+      position: { x: 0, z: -6.5 },
+      run: () => {
+        if (!s.flags.preceptora)
+          return announce("O visor exige o crachá da Preceptora.");
+        if (s.flags.cirurgia) return announce("O registro já foi feito.");
+        s.flags.cirurgia = true;
+        pediatricWin();
       },
     });
   return list;
@@ -735,7 +813,10 @@ function fire() {
               ? "Impacto na cabeça."
               : "Impacto confirmado.",
     );
-    if (e.boss && e.dead) bossWin();
+    if (e.boss && e.dead) {
+      if (e.kind === "B02") preceptoraWin();
+      else bossWin();
+    }
   } else announce("Impacto no cenário. A munição foi consumida.");
 }
 function bossWin() {
@@ -771,11 +852,21 @@ function pressurePuzzle() {
       },
     });
 }
-function finalWin() {
+function preceptoraWin() {
+  if (s.flags.preceptora) return;
+  s.flags.preceptora = true;
+  s.flags.cracha = true;
+  view.dim = 1;
+  audio.tone(240, 1);
+  announce(
+    "Preceptora neutralizada. O crachá cirúrgico abre o visor ao fundo.",
+  );
+}
+function pediatricWin() {
   mode = "win";
   audio.tone(240, 1);
   panel(
-    `<div class="eyebrow">FITA 03:16 / SETOR SELADO</div><h2>Do outro lado da porta.</h2><blockquote>“Helena, a lista não era de mortos. Era de transferências. Não existe leito treze.” — Caio</blockquote><p>A transmissão foi copiada e a barreira selada. Do outro lado, três batidas respondem ao rádio. O sinal aponta para a pediatria abandonada.</p><p>Conclusão da expansão de internação. A campanha completa continua planejada, não implementada.</p><p>Derrotas nesta sessão: ${deaths} · Documentos: ${s.docs.length} · Tempo: ${Math.floor(s.time / 60)} min</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
+    `<div class="eyebrow">CRACHÁ CIRÚRGICO / VISOR</div><h2>Água do outro lado.</h2><blockquote>“Se você chegou até aqui, não desça sem gravar o que viu. O Mergulhador não é uma metáfora.” — Caio</blockquote><p>O crachá da Preceptora abre o visor, não a porta de cirurgia. Do outro lado, a água chega ao tornozelo e uma válvula grande demais para este andar bate em ritmo lento. A Porta 13 era só o começo da lista.</p><p>Conclusão da ala de pediatria. O centro cirúrgico e a estação hídrica continuam à frente, ainda não construídos.</p><p>Derrotas nesta sessão: ${deaths} · Documentos: ${s.docs.length} · Tempo: ${Math.floor(s.time / 60)} min</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
   );
   buttons({ explore: close, menu });
 }
@@ -877,8 +968,20 @@ function pathDirection(e: Vec, p: Vec): Vec {
     n = prev.get(key(n))!;
   return { x: n.x - e.x, z: n.z - e.z };
 }
+function bossPhase(e: Enemy) {
+  const r = e.hp / enemyStats(e.kind).hp;
+  return r > 0.71 ? 1 : r > 0.31 ? 2 : 3;
+}
 function tickEnemy(e: Enemy, dt: number) {
   if (e.dead) return;
+  // B02 helpers stay under the beds until phase 2.
+  if (
+    (e.id === "rastejador03" || e.id === "rastejador04") &&
+    s.enemies.preceptora &&
+    !s.enemies.preceptora.dead &&
+    bossPhase(s.enemies.preceptora) === 1
+  )
+    return;
   e.vulnerable = Math.max(0, e.vulnerable - dt);
   const d = dist(e, s.player);
   const stats = enemyStats(e.kind),
@@ -953,7 +1056,13 @@ function tickEnemy(e: Enemy, dt: number) {
           lineClear(e, s.player, rooms[s.room].obstacles)
         )
           hitPlayer(
-            e.boss ? (e.hp < 336 ? 28 : 20) : stats.damage,
+            e.boss
+              ? bossPhase(e) >= 3
+                ? 28
+                : e.kind === "B02"
+                  ? 18
+                  : 20
+              : stats.damage,
             e.kind === "E02" && !e.crawl,
             e,
           );
@@ -982,8 +1091,15 @@ function tickEnemy(e: Enemy, dt: number) {
   const len = Math.hypot(dir.x, dir.z);
   if (len > 0.1) {
     const speed =
-      (e.boss ? (e.hp < 336 ? 1.5 : 1.2) : e.crawl ? 0.36 : stats.speed) *
-      (e.exposure >= 25 ? 0.8 : 1);
+      (e.boss
+        ? bossPhase(e) >= 3
+          ? 1.55
+          : 1.2
+        : e.crawl
+          ? e.kind === "E05"
+            ? 0.82
+            : 0.36
+          : stats.speed) * (e.exposure >= 25 ? 0.8 : 1);
     moveBody(
       e,
       (dir.x / len) * speed * dt,
@@ -1002,6 +1118,16 @@ function tick(dt: number) {
   invulnerable = Math.max(0, invulnerable - dt);
   shotCooldown = Math.max(0, shotCooldown - dt);
   trapCooldown = Math.max(0, trapCooldown - dt);
+  auxCooldown = Math.max(0, auxCooldown - dt);
+  const pre = s.enemies.preceptora;
+  view.dim =
+    s.room === "circulo" &&
+    pre &&
+    !pre.dead &&
+    bossPhase(pre) >= 2 &&
+    pre.vulnerable <= 0
+      ? 0.32
+      : 1;
   if (reloadTime > 0) {
     reloadTime -= dt;
     if (reloadTime <= 0) {
@@ -1076,19 +1202,25 @@ function hud() {
     `LUZ ${s.light ? "ON" : "OFF"}  ${Math.ceil(s.battery)}%  [${s.batteries}]`;
   el("region").textContent =
     `${reloadTime > 0 ? "RECARREGANDO…" : aiming ? (prefs.mode === "shoulder" ? "MIRA LIVRE / RETÍCULA" : "MIRA: " + (region === "head" ? "CABEÇA" : region === "body" ? "TRONCO" : "PERNA ESQUERDA")) : "R recarregar · H curar"}`;
-  el("objective").textContent = s.flags.final
-    ? "FITA 03:16 RECUPERADA / SETOR SELADO"
-    : s.flags.pressao
-      ? "Sele a barreira no terminal de isolamento"
-      : s.flags.pulseira
-        ? "Lavanderia: purgue na ordem 3 → 1 → 2"
-        : s.flags.boss
-          ? "Acesso à internação → leito 203"
-          : s.flags.energia
-            ? "Neutralize o Porteiro no átrio"
-            : s.flags.chave
-              ? "Instale o fusível no gerador"
-              : "Encontre a chave no arquivo · 03:15";
+  el("objective").textContent = s.flags.cirurgia
+    ? "CRACHÁ REGISTRADO / O CENTRO CIRÚRGICO ESPERA"
+    : s.flags.preceptora
+      ? "Registre o crachá no visor da ante-sala"
+      : s.flags.prontuarios
+        ? "Enfrente a Preceptora · gerador auxiliar à direita"
+        : s.flags.final
+          ? "Pediatria: confirme os três leitos marcados"
+          : s.flags.pressao
+            ? "Transmita a fita e abra a Porta 13"
+            : s.flags.pulseira
+              ? "Lavanderia: purgue na ordem 3 → 1 → 2"
+              : s.flags.boss
+                ? "Acesso à internação → leito 203"
+                : s.flags.energia
+                  ? "Neutralize o Porteiro no átrio"
+                  : s.flags.chave
+                    ? "Instale o fusível no gerador"
+                    : "Encontre a chave no arquivo · 03:15";
   const i = mode === "play" && !travel.active ? nearest() : undefined;
   el("prompt").textContent = i ? "[ E ] " + i.label : "";
   el("top").style.opacity = travel.active ? "0" : "1";

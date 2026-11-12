@@ -47,20 +47,31 @@ export function bakeVertex(
     ao *= 0.7 + (0.3 * Math.max(edgeX, edgeZ)) / 0.7;
   // Underside faces receive less bounce.
   if (n.y < -0.6) ao *= 0.78;
-  ao = Math.max(0.45, Math.min(1, ao));
-  out.setRGB(ao, ao, ao);
+  ao = Math.max(0.38, Math.min(1, ao));
+  // Mid-wall wear: variation so a large tessellated face next to the camera
+  // cannot read as a smooth, uniformly lit slab.
+  const wear =
+    0.86 +
+    0.14 *
+      (0.5 +
+        0.5 *
+          Math.sin(
+            p.x * 3.1 + Math.sin(p.z * 2.4) * 2 + p.y * 5.1 + p.z * 1.3,
+          ));
+  const dirt = Math.abs(n.y) < 0.65 && p.y > 0.2 && p.y < 3.15 ? wear : 1;
+  out.setRGB(ao * dirt, ao * dirt * 0.98, ao * dirt * 0.93);
   // Damp band: deterministic noise near the floor, greenish-brown.
   if (o.damp > 0 && p.y < 1.1) {
     const noise =
       0.5 + 0.5 * Math.sin(p.x * 2.3 + Math.sin(p.z * 1.7) * 2 + p.z * 0.9);
-    const k = o.damp * noise * (1 - p.y / 1.1) * 0.45;
+    const k = o.damp * noise * (1 - p.y / 1.1) * 0.55;
     out.r *= 1 - k;
     out.g *= 1 - k * 0.7;
-    out.b *= 1 - k * 1.1;
+    out.b *= 1 - k * 1.15;
   }
   col.setHex(o.tint);
   out.multiply(col);
-  // Baked practical/door lights (Lambert * smooth falloff). Written to a
+  // Baked practical/door lights (Lambert * tight falloff). Written to a
   // separate radiance attribute and added as emission x albedo in the shader,
   // i.e. a per-vertex lightmap that costs no runtime light.
   if (light) {
@@ -70,12 +81,17 @@ export function bakeVertex(
       const d = tmp.length();
       if (d >= l.range) continue;
       const lambert = Math.max(0, tmp.dot(n) / Math.max(d, 1e-4)),
-        k = (0.25 + 0.75 * lambert) * (1 - d / l.range) ** 1.5 * l.intensity;
+        k = (0.12 + 0.88 * lambert) * (1 - d / l.range) ** 1.85 * l.intensity;
       col.setHex(l.color);
       light.r += col.r * k;
       light.g += col.g * k;
       light.b += col.b * k;
     }
+    // Hard cap: a door lamp on a near wall must not blow out to a flat slab.
+    const cap = 0.78;
+    light.r = Math.min(cap, light.r);
+    light.g = Math.min(cap, light.g);
+    light.b = Math.min(cap, light.b);
   }
   return out;
 }

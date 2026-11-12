@@ -28,7 +28,12 @@ import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
 import type { GameState } from "./logic";
 import { defaults, profiles, lookInput, type Preferences } from "./controls";
-import { raycastShot, cameraCollision, type ShotHit } from "./aim";
+import {
+  raycastShot,
+  cameraCollision,
+  roomCameraClearance,
+  type ShotHit,
+} from "./aim";
 import {
   box,
   capsule,
@@ -93,6 +98,8 @@ export class View {
   dust: T.Points | undefined;
   baked: T.Mesh[] = [];
   bakeStats = { merged: 0, sources: 0 };
+  /** 1 = normal, <1 dims baked + hemisphere (B02 darkness). */
+  dim = 1;
   flash = new T.PointLight(0xffc184, 0, 5);
   /** 0.6: baked lights of the room, reused as a light probe for actors. */
   probeLights: BakeLight[] = [];
@@ -336,7 +343,11 @@ export class View {
     for (const o of r.obstacles) {
       const metal = mat(0x56635b, 0.58, 0.5, this.rust),
         cloth = mat(0xb4b5a0, 0.95, 0, this.wallTex);
-      if (["corredor", "enfermaria", "internacao"].includes(id)) {
+      if (
+        ["corredor", "enfermaria", "internacao", "leitos", "circulo"].includes(
+          id,
+        )
+      ) {
         this.addObstacle(box(o.w, 1.1, o.d, mat(0x48564f), o.x, 0.55, o.z));
         this.group.add(box(o.w + 0.08, 0.18, o.d, cloth, o.x, 1.05, o.z));
         this.group.add(
@@ -347,6 +358,106 @@ export class View {
           for (const dz of [-o.d * 0.3, o.d * 0.3])
             this.group.add(capsule(0.07, 0.25, metal, o.x + dx, 0.2, o.z + dz));
         }
+        if (id === "leitos") {
+          const tone = o.x < -1 ? 0x3a6a9a : o.x > 1 ? 0x3d6a48 : 0x8a3030;
+          // Colored footboard — visual mark of the P03 beds, no written text.
+          this.group.add(
+            box(o.w * 0.7, 0.45, 0.08, mat(tone), o.x, 1.15, o.z - o.d * 0.45),
+          );
+          if (o.x < -1) {
+            // whale silhouette
+            this.group.add(
+              box(0.38, 0.14, 0.12, mat(tone), o.x, 1.45, o.z - o.d * 0.45),
+            );
+            this.group.add(
+              box(0.12, 0.1, 0.1, mat(tone), o.x + 0.2, 1.52, o.z - o.d * 0.45),
+            );
+          } else if (o.x > 1) {
+            // tree
+            this.group.add(
+              box(0.07, 0.28, 0.07, mat(0x5a4030), o.x, 1.35, o.z - o.d * 0.45),
+            );
+            this.group.add(
+              box(0.28, 0.22, 0.12, mat(tone), o.x, 1.58, o.z - o.d * 0.45),
+            );
+          } else {
+            // bird
+            this.group.add(
+              box(0.28, 0.1, 0.12, mat(tone), o.x, 1.48, o.z - o.d * 0.45),
+            );
+            this.group.add(
+              box(
+                0.16,
+                0.12,
+                0.06,
+                mat(tone),
+                o.x - 0.08,
+                1.58,
+                o.z - o.d * 0.45,
+              ),
+            );
+          }
+        }
+      } else if (id === "bercario") {
+        this.addObstacle(
+          box(o.w, 0.45, o.d, mat(0xc9bc94, 0.95), o.x, 0.28, o.z),
+        );
+        for (const dx of [-o.w / 2, o.w / 2])
+          for (const dz of [-o.d / 2, o.d / 2])
+            this.group.add(
+              box(0.07, 1.05, 0.07, metal, o.x + dx, 0.7, o.z + dz),
+            );
+        for (const dx of [-o.w / 2, o.w / 2])
+          this.group.add(box(0.05, 0.05, o.d, metal, o.x + dx, 1.15, o.z));
+        for (const dz of [-o.d / 2, o.d / 2])
+          this.group.add(box(o.w, 0.05, 0.05, metal, o.x, 1.15, o.z + dz));
+      } else if (id === "espera" || id === "recreio") {
+        this.addObstacle(
+          box(o.w, 0.62, o.d, mat(0x6a5044, 0.9), o.x, 0.35, o.z),
+        );
+        this.group.add(
+          box(
+            o.w + 0.06,
+            0.06,
+            o.d + 0.06,
+            mat(0xc4b494, 0.95),
+            o.x,
+            0.68,
+            o.z,
+          ),
+        );
+        if (id === "recreio")
+          for (let k = 0; k < 4; k++)
+            this.group.add(
+              box(
+                0.16,
+                0.16,
+                0.16,
+                mat([0xbca261, 0x6d7f6b, 0x8a5a48, 0x3a6a9a][k]),
+                o.x - o.w * 0.25 + (k % 2) * 0.35,
+                0.8,
+                o.z - o.d * 0.2 + Math.floor(k / 2) * 0.35,
+              ),
+            );
+      } else if (id === "visor") {
+        this.addObstacle(
+          box(o.w, 0.7, o.d, mat(0x6a7878, 0.55, 0.35), o.x, 0.42, o.z),
+        );
+        this.group.add(
+          box(
+            o.w + 0.1,
+            0.08,
+            o.d + 0.1,
+            mat(0xb8c0bc, 0.5, 0.3),
+            o.x,
+            0.8,
+            o.z,
+          ),
+        );
+        for (const dz of [-o.d * 0.35, o.d * 0.35])
+          this.group.add(
+            capsule(0.08, 0.18, metal, o.x + o.w * 0.35, 0.16, o.z + dz),
+          );
       } else if (id === "arquivo") {
         this.addObstacle(box(o.w, 2.3, o.d, metal, o.x, 1.15, o.z));
         for (let y = 0.35; y < 2.3; y += 0.45) {
@@ -845,14 +956,18 @@ export class View {
       .addScaledVector(right, shoulderOffset(aiming, this.prefs.shoulder))
       .add(new T.Vector3(0, 0.15, 0));
     this.scene.updateMatrixWorld();
-    const safe = cameraCollision(pivot, desired, this.obstacles);
+    const safe = roomCameraClearance(
+      cameraCollision(pivot, desired, this.obstacles),
+    );
     if (!this.cameraReady) {
       this.camera.position.copy(safe);
       this.cameraReady = true;
     } else {
       this.camera.position.lerp(safe, 1 - Math.exp(-dt * 14));
       this.camera.position.copy(
-        cameraCollision(pivot, this.camera.position, this.obstacles),
+        roomCameraClearance(
+          cameraCollision(pivot, this.camera.position, this.obstacles),
+        ),
       );
     }
     this.camera.lookAt(this.camera.position.clone().addScaledVector(dir, 10));
@@ -1109,7 +1224,11 @@ export class View {
       l.intensity = l.userData.base * pulse;
       gain += pulse / this.practical.length;
     }
-    bakedGain.value = gain || 1;
+    bakedGain.value = (gain || 1) * this.dim;
+    const hemi = this.scene.children.find(
+      (o) => o instanceof T.HemisphereLight,
+    ) as T.HemisphereLight | undefined;
+    if (hemi) hemi.intensity = 0.48 * Math.max(0.28, this.dim);
     this.environment?.update(
       s,
       dt,
