@@ -702,6 +702,17 @@ async function changeRoom(id: string) {
           "ALARME DE ISOLAMENTO · Neutralize o movimento e sele a Porta 13.",
         );
         audio.tone(180, 1, 0.4, "sawtooth");
+      } else if (
+        s.room === "circulo" &&
+        s.enemies.preceptora &&
+        !s.enemies.preceptora.dead
+      ) {
+        s.enemies.preceptora.state = "stun";
+        s.enemies.preceptora.timer = 5;
+        announce(
+          "A Preceptora ergue a cabeça. O gerador auxiliar está no fundo, à direita.",
+        );
+        audio.tone(90, 0.8);
       } else announce(rooms[s.room].name);
       audio.tone(80, 0.25);
     }
