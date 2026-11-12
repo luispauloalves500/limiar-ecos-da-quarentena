@@ -1588,6 +1588,8 @@ Object.defineProperty(window, "limiar", {
     player: { ...s.player },
     ammo: s.ammo,
     reserve: s.reserve,
+    kits: s.kits,
+    auxCooldown,
     flags: { ...s.flags },
     mode,
     transition: travel.active,

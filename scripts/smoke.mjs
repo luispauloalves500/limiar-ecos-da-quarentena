@@ -283,6 +283,38 @@ async function travel(x, z, to) {
     await page.screenshot({ path: out + "/sala-" + to + ".png" });
   }
 }
+const PRECEPTORA_RING = [
+  [5.2, -7.2],
+  [-5.2, -7.2],
+  [5.2, 6.2],
+  [-5.2, 6.2],
+  [0, -7.2],
+  [-5.2, 0],
+  [5.2, 0],
+];
+function ringPointAway(boss, player) {
+  let best = PRECEPTORA_RING[0],
+    bestD = -1;
+  for (const pt of PRECEPTORA_RING) {
+    const fromBoss = Math.hypot(pt[0] - boss.x, pt[1] - boss.z);
+    const fromSelf = Math.hypot(pt[0] - player.x, pt[1] - player.z);
+    const score = fromBoss + Math.min(fromSelf, 4) * 0.15;
+    if (score > bestD) {
+      bestD = score;
+      best = pt;
+    }
+  }
+  return best;
+}
+async function fleePreceptora(boss) {
+  const s = await state();
+  if (s.mode !== "play") return;
+  const target = boss || s.enemies.preceptora;
+  if (!target) return;
+  const pt = ringPointAway(target, s.player);
+  await moveTo(pt[0], pt[1], 1.0);
+}
+
 async function aimAtEnemy(id, region) {
   await page.keyboard.down("j");
   await page.waitForTimeout(180);
@@ -311,29 +343,14 @@ async function aimAtEnemy(id, region) {
     if (
       s.room === "circulo" &&
       s.enemies[id].boss &&
-      sidesteps < 2 &&
       (s.enemies[id].state === "windup" ||
         Math.hypot(s.enemies[id].x - s.player.x, s.enemies[id].z - s.player.z) <
-          2.4)
+          3.2)
     ) {
-      sidesteps++;
       await page.keyboard.up("j");
-      const e = s.enemies[id],
-        dx = e.x - s.player.x,
-        dz = e.z - s.player.z,
-        len = Math.max(0.01, Math.hypot(dx, dz)),
-        sx = -dz / len,
-        sz = dx / len,
-        side = s.player.x * sx + s.player.z * sz >= 0 ? 1 : -1;
-      await moveTo(
-        s.player.x + sx * side * 3.2,
-        s.player.z + sz * side * 3.2,
-        1.2,
-      );
-      if ((await state()).mode !== "play") return;
-      await page.keyboard.down("j");
-      await page.waitForTimeout(80);
-      continue;
+      if (s.hp < 70 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
+      await fleePreceptora(s.enemies[id]);
+      return;
     }
     if (
       s.rayHit?.id === id &&
@@ -375,6 +392,10 @@ async function shoot(id, region = "1", count = 2) {
       const s = await state(),
         e = s.enemies[id];
       if (!e || e.dead) break;
+      if (s.room === "circulo" && e.boss) {
+        await fleePreceptora(e);
+        break;
+      }
       const d = Math.hypot(e.x - s.player.x, e.z - s.player.z);
       if (d > 2.2) {
         const ux = (e.x - s.player.x) / d,
@@ -383,6 +404,26 @@ async function shoot(id, region = "1", count = 2) {
       }
       if ((await state()).hp < 65) await tap("h");
       await aimAtEnemy(id, region);
+    }
+    const aimed = await state();
+    if (aimed.mode !== "play") break;
+    if (
+      aimed.room === "circulo" &&
+      aimed.enemies[id]?.boss &&
+      (!aimed.aiming ||
+        aimed.enemies[id].state === "windup" ||
+        Math.hypot(
+          aimed.enemies[id].x - aimed.player.x,
+          aimed.enemies[id].z - aimed.player.z,
+        ) < 3.4)
+    ) {
+      await page.keyboard.up("j");
+      await fleePreceptora(aimed.enemies[id]);
+      break;
+    }
+    if (!aimed.aiming) {
+      await page.keyboard.up("j");
+      break;
     }
     await page.waitForFunction(() => window.limiar.aiming, { timeout: 10000 });
     const before = (await state()).ammo;
@@ -748,72 +789,91 @@ try {
   await page.waitForFunction(() => !window.limiar.reloading);
   await travel(0, -7, "circulo");
   if ((await state()).hp < 90) await tap("h");
-  // East aisle during the 5 s intro, generator first, then the kit beside it.
+  // Intro: corredor leste, gerador, sai imediatamente pelo sul.
+  // Kit e recarga no canto mataram o C6k/C6m; recuar é a jogada honesta.
   await moveTo(5, 5.5);
   await moveTo(5, -6);
   await moveTo(4, -6);
   await tap("e");
-  await moveTo(5.2, -5);
-  await tap("e");
+  await moveTo(0, -7.2);
+  await moveTo(-5.2, -7.2);
   await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading, { timeout: 10000 });
-  for (let i = 0; i < 16 && !(await state()).flags.preceptora; i++) {
+  try {
+    await page.waitForFunction(() => !window.limiar.reloading, {
+      timeout: 8000,
+    });
+  } catch {
+    /* continua no anel se a recarga atrasar */
+  }
+  for (let i = 0; i < 24 && !(await state()).flags.preceptora; i++) {
     let s = await state();
-    if (s.hp < 70 && s.hp > 0) await tap("h");
-    if (s.ammo === 0) {
+    if (s.mode !== "play") break;
+    if (s.hp < 70 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
+    if (s.ammo === 0 && (s.reserve || 0) > 0) {
       await tap("r");
-      await page.waitForFunction(() => !window.limiar.reloading, {
-        timeout: 10000,
-      });
-    }
-    const boss = (await state()).enemies.preceptora;
-    if (!boss || boss.dead) break;
-    if (boss.vulnerable <= 0.4) {
-      await moveTo(4, -6);
-      await tap("e");
-      await moveTo(0, -7.2);
-      for (let w = 0; w < 24; w++) {
-        await page.waitForTimeout(400);
-        const now = await state();
-        const b = wait.enemies.preceptora;
-        if (!b || b.dead || b.vulnerable > 0.5) break;
-        if (wait.hp < 70 && wait.hp > 0) await tap("h");
-        const d = Math.hypot(b.x - wait.player.x, b.z - wait.player.z);
-        if (d < 3.5)
-          await moveTo(wait.player.x > 0 ? -5.2 : 5.2, -7.2, 1.0);
-      }
-    } else {
-      s = await state();
-      const b = s.enemies.preceptora;
-      const d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
-      if (d < 3.5 || b.state === "windup") {
-        const pts = [
-          [5.2, -7.2],
-          [-5.2, -7.2],
-          [5.2, 6.2],
-          [-5.2, 6.2],
-          [0, -7.2],
-        ];
-        let best = pts[0],
-          bestD = -1;
-        for (const p of pts) {
-          const dd = Math.hypot(p[0] - b.x, p[1] - b.z);
-          if (dd > bestD) {
-            bestD = dd;
-            best = p;
-          }
-        }
-        await moveTo(best[0], best[1], 1.0);
+      try {
+        await page.waitForFunction(() => !window.limiar.reloading, {
+          timeout: 8000,
+        });
+      } catch {
+        /* segue no anel */
       }
     }
     s = await state();
-    if (s.enemies.preceptora && s.enemies.preceptora.vulnerable > 0.2)
-      await shoot("preceptora", "2", 3);
-    const after = (await state()).enemies.preceptora;
-    if (after && after.hp / 700 <= 0.71 && (await state()).hp > 40) {
-      for (const id of ["rastejador03", "rastejador04"]) {
-        const h = (await state()).enemies[id];
-        if (h && !h.dead) await shoot(id, "2", 4);
+    const boss = s.enemies.preceptora;
+    if (!boss || boss.dead) break;
+    let d = Math.hypot(boss.x - s.player.x, boss.z - s.player.z);
+    if (d < 4 || boss.state === "windup") {
+      await fleePreceptora(boss);
+      s = await state();
+    }
+    const b = (await state()).enemies.preceptora;
+    if (!b || b.dead) break;
+    s = await state();
+    d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
+    if (b.vulnerable > 0.3 && d >= 3.4) {
+      await shoot("preceptora", "2", 1);
+    } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
+      const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 4;
+      if (genClear) {
+        await moveTo(5, -6);
+        await moveTo(4, -6);
+        await tap("e");
+        await fleePreceptora((await state()).enemies.preceptora);
+      } else {
+        await fleePreceptora(b);
+        await page.waitForTimeout(400);
+      }
+    } else {
+      if (d < 4.5) await fleePreceptora(b);
+      else await page.waitForTimeout(350);
+    }
+    s = await state();
+    const after = s.enemies.preceptora;
+    if (
+      after &&
+      after.hp / 700 <= 0.71 &&
+      s.hp > 55 &&
+      Math.hypot(after.x - s.player.x, after.z - s.player.z) >= 3.4
+    ) {
+      for (const hid of ["rastejador03", "rastejador04"]) {
+        const wait = await state();
+        const h = wait.enemies[hid];
+        const waitD = h
+          ? Math.hypot(h.x - wait.player.x, h.z - wait.player.z)
+          : 99;
+        if (h && !h.dead && wait.hp > 55 && waitD >= 3) await shoot(hid, "2", 2);
+        const nowB = (await state()).enemies.preceptora;
+        if (waitB) {
+          const dd = Math.hypot(
+            waitB.x - (await state()).player.x,
+            waitB.z - (await state()).player.z,
+          );
+          if (dd < 3.5 || waitB.state === "windup") {
+            await fleePreceptora(waitB);
+            break;
+          }
+        }
       }
     }
     s = await state();
@@ -824,6 +884,12 @@ try {
         vulnerable: s.enemies.preceptora.vulnerable,
         state: s.enemies.preceptora.state,
         helena: s.hp,
+        kits: s.kits,
+        auxCooldown: s.auxCooldown,
+        dist: Math.hypot(
+          s.enemies.preceptora.x - s.player.x,
+          s.enemies.preceptora.z - s.player.z,
+        ),
       });
   }
   assert.ok((await state()).flags.preceptora);
