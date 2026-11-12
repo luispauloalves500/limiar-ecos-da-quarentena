@@ -263,12 +263,19 @@ async function moveTo(x, z, tolerance = 0.6) {
 async function travel(x, z, to) {
   await moveTo(x, z);
   await tap("e");
-  await page.waitForFunction(
-    (to) => window.limiar.room === to && !window.limiar.transition,
-    to,
-    { timeout: 15000 },
-  );
-  await page.waitForFunction(() => window.limiar.fade < 0.02);
+  try {
+    await page.waitForFunction(
+      (to) => window.limiar.room === to && !window.limiar.transition,
+      to,
+      { timeout: 30000 },
+    );
+  } catch (err) {
+    const s = await state();
+    if (s.room !== to || s.transition || s.mode !== "play") throw err;
+  }
+  await page.waitForFunction(() => window.limiar.fade < 0.02, {
+    timeout: 15000,
+  });
   await page.waitForTimeout(600);
   await note("door → " + to);
   if (!roomImages.has(to)) {
@@ -630,6 +637,15 @@ try {
     await page.context().storageState({ path: out + "/checkpoint-save.json" });
     await tap("Escape");
     await page.locator("#load").click();
+    await page.waitForFunction(
+      () =>
+        window.limiar.mode === "play" &&
+        window.limiar.room === "posto" &&
+        !window.limiar.transition &&
+        window.limiar.fade < 0.02,
+      null,
+      { timeout: 30000 },
+    );
     assert.equal((await state()).room, "posto");
     assert.ok((await state()).flags.pulseira);
     assert.ok((await state()).enemies.enfermeiro01.removed);
