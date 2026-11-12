@@ -580,19 +580,15 @@ function interactions(): Interaction[] {
       position: { x: 4, z: -6.2 },
       run: pressurePuzzle,
     });
-  if (s.room === "isolamento")
+  if (s.room === "isolamento" && !s.flags.final)
     list.push({
-      label: s.flags.final
-        ? "Porta 13 aberta"
-        : "Transmitir fita e abrir a Porta 13",
+      label: "Transmitir fita e abrir a Porta 13",
       position: { x: 0, z: -6.5 },
       run: () => {
         if (!s.enemies.febril02.dead)
           return announce(
             "Movimento detectado. Neutralize o Febril antes de abrir a Porta 13.",
           );
-        if (s.flags.final)
-          return announce("A Porta 13 já cedeu. A pediatria está à frente.");
         s.flags.final = true;
         audio.tone(240, 1);
         announce(

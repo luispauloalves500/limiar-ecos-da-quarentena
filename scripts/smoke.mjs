@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const base =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
 const gameMode = process.env.GAME_MODE || "shoulder";
-const out = process.env.SMOKE_OUT || `/workspace/limiar-v060-smoke/${gameMode}`;
+const out = process.env.SMOKE_OUT || `/workspace/limiar-v070-smoke/${gameMode}`;
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -692,7 +692,8 @@ try {
   );
   assert.equal((await state()).preferences.mode, gameMode);
   await page.locator("#load").click();
-  assert.equal((await state()).room, "posto");
+  assert.equal((await state()).room, "abrigo");
+  assert.ok((await state()).flags.final);
   assert.equal((await state()).preferences.mode, gameMode);
   assert.deepEqual(errors, []);
   assert.deepEqual(responses, []);
