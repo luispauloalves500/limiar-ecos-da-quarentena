@@ -29,7 +29,18 @@ A campanha oficial da 0.7.0 passou a rodar em **dois segmentos encadeados por gr
 - Cada segmento tem no máximo **2 tentativas**. Os dois segmentos rodam em **ombro e tank**, em série, nunca em paralelo. `scripts/run-segments.mjs`, com setsid/nohup e log em disco.
 - Se uma rodada anterior desta sessão já tivesse deixado um save real do abrigo, ele poderia ser usado no segmento 2. No início do C7 não havia; o segmento 1 precisa gerá-lo.
 
-Resultados: a preencher após o runner.
+**Resultados oficiais do C7** (12 de nov. de 2026, 17:59–18:32 America/Sao_Paulo; log `/workspace/limiar-v070-smoke/segments/`; `summary-c7-oficial.json`):
+
+- **Segmento 1, ombro:** passou na 1ª tentativa (17:59:33–18:07:33). Gravações reais em segura, posto e abrigo (`contentVersion` 4, Helena 100 HP, 2 kits, 12+63 munição, `flags.final`, posição do gravador). Inclui o Porteiro, que a campanha única tinha perdido em C6p/C6q.
+- **Segmento 1, tank:** passou na 1ª tentativa (18:15:31–18:25:39). Gravação real do abrigo: 100 HP, 1 kit, 12+62, `flags.final`.
+- **Segmento 2, ombro:** falhou nas 2 tentativas, ambas a partir da mesma gravação real do abrigo.
+  - Tentativa 1: Preceptora a 535 HP, Helena a 76, 1 kit, distância 6,36 m; a automação morreu mirando um ajudante (`rastejador03`). Tela de morte honesta («Nenhum kit médico»).
+  - Tentativa 2: teto de 24 ciclos do smoke encerrou a luta com a Preceptora a 639 HP e **Helena viva** (52 HP, 0 kits, 9+82 munição, foto `seg2-a2-fail/failure.png`). Não foi morte no jogo; a automação desistiu.
+- **Segmento 2, tank:** falhou nas 2 tentativas, teto de 24 ciclos, Preceptora ainda a 700 HP, Helena viva a 100 HP. A mira tank soltava o ADS, esperava 100 ms e o `shoot()` abortava com `!aiming` — zero dano. Quando o chefe acampava o gerador, o smoke só fugia e não o atraía para fora.
+- Nenhuma trapaça, nenhum save fabricado. O jogo (HP 700, dano, velocidade, arena C6j) não mudou. A luta continua justa (C6k chegou a 147 HP).
+
+**C7b (correção só da automação, depois do C7 oficial):** o segmento 2 volta a correr a partir das **mesmas gravações reais do abrigo** geradas no C7, no máximo 2 tentativas, ombro e tank em série. Mudanças no `scripts/smoke.mjs`, nenhuma no jogo: teto de 90 ciclos com erro honesto se a Preceptora continuar de pé; não atira nos ajudantes durante o chefe (foi o que matou o ombro a1); rajada de até 3 tiros na janela vulnerável (o `aimAtEnemy` já recua no windup); espera o ADS no tank; se o chefe acampa o gerador, atrai-o ao canto oposto; kit do círculo só se o chefe está a mais de 5 m. `SKIP_SEG1=1` no runner, pasta `segments-c7b`.
+
 
 ## QA real
 `smoke` (ombro e tank): 19 salas, final no visor com a flag `cirurgia`, Porta 13 em modo play (não encerra), save/load real no plantão da pediatria, zero erros JS/warnings/HTTP. Fotografias de porta com fade zero. Mínimo de brilho das 19 entradas (fixture de revisão, média RGB sRGB 0–255, recorte sem HUD): a registrar após as campanhas desta sessão; a revisão prévia das 19 passou (mínimo média 9,11 e cena 9,48, limiares 7 e 5).

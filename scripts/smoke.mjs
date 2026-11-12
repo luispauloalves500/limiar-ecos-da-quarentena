@@ -343,12 +343,46 @@ async function aimAtEnemy(id, region) {
   await page.keyboard.down("j");
   await page.waitForTimeout(180);
   if (gameMode === "tank") {
-    const s = await state(),
-      e = s.enemies[id];
-    await page.keyboard.up("j");
-    await tankFace(Math.atan2(e.x - s.player.x, e.z - s.player.z));
-    await page.keyboard.down("j");
-    await page.waitForTimeout(100);
+    // C7b: o ramo antigo soltava a mira, virava e esperava 100 ms;
+    // shoot() abortava com !aiming e a Preceptora não levava dano (C7 tank, 0/700).
+    for (let t = 0; t < 18; t++) {
+      const s = await state();
+      if (s.mode !== "play")
+        throw Error("Not playing while aiming " + id + ": " + s.mode);
+      const e = s.enemies[id];
+      if (!e || e.dead) return;
+      if (
+        s.room === "circulo" &&
+        e.boss &&
+        (e.state === "windup" ||
+          Math.hypot(e.x - s.player.x, e.z - s.player.z) < 3.2)
+      ) {
+        await page.keyboard.up("j");
+        if (s.hp < 70 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
+        await fleePreceptora(e);
+        return;
+      }
+      const desired = Math.atan2(e.x - s.player.x, e.z - s.player.z);
+      const error = angle(desired - s.player.yaw);
+      if (Math.abs(error) >= 0.08) {
+        await page.keyboard.up("j");
+        await tankFace(desired);
+        await page.keyboard.down("j");
+        await page.waitForTimeout(180);
+        continue;
+      }
+      if (!s.aiming) {
+        await page.keyboard.down("j");
+        await page.waitForTimeout(180);
+        continue;
+      }
+      if (s.rayHit?.id === id) return;
+      const target = s.aimTargets?.find(
+        (x) => x.id === id && (x.region === "body" || x.region === "head"),
+      );
+      if (target) await lookAt(target.position);
+      else if (t >= 6) return;
+    }
     return;
   }
   const wanted = region === "3" ? "legL" : region === "2" ? "body" : "head";
@@ -435,13 +469,22 @@ async function shoot(id, region = "1", count = 2) {
       if ((await state()).hp < 65) await tap("h");
       await aimAtEnemy(id, region);
     }
-    const aimed = await state();
+    let aimed = await state();
     if (aimed.mode !== "play") break;
     if (
       aimed.room === "circulo" &&
       aimed.enemies[id]?.boss &&
-      (!aimed.aiming ||
-        aimed.enemies[id].state === "windup" ||
+      !aimed.aiming &&
+      aimed.mode === "play"
+    ) {
+      await page.keyboard.down("j");
+      await page.waitForTimeout(220);
+      aimed = await state();
+    }
+    if (
+      aimed.room === "circulo" &&
+      aimed.enemies[id]?.boss &&
+      (aimed.enemies[id].state === "windup" ||
         Math.hypot(
           aimed.enemies[id].x - aimed.player.x,
           aimed.enemies[id].z - aimed.player.z,
@@ -452,8 +495,13 @@ async function shoot(id, region = "1", count = 2) {
       break;
     }
     if (!aimed.aiming) {
-      await page.keyboard.up("j");
-      break;
+      await page.keyboard.down("j");
+      await page.waitForTimeout(220);
+      aimed = await state();
+      if (!aimed.aiming) {
+        await page.keyboard.up("j");
+        break;
+      }
     }
     try {
       await page.waitForFunction(() => window.limiar.aiming, {
@@ -951,10 +999,19 @@ try {
   } catch {
     /* continua no anel se a recarga atrasar */
   }
-  for (let i = 0; i < 24 && !(await state()).flags.preceptora; i++) {
+  // C7 oficial: o teto de 24 ciclos encerrava a luta com a Preceptora ainda
+  // em pé (ombro 639, tanque 700) e Helena viva. 90 ciclos cabem nas janelas
+  // reais do gerador (~15 s + 20 s). Sem atirar nos ajudantes (mataram o C7
+  // ombro a1) e com rajada curta: aimAtEnemy já recua no windup.
+  const preceptoraLimit = 90;
+  for (
+    let i = 0;
+    i < preceptoraLimit && !(await state()).flags.preceptora;
+    i++
+  ) {
     let s = await state();
     if (s.mode !== "play") break;
-    if (s.hp < 70 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
+    if (s.hp < 80 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
     if (s.ammo === 0 && (s.reserve || 0) > 0) {
       await tap("r");
       try {
@@ -978,49 +1035,43 @@ try {
     s = await state();
     d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
     if (b.vulnerable > 0.3 && d >= 3.4) {
-      await shoot("preceptora", "2", 1);
+      const beforeHp = b.hp;
+      await shoot("preceptora", "2", 3);
+      const afterShot = (await state()).enemies.preceptora;
+      console.log("preceptora-shot", {
+        before: beforeHp,
+        after: afterShot?.hp,
+        aiming: (await state()).aiming,
+      });
     } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
       const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 4;
       if (genClear) {
+        console.log("generator-go", {
+          bossToGen: Math.hypot(b.x - 4, b.z - -6.2),
+          helena: s.hp,
+          kits: s.kits,
+        });
+        // Kit ao lado do gerador: só se o chefe está longe. Jogada honesta.
+        if ((s.kits || 0) === 0) {
+          const bossToKit = Math.hypot(b.x - 5.2, b.z - -5.0);
+          if (bossToKit > 5) {
+            await moveTo(5.2, -5.0);
+            await tap("e");
+          }
+        }
         await moveTo(5, -6);
         await moveTo(4, -6);
         await tap("e");
         await fleePreceptora((await state()).enemies.preceptora);
       } else {
-        await fleePreceptora(b);
-        await page.waitForTimeout(400);
+        // Chefe acampou o gerador: atrai para o canto oposto, não só foge.
+        console.log("generator-lure", { x: b.x, z: b.z, helena: s.hp });
+        await moveTo(-5.2, 6.2);
+        await page.waitForTimeout(450);
       }
     } else {
       if (d < 4.5) await fleePreceptora(b);
       else await page.waitForTimeout(350);
-    }
-    s = await state();
-    const after = s.enemies.preceptora;
-    if (
-      after &&
-      after.hp / 700 <= 0.71 &&
-      s.hp > 55 &&
-      Math.hypot(after.x - s.player.x, after.z - s.player.z) >= 3.4
-    ) {
-      for (const hid of ["rastejador03", "rastejador04"]) {
-        const wait = await state();
-        const h = wait.enemies[hid];
-        const waitD = h
-          ? Math.hypot(h.x - wait.player.x, h.z - wait.player.z)
-          : 99;
-        if (h && !h.dead && wait.hp > 55 && waitD >= 3) await shoot(hid, "2", 2);
-        const nowB = (await state()).enemies.preceptora;
-        if (waitB) {
-          const dd = Math.hypot(
-            waitB.x - (await state()).player.x,
-            waitB.z - (await state()).player.z,
-          );
-          if (dd < 3.5 || waitB.state === "windup") {
-            await fleePreceptora(waitB);
-            break;
-          }
-        }
-      }
     }
     s = await state();
     if (s.enemies.preceptora)
@@ -1037,6 +1088,27 @@ try {
           s.enemies.preceptora.z - s.player.z,
         ),
       });
+  }
+  {
+    const end = await state();
+    if (!end.flags.preceptora) {
+      const p = end.enemies && end.enemies.preceptora;
+      throw Error(
+        "Preceptora ainda em combate após " +
+          preceptoraLimit +
+          " ciclos (hp=" +
+          (p ? p.hp : "?") +
+          ", helena=" +
+          end.hp +
+          ", kits=" +
+          end.kits +
+          ", vuln=" +
+          (p ? p.vulnerable : "?") +
+          ", state=" +
+          (p ? p.state : "?") +
+          "). A automação esgotou o tempo; o jogo não foi alterado.",
+      );
+    }
   }
   assert.ok((await state()).flags.preceptora);
   assert.ok((await state()).flags.cracha);

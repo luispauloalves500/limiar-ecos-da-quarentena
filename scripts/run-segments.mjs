@@ -77,6 +77,21 @@ for (const mode of modes) {
 
   // --- Segmento 1 ---
   let seg1 = { attempts: [], passed: false, save: null };
+  const abrigoExisting = path.join(saves, "save-abrigo.json");
+  if (process.env.SKIP_SEG1 === "1") {
+    if (exists(abrigoExisting)) {
+      seg1.passed = true;
+      seg1.save = abrigoExisting;
+      seg1.skipped = "gravação real pré-existente";
+      await log(
+        `${mode} segmento 1 omitido (SKIP_SEG1); usa ${abrigoExisting}`,
+      );
+    } else {
+      await log(
+        `${mode} SKIP_SEG1=1 mas não há save-abrigo real em ${abrigoExisting}`,
+      );
+    }
+  }
   for (let attempt = 1; attempt <= maxAttempts && !seg1.passed; attempt++) {
     const abrigo = path.join(saves, "save-abrigo.json");
     const posto = path.join(saves, "save-posto.json");
