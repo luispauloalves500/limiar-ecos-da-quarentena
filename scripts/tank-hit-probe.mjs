@@ -487,6 +487,32 @@ try {
   await page.screenshot({ path: `${out}/03-circulo-entrada.png` });
   await diag("entered-circulo");
 
+  // Prova de acerto: no stun de entrada a chefe está a ~9 m e não ataca.
+  // Sem gerador a armadura está fechada: o jogo deve aplicar 3 de dano e
+  // anunciar "Armadura fechada". Mesmo caminho de fire() dos rastejadores.
+  {
+    const before = (await state()).enemies.preceptora;
+    console.log("INTRO-STUN before", before?.hp, before?.state, before?.vulnerable);
+    report.introShot = await realTankShots("preceptora", 2);
+    const after = (await state()).enemies.preceptora;
+    const dmg = (before?.hp ?? 700) - (after?.hp ?? 700);
+    report.tankCanHitBoss = dmg > 0 || report.introShot.shots.some((x) => x.damage > 0);
+    report.bestBossHp = after?.hp ?? 700;
+    report.notes.push(
+      "tiro no stun de entrada: dano=" +
+        dmg +
+        " shots=" +
+        JSON.stringify(report.introShot.shots) +
+        " ads=" +
+        JSON.stringify(report.introShot.aimingLatencies),
+    );
+    await page.screenshot({ path: `${out}/03b-intro-shot.png` });
+    console.log("INTRO-STUN after", after?.hp, "canHit", report.tankCanHitBoss);
+    await page.keyboard.up("j");
+    if ((await state()).hp < 80 && (await state()).kits > 0)
+      await page.keyboard.press("h");
+  }
+
   // Intro: 5 s de stun. Vai ao gerador (entrada real: E) e sai.
   await moveTo(5, 5.5);
   await moveTo(5, -6);
