@@ -392,7 +392,7 @@ class Rig {
       );
       this.mixer.update(0);
     }
-    if (!preview) this.layers(e, name);
+    this.layers(e, name);
     const scale = templates[this.index].bones.find(
       (b) => b.short === "Head",
     )!.scale;
