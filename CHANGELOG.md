@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+- Corrige a faixa de parede lisa e clara demais à esquerda da câmera (arquivo, enfermaria e demais salas laterais): a câmera de ombro atravessava ou encostava na parede da porta de entrada; a 0.7 impõe folga de 1,2 m no interior e afasta o spawn lateral. O bake passa a ter desgaste por vértice, wrap mais direcional, atenuação **1,85 e teto de emissão, e a lâmpada da porta fica mais curta.
+- Completa o capítulo 2 da pediatria (GDD 1.6) depois da Porta 13: sete salas novas (espera, plantão seguro, brinquedoteca, berçário, leitos infantis, enfermaria circular, ante-sala cirúrgica), com identidade visual própria, documentos só no leitor e conexão com mapa, save/load e migração das saves 0.6 (contentVersion 3→4).
+- Novo puzzle P03 (três leitos marcados: baleia, pássaro, árvore; ordem livre; leito isca só dá dica). Novo inimigo E05 Rastejador (crawl no esqueleto Mixamo, mira baixa). Chefe B02 Preceptora (700 de HP, três fases, gerador de 15 s de vulnerabilidade, escurecimento e até dois rastejadores auxiliares). O registro no visor é o final desta versão e gancho para o centro cirúrgico (ainda não construído). A Porta 13 deixa de encerrar a campanha.
+- Melhorias de baixo custo nas 12 salas antigas: desgaste/sujeira/umidade no bake, props de história só com materiais já instanciados, contraste maior da luz prática. Sem PointLights novas; merge, instancing e culling iguais aos da 0.6.
+- Medição intercalada 0.6.0×0.7.0 (12 salas antigas, 3 perfis, REPEAT=2, room-bench a partir da árvore 0.6 para saves v3): _números após o A/B oficial_. Sete salas novas medidas contra o mesmo orçamento. Sem garantia de FPS físico.
+- Testes, smoke da ala nova até o visor (ombro e tank), capturas das 19 entradas e meta 0.7.0.
+
+
 ## 0.6.0
 - Assa luz prática e AO por vértice nas 12 salas, com tessellation das caixas grandes e merge por material. Luzes práticas saem da cena: o flicker vai por um ganho compartilhado e Helena/zumbis leem um light probe. O fill de câmera e as PointLights por porta deixam de existir.
 - Remove as flags temporárias de experimento (`?exp=`); fica a configuração vencedora (arquitetura + bake completo + tessellation + luz assada + cores por vértice, casters separados para a sombra da lanterna).
