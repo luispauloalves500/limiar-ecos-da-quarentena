@@ -1,5 +1,5 @@
 import { chromium } from "@playwright/test";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 const base =
   process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
@@ -17,8 +17,9 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({
   viewport: { width: 1280, height: 800 },
-  storageState: process.env.RESUME_SAVE || undefined,
 });
+const until = process.env.SMOKE_UNTIL || "end";
+let resumeRoom = null;
 const errors = [],
   warnings = [],
   responses = [];
@@ -486,6 +487,71 @@ async function shoot(id, region = "1", count = 2) {
   await page.keyboard.up("j");
   await note("shoot " + id);
 }
+
+async function readGameSaveFile(path) {
+  const raw = await readFile(path, "utf8");
+  const data = JSON.parse(raw);
+  if (data.origins) {
+    for (const o of data.origins)
+      for (const i of o.localStorage || [])
+        if (i.name === "limiar-save-v1") return i.value;
+    throw Error("storageState sem limiar-save-v1: " + path);
+  }
+  if (data.room && data.player && data.contentVersion) return raw;
+  throw Error("arquivo não é uma gravação do jogo: " + path);
+}
+async function dumpGameSave(room) {
+  const raw = await page.evaluate(() => localStorage.getItem("limiar-save-v1"));
+  assert.ok(raw, "o jogo não gravou em " + room);
+  const parsed = JSON.parse(raw);
+  assert.equal(parsed.room, room, "gravação em " + parsed.room + ", esperada " + room);
+  const dir = out + "/saves";
+  await mkdir(dir, { recursive: true });
+  await writeFile(dir + "/save-" + room + ".json", raw);
+  await page.context().storageState({ path: dir + "/storage-" + room + ".json" });
+  console.log("GAME SAVE", room, {
+    hp: parsed.player?.hp,
+    kits: parsed.kits,
+    ammo: parsed.ammo,
+    reserve: parsed.reserve,
+    flags: Object.keys(parsed.flags || {}).filter((k) => parsed.flags[k]),
+  });
+  return parsed;
+}
+async function applyOptions() {
+  await page.locator("#options").click();
+  await page.locator("#opt-mode").selectOption(gameMode);
+  await page.locator("#opt-quality").selectOption("low");
+  await page.locator("#opt-sensitivity").fill("0.7");
+  await page.locator("#opt-sensitivity").dispatchEvent("input");
+  await page.locator("#options-back").click();
+}
+async function loadRealSave(path) {
+  const raw = await readGameSaveFile(path);
+  const parsed = JSON.parse(raw);
+  await applyOptions();
+  await page.evaluate((s) => localStorage.setItem("limiar-save-v1", s), raw);
+  await page.locator("#load").click();
+  await page.waitForFunction(
+    (room) =>
+      window.limiar.mode === "play" &&
+      window.limiar.room === room &&
+      !window.limiar.transition,
+    parsed.room,
+    { timeout: 30000 },
+  );
+  try {
+    await page.waitForFunction(() => window.limiar.fade < 0.02, {
+      timeout: 15000,
+    });
+  } catch {
+    /* a sala já está jogável */
+  }
+  assert.equal((await state()).room, parsed.room);
+  await note("resume-real-save");
+  return parsed.room;
+}
+
 try {
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForFunction(
@@ -494,12 +560,15 @@ try {
     { timeout: 60000 },
   );
   if (process.env.RESUME_SAVE) {
-    await page.locator("#load").click();
-    assert.equal((await state()).room, "posto");
-    assert.ok((await state()).flags.pulseira);
-    assert.ok((await state()).flags.boss);
-    await note("resume-real-gravador");
-  } else {
+    resumeRoom = await loadRealSave(process.env.RESUME_SAVE);
+    if (
+      resumeRoom !== "segura" &&
+      resumeRoom !== "posto" &&
+      resumeRoom !== "abrigo"
+    )
+      throw Error("gravação inesperada para retomar: " + resumeRoom);
+  }
+  if (!resumeRoom) {
     await page.screenshot({ path: out + "/01-menu.png" });
     assert.equal((await state()).asset.status, "ready");
     assert.equal((await state()).preferences.mode, "shoulder");
@@ -582,12 +651,15 @@ try {
     assert.ok(
       await page.evaluate(() => localStorage.getItem("limiar-save-v1")),
     );
+    await dumpGameSave("segura");
     await page.screenshot({ path: out + "/06-sala-segura.png" });
     await tap("Escape");
     await page.locator("#load").click();
     assert.equal((await state()).room, "segura");
     if (gameMode === "shoulder")
       assert.ok((await state()).ambientState.broken.includes("recepcao"));
+  }
+  if (!resumeRoom || resumeRoom === "segura") {
     await travel(5, 4, "corredor");
     if (gameMode === "shoulder") {
       await travel(0, 7, "recepcao");
@@ -722,6 +794,7 @@ try {
     await moveTo(0, -2);
     await tap("e");
     await page.screenshot({ path: out + "/13-posto-seguro.png" });
+    await dumpGameSave("posto");
     await page.context().storageState({ path: out + "/checkpoint-save.json" });
     await tap("Escape");
     await page.locator("#load").click();
@@ -739,6 +812,7 @@ try {
     assert.ok((await state()).enemies.enfermeiro01.removed);
     assert.ok(!(await state()).worldObjects.items.includes("posto-doc"));
   }
+  if (resumeRoom !== "abrigo") {
   await travel(5, 4, "internacao");
   await travel(0, -7, "lavanderia");
   await moveTo(0, 5.5);
@@ -792,6 +866,31 @@ try {
   await moveTo(0, -2);
   await tap("e");
   await page.screenshot({ path: out + "/17-abrigo.png" });
+  await dumpGameSave("abrigo");
+  if (until === "abrigo") {
+    await page.reload();
+    await page.waitForFunction(
+      () => window.limiar?.asset.status === "ready",
+      null,
+      { timeout: 60000 },
+    );
+    await page.locator("#load").click();
+    await page.waitForFunction(
+      () =>
+        window.limiar.mode === "play" &&
+        window.limiar.room === "abrigo" &&
+        !window.limiar.transition,
+      null,
+      { timeout: 30000 },
+    );
+    assert.equal((await state()).room, "abrigo");
+    assert.ok((await state()).flags.final);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(responses, []);
+    console.log("SMOKE PASS SEGMENT 1");
+  }
+  } // resumeRoom !== "abrigo"
+  if (until !== "abrigo") {
   await travel(5, 4, "espera");
   await travel(5, 4, "recreio");
   await moveTo(0, 5);
@@ -971,6 +1070,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(responses, []);
   console.log("SMOKE PASS");
+  } // until !== "abrigo"
 } catch (e) {
   errors.push(String(e));
   await page.screenshot({ path: out + "/failure.png" });

@@ -20,6 +20,17 @@ Linux / Node 24.22.1, Chromium 158.0.8127.18, ANGLE SwiftShader, viewport 1280×
 - **P03:** marcas visuais no pé da cama (silhuetas coloridas, sem texto na parede). Ordem livre; leito isca só dá dica. A cama do pássaro foi deslocada de z=−5,2 para z=−3,6 para não sobrepor o spawn de D18.
 - **As 12 salas:** desgaste/sujeira/umidade só no bake (vértice) e props com cores já instanciadas. Sem PointLights novas.
 
+## Campanha em segmentos (C7)
+A campanha oficial da 0.7.0 passou a rodar em **dois segmentos encadeados por gravações reais do jogo**, não numa única sessão de ponta a ponta. Motivo: falhas da automação no Capítulo 1 (Porteiro, timeouts de porta/tiro) repetiam uma hora de jogo que já havia passado várias vezes nesta sessão (C6k, C6l3, C6m, C6n). Avaliação honesta, registada aqui:
+
+- Os saves vêm só do gravador do próprio jogo (`save()` → `localStorage["limiar-save-v1"]`), despejados em disco no instante em que a Helena usa o gravador em segura, posto e abrigo. Não há saves montados à mão, teleporte, HP falso nem flags inventadas.
+- **Segmento 1:** do início ao plantão da pediatria (abrigo), passando pelo posto e pela Porta 13. Na segunda tentativa, se existir uma gravação real de segura ou do posto desta própria execução, o smoke a carrega pelo botão Continuar e segue dali.
+- **Segmento 2:** carrega a gravação real do abrigo e vai até o visor, pela Preceptora (luta justa após C6j; o smoke foge e atira de longe, sem trapaça).
+- Cada segmento tem no máximo **2 tentativas**. Os dois segmentos rodam em **ombro e tank**, em série, nunca em paralelo. `scripts/run-segments.mjs`, com setsid/nohup e log em disco.
+- Se uma rodada anterior desta sessão já tivesse deixado um save real do abrigo, ele poderia ser usado no segmento 2. No início do C7 não havia; o segmento 1 precisa gerá-lo.
+
+Resultados: a preencher após o runner.
+
 ## QA real
 `smoke` (ombro e tank): 19 salas, final no visor com a flag `cirurgia`, Porta 13 em modo play (não encerra), save/load real no plantão da pediatria, zero erros JS/warnings/HTTP. Fotografias de porta com fade zero. Mínimo de brilho das 19 entradas (fixture de revisão, média RGB sRGB 0–255, recorte sem HUD): a registrar após as campanhas desta sessão; a revisão prévia das 19 passou (mínimo média 9,11 e cena 9,48, limiares 7 e 5).
 
