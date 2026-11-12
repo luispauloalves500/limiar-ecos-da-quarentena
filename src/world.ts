@@ -606,14 +606,14 @@ export const rooms: Record<RoomId, Room> = {
     subtitle: "B02 · A PRECEPTORA",
     color: 0x8a5a58,
     obstacles: [
-      { x: -3.6, z: 1.5, w: 2.2, d: 2.2 },
-      { x: 3.6, z: 1.5, w: 2.2, d: 2.2 },
-      { x: -3.6, z: -3.2, w: 2.2, d: 2.2 },
-      { x: 3.6, z: -3.2, w: 2.2, d: 2.2 },
+      { x: -3.1, z: 1.4, w: 1.5, d: 1.5 },
+      { x: 3.1, z: 1.4, w: 1.5, d: 1.5 },
+      { x: -3.1, z: -2.8, w: 1.5, d: 1.5 },
+      { x: 3.1, z: -2.8, w: 1.5, d: 1.5 },
     ],
     items: [
       { id: "cir-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 6 },
-      { id: "cir-kit", kind: "herb", label: "Kit médico", x: -4, z: 6 },
+      { id: "cir-kit", kind: "herb", label: "Kit médico", x: 5.2, z: -5.0 },
       {
         id: "cir-doc",
         kind: "document",

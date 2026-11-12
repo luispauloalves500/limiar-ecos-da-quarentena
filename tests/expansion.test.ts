@@ -16,6 +16,7 @@ import {
   enemyPattern,
 } from "../src/logic";
 import { rooms, doors, endpoint, inward, clearPoint } from "../src/world";
+import { HALF_X } from "../src/architecture";
 describe("cadáveres: prazo absoluto de cinco segundos", () => {
   for (const id of ["errante01", "enfermeiro01", "febril01", "porteiro"]) {
     it(`${id}: animação/fade e remoção sem corte ou exceção`, () => {
@@ -95,6 +96,19 @@ describe("expansão e migração", () => {
         true,
       );
     }
+  });
+  it("a arena da Preceptora deixa um anel para circular e um kit junto ao gerador", () => {
+    const room = rooms.circulo;
+    for (const o of room.obstacles) {
+      const outer =
+        o.x > 0 ? HALF_X - (o.x + o.w / 2) : o.x - o.w / 2 + HALF_X;
+      expect(outer, `corredor lateral em x=${o.x}`).toBeGreaterThanOrEqual(
+        2.5,
+      );
+    }
+    const kit = room.items.find((i) => i.id === "cir-kit");
+    expect(kit).toBeTruthy();
+    expect(Math.hypot(kit!.x - 4, kit!.z - -6.2)).toBeLessThan(3);
   });
   it("todas as novas salas são alcançáveis no grafo", () => {
     const seen = new Set(["recepcao"]);
