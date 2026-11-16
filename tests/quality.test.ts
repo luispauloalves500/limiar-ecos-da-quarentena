@@ -20,6 +20,11 @@ describe("qualidade 0.5", () => {
     "breath",
     "step",
     "ui",
+    "blade",
+    "sweep",
+    "scream",
+    "clank",
+    "spark",
   ] as SoundKind[])("%s tem envelopes finitos e mix seguro", (kind) => {
     const plan = soundPlan(kind);
     expect(plan.length).toBeGreaterThan(0);

@@ -141,7 +141,9 @@ for (const mode of modes) {
   result.segments[1] = seg1;
 
   if (!seg1.passed) {
-    await log(`${mode} segmento 1 falhou nas ${maxAttempts} tentativas; segmento 2 não roda.`);
+    await log(
+      `${mode} segmento 1 falhou nas ${maxAttempts} tentativas; segmento 2 não roda.`,
+    );
     result.segments[2] = { attempts: [], passed: false, skipped: true };
     continue;
   }
@@ -176,8 +178,24 @@ for (const mode of modes) {
 
 summary.finished = new Date().toISOString();
 summary.ok = modes.every(
-  (m) => summary.modes[m].segments[1]?.passed && summary.modes[m].segments[2]?.passed,
+  (m) =>
+    summary.modes[m].segments[1]?.passed &&
+    summary.modes[m].segments[2]?.passed,
 );
-await writeFile(path.join(root, "summary.json"), JSON.stringify(summary, null, 2));
-await log("FIM " + JSON.stringify({ ok: summary.ok, modes: Object.fromEntries(Object.entries(summary.modes).map(([k, v]) => [k, { s1: v.segments[1]?.passed, s2: v.segments[2]?.passed }])) }));
+await writeFile(
+  path.join(root, "summary.json"),
+  JSON.stringify(summary, null, 2),
+);
+await log(
+  "FIM " +
+    JSON.stringify({
+      ok: summary.ok,
+      modes: Object.fromEntries(
+        Object.entries(summary.modes).map(([k, v]) => [
+          k,
+          { s1: v.segments[1]?.passed, s2: v.segments[2]?.passed },
+        ]),
+      ),
+    }),
+);
 process.exitCode = summary.ok ? 0 : 1;

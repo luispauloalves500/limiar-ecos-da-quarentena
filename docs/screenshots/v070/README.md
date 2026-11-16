@@ -7,6 +7,6 @@ Dezenove salas no fixture de revisão (inimigos mortos, câmera de ombro após a
 - [Círculo na campanha](sala-circulo-campanha.png) — arena após C6j (camas 1,5×1,5, anel ~2,7 m), foto ao vivo do segmento 2, ombro, a partir do save real do abrigo
 - [ADS tank na Preceptora](b02-tank-ads.png) — entrada real (J/2/K) no stun de entrada: aviso «Armadura fechada. Use a trava elétrica.», 700→694 de HP, 9 MM 7/71. Prova de que o modo tank acerta a chefe
 - [Círculo em tank](b02-circulo-tank.png) — mesma sessão do probe, câmera fixa
-- [Visor](sala-visor.png) — **fixture de revisão**, não o final de uma campanha que tenha derrubado a B02
+- [Visor](sala-visor.png) — **fixture de revisão**, não o final de uma campanha que tenha derrubado a B02. Atenção: este arquivo foi capturado antes do bump e o HUD mostra "0.6.0"; a captura real do visor, de uma campanha que derrotou a B02, está em [../v080/sala-visor-campanha.png](../v080/sala-visor-campanha.png) (HUD 0.8.0)
 
 Brilho (média RGB sRGB 0–255, recorte sem HUD, limiares 7 e 5): todas as 19 passaram. Mínimo na sala gerador, **9,11 / 9,48**. Ver [brilho.json](brilho.json).

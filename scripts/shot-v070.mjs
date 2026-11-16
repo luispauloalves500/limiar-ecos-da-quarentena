@@ -2,7 +2,8 @@ import { chromium } from "@playwright/test";
 import { createServer } from "vite";
 import { mkdir, writeFile } from "node:fs/promises";
 
-const url = process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
+const url =
+  process.env.GAME_URL || "http://127.0.0.1:4173/limiar-ecos-da-quarentena/";
 const out = process.env.SMOKE_OUT || "/workspace/limiar-v070-smoke/review";
 await mkdir(out, { recursive: true });
 
@@ -59,7 +60,9 @@ const browser = await chromium.launch({
 });
 const report = [];
 for (const id of rooms) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript((raw) => {

@@ -226,7 +226,11 @@ async function moveTo(x, z, tolerance = 0.6) {
     let count = 0;
     while (true) {
       s = await state();
-      if (s.mode === "pause" || s.mode === "document" || s.mode === "inventory") {
+      if (
+        s.mode === "pause" ||
+        s.mode === "document" ||
+        s.mode === "inventory"
+      ) {
         await tap("Escape");
         await page.waitForTimeout(250);
         s = await state();
@@ -552,11 +556,17 @@ async function dumpGameSave(room) {
   const raw = await page.evaluate(() => localStorage.getItem("limiar-save-v1"));
   assert.ok(raw, "o jogo não gravou em " + room);
   const parsed = JSON.parse(raw);
-  assert.equal(parsed.room, room, "gravação em " + parsed.room + ", esperada " + room);
+  assert.equal(
+    parsed.room,
+    room,
+    "gravação em " + parsed.room + ", esperada " + room,
+  );
   const dir = out + "/saves";
   await mkdir(dir, { recursive: true });
   await writeFile(dir + "/save-" + room + ".json", raw);
-  await page.context().storageState({ path: dir + "/storage-" + room + ".json" });
+  await page
+    .context()
+    .storageState({ path: dir + "/storage-" + room + ".json" });
   console.log("GAME SAVE", room, {
     hp: parsed.player?.hp,
     kits: parsed.kits,
@@ -861,288 +871,288 @@ try {
     assert.ok(!(await state()).worldObjects.items.includes("posto-doc"));
   }
   if (resumeRoom !== "abrigo") {
-  await travel(5, 4, "internacao");
-  await travel(0, -7, "lavanderia");
-  await moveTo(0, 5.5);
-  await shoot("febril01", "3", 2);
-  if (!(await state()).enemies.febril01.dead) await shoot("febril01", "2", 2);
-  await moveTo(0, 4);
-  await tap("e");
-  await tap("Escape");
-  await moveTo(4, 5);
-  await tap("e");
-  await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading);
-  await moveTo(0, -6);
-  await moveTo(4, -6);
-  await tap("e");
-  assert.equal((await state()).mode, "puzzle");
-  await page.locator("#valve-1").click();
-  assert.ok(!(await state()).flags.valve1);
-  for (const n of [3, 1, 2]) await page.locator("#valve-" + n).click();
-  assert.ok((await state()).flags.pressao);
-  await page.screenshot({ path: out + "/14-lavanderia.png" });
-  await travel(0, -7, "isolamento");
-  await moveTo(0, 5.5);
-  await shoot("febril02", "3", 2);
-  if (!(await state()).enemies.febril02.dead) await shoot("febril02", "2", 2);
-  await page.screenshot({ path: out + "/15-isolamento.png" });
-  await moveTo(0, -6.5);
-  await tap("e");
-  assert.ok((await state()).flags.final);
-  assert.equal((await state()).mode, "play");
-  await page.screenshot({ path: out + "/16-porta-13.png" });
-  await travel(0, -7, "espera");
-  await moveTo(0, 4);
-  await tap("e");
-  await tap("Escape");
-  await moveTo(4, 5);
-  await tap("e");
-  await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading);
-  await travel(-5, 4, "abrigo");
-  await moveTo(-4, 4);
-  await tap("e");
-  await tap("Escape");
-  await moveTo(-3, 0);
-  await tap("e");
-  await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading);
-  await moveTo(1, 1);
-  await tap("e");
-  if ((await state()).hp < 80) await tap("h");
-  await moveTo(0, -2);
-  await tap("e");
-  await page.screenshot({ path: out + "/17-abrigo.png" });
-  await dumpGameSave("abrigo");
-  if (until === "abrigo") {
+    await travel(5, 4, "internacao");
+    await travel(0, -7, "lavanderia");
+    await moveTo(0, 5.5);
+    await shoot("febril01", "3", 2);
+    if (!(await state()).enemies.febril01.dead) await shoot("febril01", "2", 2);
+    await moveTo(0, 4);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(4, 5);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await moveTo(0, -6);
+    await moveTo(4, -6);
+    await tap("e");
+    assert.equal((await state()).mode, "puzzle");
+    await page.locator("#valve-1").click();
+    assert.ok(!(await state()).flags.valve1);
+    for (const n of [3, 1, 2]) await page.locator("#valve-" + n).click();
+    assert.ok((await state()).flags.pressao);
+    await page.screenshot({ path: out + "/14-lavanderia.png" });
+    await travel(0, -7, "isolamento");
+    await moveTo(0, 5.5);
+    await shoot("febril02", "3", 2);
+    if (!(await state()).enemies.febril02.dead) await shoot("febril02", "2", 2);
+    await page.screenshot({ path: out + "/15-isolamento.png" });
+    await moveTo(0, -6.5);
+    await tap("e");
+    assert.ok((await state()).flags.final);
+    assert.equal((await state()).mode, "play");
+    await page.screenshot({ path: out + "/16-porta-13.png" });
+    await travel(0, -7, "espera");
+    await moveTo(0, 4);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(4, 5);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await travel(-5, 4, "abrigo");
+    await moveTo(-4, 4);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(-3, 0);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await moveTo(1, 1);
+    await tap("e");
+    if ((await state()).hp < 80) await tap("h");
+    await moveTo(0, -2);
+    await tap("e");
+    await page.screenshot({ path: out + "/17-abrigo.png" });
+    await dumpGameSave("abrigo");
+    if (until === "abrigo") {
+      await page.reload();
+      await page.waitForFunction(
+        () => window.limiar?.asset.status === "ready",
+        null,
+        { timeout: 60000 },
+      );
+      await page.locator("#load").click();
+      await page.waitForFunction(
+        () =>
+          window.limiar.mode === "play" &&
+          window.limiar.room === "abrigo" &&
+          !window.limiar.transition,
+        null,
+        { timeout: 30000 },
+      );
+      assert.equal((await state()).room, "abrigo");
+      assert.ok((await state()).flags.final);
+      assert.deepEqual(errors, []);
+      assert.deepEqual(responses, []);
+      console.log("SMOKE PASS SEGMENT 1");
+    }
+  } // resumeRoom !== "abrigo"
+  if (until !== "abrigo") {
+    await travel(5, 4, "espera");
+    await travel(5, 4, "recreio");
+    await moveTo(0, 5);
+    await tap("e");
+    await tap("Escape");
+    await shoot("rastejador01", "2", 4);
+    if (!(await state()).enemies.rastejador01.dead)
+      await shoot("rastejador01", "2", 3);
+    if ((await state()).hp < 65) await tap("h");
+    await moveTo(4, -5);
+    await tap("e");
+    await travel(0, -7, "bercario");
+    await moveTo(0, 4);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(4, 5);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await moveTo(-4, 5);
+    await tap("e");
+    await travel(0, -7, "leitos");
+    await moveTo(0, 3);
+    await shoot("rastejador02", "2", 4);
+    if (!(await state()).enemies.rastejador02.dead)
+      await shoot("rastejador02", "2", 3);
+    if ((await state()).hp < 65) await tap("h");
+    await moveTo(-2, -2);
+    await tap("e");
+    await moveTo(0, -5.2);
+    await tap("e");
+    await moveTo(2, -2);
+    await tap("e");
+    assert.ok((await state()).flags.prontuarios);
+    await page.screenshot({ path: out + "/18-leitos.png" });
+    await moveTo(4, 5);
+    await tap("e");
+    if ((await state()).hp < 80) await tap("h");
+    await moveTo(-4, 5);
+    await tap("e");
+    await tap("r");
+    await page.waitForFunction(() => !window.limiar.reloading);
+    await travel(0, -7, "circulo");
+    if ((await state()).hp < 90) await tap("h");
+    // Intro: corredor leste, gerador, sai imediatamente pelo sul.
+    // Kit e recarga no canto mataram o C6k/C6m; recuar é a jogada honesta.
+    await moveTo(5, 5.5);
+    await moveTo(5, -6);
+    await moveTo(4, -6);
+    await tap("e");
+    await moveTo(0, -7.2);
+    await moveTo(-5.2, -7.2);
+    await tap("r");
+    try {
+      await page.waitForFunction(() => !window.limiar.reloading, {
+        timeout: 8000,
+      });
+    } catch {
+      /* continua no anel se a recarga atrasar */
+    }
+    // C7 oficial: o teto de 24 ciclos encerrava a luta com a Preceptora ainda
+    // em pé (ombro 639, tanque 700) e Helena viva. 90 ciclos cabem nas janelas
+    // reais do gerador (~15 s + 20 s). Sem atirar nos ajudantes (mataram o C7
+    // ombro a1) e com rajada curta: aimAtEnemy já recua no windup.
+    const preceptoraLimit = 90;
+    for (
+      let i = 0;
+      i < preceptoraLimit && !(await state()).flags.preceptora;
+      i++
+    ) {
+      let s = await state();
+      if (s.mode !== "play") break;
+      if (s.hp < 80 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
+      if (s.ammo === 0 && (s.reserve || 0) > 0) {
+        await tap("r");
+        try {
+          await page.waitForFunction(() => !window.limiar.reloading, {
+            timeout: 8000,
+          });
+        } catch {
+          /* segue no anel */
+        }
+      }
+      s = await state();
+      const boss = s.enemies.preceptora;
+      if (!boss || boss.dead) break;
+      let d = Math.hypot(boss.x - s.player.x, boss.z - s.player.z);
+      if (d < 4 || boss.state === "windup") {
+        await fleePreceptora(boss);
+        s = await state();
+      }
+      const b = (await state()).enemies.preceptora;
+      if (!b || b.dead) break;
+      s = await state();
+      d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
+      if (b.vulnerable > 0.3 && d >= 3.4) {
+        const beforeHp = b.hp;
+        await shoot("preceptora", "2", 3);
+        const afterShot = (await state()).enemies.preceptora;
+        console.log("preceptora-shot", {
+          before: beforeHp,
+          after: afterShot?.hp,
+          aiming: (await state()).aiming,
+        });
+      } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
+        // C7b ombro morreu a 22 HP de HP do chefe indo ao gerador com o chefe a 4,59 m.
+        const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 6.5;
+        if (genClear) {
+          console.log("generator-go", {
+            bossToGen: Math.hypot(b.x - 4, b.z - -6.2),
+            helena: s.hp,
+            kits: s.kits,
+          });
+          // Kit ao lado do gerador: só se o chefe está longe. Jogada honesta.
+          if ((s.kits || 0) === 0) {
+            const bossToKit = Math.hypot(b.x - 5.2, b.z - -5.0);
+            if (bossToKit > 5) {
+              await moveTo(5.2, -5.0);
+              await tap("e");
+            }
+          }
+          await moveTo(5, -6);
+          await moveTo(4, -6);
+          await tap("e");
+          await fleePreceptora((await state()).enemies.preceptora);
+        } else {
+          // Chefe acampou o gerador: atrai para o canto oposto, não só foge.
+          console.log("generator-lure", { x: b.x, z: b.z, helena: s.hp });
+          await moveTo(-5.2, 6.2);
+          await page.waitForTimeout(450);
+        }
+      } else {
+        if (d < 4.5) await fleePreceptora(b);
+        else await page.waitForTimeout(350);
+      }
+      s = await state();
+      if (s.enemies.preceptora)
+        console.log("preceptora", {
+          i,
+          hp: s.enemies.preceptora.hp,
+          vulnerable: s.enemies.preceptora.vulnerable,
+          state: s.enemies.preceptora.state,
+          helena: s.hp,
+          kits: s.kits,
+          auxCooldown: s.auxCooldown,
+          dist: Math.hypot(
+            s.enemies.preceptora.x - s.player.x,
+            s.enemies.preceptora.z - s.player.z,
+          ),
+        });
+    }
+    {
+      const end = await state();
+      if (!end.flags.preceptora) {
+        const p = end.enemies && end.enemies.preceptora;
+        throw Error(
+          "Preceptora ainda em combate após " +
+            preceptoraLimit +
+            " ciclos (hp=" +
+            (p ? p.hp : "?") +
+            ", helena=" +
+            end.hp +
+            ", kits=" +
+            end.kits +
+            ", vuln=" +
+            (p ? p.vulnerable : "?") +
+            ", state=" +
+            (p ? p.state : "?") +
+            "). A automação esgotou o tempo; o jogo não foi alterado.",
+        );
+      }
+    }
+    assert.ok((await state()).flags.preceptora);
+    assert.ok((await state()).flags.cracha);
+    await page.screenshot({ path: out + "/19-preceptora.png" });
+    await travel(0, -7, "visor");
+    await moveTo(0, 4);
+    await tap("e");
+    await tap("Escape");
+    await moveTo(0, -6.5);
+    await tap("e");
+    assert.equal((await state()).mode, "win");
+    assert.ok((await state()).flags.cirurgia);
+    await page.screenshot({ path: out + "/20-final.png" });
+    await note("complete");
+    await page.locator("#explore").click();
+    await page.keyboard.press("v");
+    assert.notEqual((await state()).preferences.mode, gameMode);
+    await page.keyboard.press("v");
+    assert.equal((await state()).preferences.mode, gameMode);
     await page.reload();
     await page.waitForFunction(
       () => window.limiar?.asset.status === "ready",
       null,
       { timeout: 60000 },
     );
+    assert.equal((await state()).preferences.mode, gameMode);
     await page.locator("#load").click();
-    await page.waitForFunction(
-      () =>
-        window.limiar.mode === "play" &&
-        window.limiar.room === "abrigo" &&
-        !window.limiar.transition,
-      null,
-      { timeout: 30000 },
-    );
     assert.equal((await state()).room, "abrigo");
     assert.ok((await state()).flags.final);
+    assert.equal((await state()).preferences.mode, gameMode);
     assert.deepEqual(errors, []);
     assert.deepEqual(responses, []);
-    console.log("SMOKE PASS SEGMENT 1");
-  }
-  } // resumeRoom !== "abrigo"
-  if (until !== "abrigo") {
-  await travel(5, 4, "espera");
-  await travel(5, 4, "recreio");
-  await moveTo(0, 5);
-  await tap("e");
-  await tap("Escape");
-  await shoot("rastejador01", "2", 4);
-  if (!(await state()).enemies.rastejador01.dead)
-    await shoot("rastejador01", "2", 3);
-  if ((await state()).hp < 65) await tap("h");
-  await moveTo(4, -5);
-  await tap("e");
-  await travel(0, -7, "bercario");
-  await moveTo(0, 4);
-  await tap("e");
-  await tap("Escape");
-  await moveTo(4, 5);
-  await tap("e");
-  await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading);
-  await moveTo(-4, 5);
-  await tap("e");
-  await travel(0, -7, "leitos");
-  await moveTo(0, 3);
-  await shoot("rastejador02", "2", 4);
-  if (!(await state()).enemies.rastejador02.dead)
-    await shoot("rastejador02", "2", 3);
-  if ((await state()).hp < 65) await tap("h");
-  await moveTo(-2, -2);
-  await tap("e");
-  await moveTo(0, -5.2);
-  await tap("e");
-  await moveTo(2, -2);
-  await tap("e");
-  assert.ok((await state()).flags.prontuarios);
-  await page.screenshot({ path: out + "/18-leitos.png" });
-  await moveTo(4, 5);
-  await tap("e");
-  if ((await state()).hp < 80) await tap("h");
-  await moveTo(-4, 5);
-  await tap("e");
-  await tap("r");
-  await page.waitForFunction(() => !window.limiar.reloading);
-  await travel(0, -7, "circulo");
-  if ((await state()).hp < 90) await tap("h");
-  // Intro: corredor leste, gerador, sai imediatamente pelo sul.
-  // Kit e recarga no canto mataram o C6k/C6m; recuar é a jogada honesta.
-  await moveTo(5, 5.5);
-  await moveTo(5, -6);
-  await moveTo(4, -6);
-  await tap("e");
-  await moveTo(0, -7.2);
-  await moveTo(-5.2, -7.2);
-  await tap("r");
-  try {
-    await page.waitForFunction(() => !window.limiar.reloading, {
-      timeout: 8000,
-    });
-  } catch {
-    /* continua no anel se a recarga atrasar */
-  }
-  // C7 oficial: o teto de 24 ciclos encerrava a luta com a Preceptora ainda
-  // em pé (ombro 639, tanque 700) e Helena viva. 90 ciclos cabem nas janelas
-  // reais do gerador (~15 s + 20 s). Sem atirar nos ajudantes (mataram o C7
-  // ombro a1) e com rajada curta: aimAtEnemy já recua no windup.
-  const preceptoraLimit = 90;
-  for (
-    let i = 0;
-    i < preceptoraLimit && !(await state()).flags.preceptora;
-    i++
-  ) {
-    let s = await state();
-    if (s.mode !== "play") break;
-    if (s.hp < 80 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
-    if (s.ammo === 0 && (s.reserve || 0) > 0) {
-      await tap("r");
-      try {
-        await page.waitForFunction(() => !window.limiar.reloading, {
-          timeout: 8000,
-        });
-      } catch {
-        /* segue no anel */
-      }
-    }
-    s = await state();
-    const boss = s.enemies.preceptora;
-    if (!boss || boss.dead) break;
-    let d = Math.hypot(boss.x - s.player.x, boss.z - s.player.z);
-    if (d < 4 || boss.state === "windup") {
-      await fleePreceptora(boss);
-      s = await state();
-    }
-    const b = (await state()).enemies.preceptora;
-    if (!b || b.dead) break;
-    s = await state();
-    d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
-    if (b.vulnerable > 0.3 && d >= 3.4) {
-      const beforeHp = b.hp;
-      await shoot("preceptora", "2", 3);
-      const afterShot = (await state()).enemies.preceptora;
-      console.log("preceptora-shot", {
-        before: beforeHp,
-        after: afterShot?.hp,
-        aiming: (await state()).aiming,
-      });
-    } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
-      // C7b ombro morreu a 22 HP de HP do chefe indo ao gerador com o chefe a 4,59 m.
-      const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 6.5;
-      if (genClear) {
-        console.log("generator-go", {
-          bossToGen: Math.hypot(b.x - 4, b.z - -6.2),
-          helena: s.hp,
-          kits: s.kits,
-        });
-        // Kit ao lado do gerador: só se o chefe está longe. Jogada honesta.
-        if ((s.kits || 0) === 0) {
-          const bossToKit = Math.hypot(b.x - 5.2, b.z - -5.0);
-          if (bossToKit > 5) {
-            await moveTo(5.2, -5.0);
-            await tap("e");
-          }
-        }
-        await moveTo(5, -6);
-        await moveTo(4, -6);
-        await tap("e");
-        await fleePreceptora((await state()).enemies.preceptora);
-      } else {
-        // Chefe acampou o gerador: atrai para o canto oposto, não só foge.
-        console.log("generator-lure", { x: b.x, z: b.z, helena: s.hp });
-        await moveTo(-5.2, 6.2);
-        await page.waitForTimeout(450);
-      }
-    } else {
-      if (d < 4.5) await fleePreceptora(b);
-      else await page.waitForTimeout(350);
-    }
-    s = await state();
-    if (s.enemies.preceptora)
-      console.log("preceptora", {
-        i,
-        hp: s.enemies.preceptora.hp,
-        vulnerable: s.enemies.preceptora.vulnerable,
-        state: s.enemies.preceptora.state,
-        helena: s.hp,
-        kits: s.kits,
-        auxCooldown: s.auxCooldown,
-        dist: Math.hypot(
-          s.enemies.preceptora.x - s.player.x,
-          s.enemies.preceptora.z - s.player.z,
-        ),
-      });
-  }
-  {
-    const end = await state();
-    if (!end.flags.preceptora) {
-      const p = end.enemies && end.enemies.preceptora;
-      throw Error(
-        "Preceptora ainda em combate após " +
-          preceptoraLimit +
-          " ciclos (hp=" +
-          (p ? p.hp : "?") +
-          ", helena=" +
-          end.hp +
-          ", kits=" +
-          end.kits +
-          ", vuln=" +
-          (p ? p.vulnerable : "?") +
-          ", state=" +
-          (p ? p.state : "?") +
-          "). A automação esgotou o tempo; o jogo não foi alterado.",
-      );
-    }
-  }
-  assert.ok((await state()).flags.preceptora);
-  assert.ok((await state()).flags.cracha);
-  await page.screenshot({ path: out + "/19-preceptora.png" });
-  await travel(0, -7, "visor");
-  await moveTo(0, 4);
-  await tap("e");
-  await tap("Escape");
-  await moveTo(0, -6.5);
-  await tap("e");
-  assert.equal((await state()).mode, "win");
-  assert.ok((await state()).flags.cirurgia);
-  await page.screenshot({ path: out + "/20-final.png" });
-  await note("complete");
-  await page.locator("#explore").click();
-  await page.keyboard.press("v");
-  assert.notEqual((await state()).preferences.mode, gameMode);
-  await page.keyboard.press("v");
-  assert.equal((await state()).preferences.mode, gameMode);
-  await page.reload();
-  await page.waitForFunction(
-    () => window.limiar?.asset.status === "ready",
-    null,
-    { timeout: 60000 },
-  );
-  assert.equal((await state()).preferences.mode, gameMode);
-  await page.locator("#load").click();
-  assert.equal((await state()).room, "abrigo");
-  assert.ok((await state()).flags.final);
-  assert.equal((await state()).preferences.mode, gameMode);
-  assert.deepEqual(errors, []);
-  assert.deepEqual(responses, []);
-  console.log("SMOKE PASS");
+    console.log("SMOKE PASS");
   } // until !== "abrigo"
 } catch (e) {
   errors.push(String(e));

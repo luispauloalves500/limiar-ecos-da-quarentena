@@ -9,7 +9,12 @@ export type SoundKind =
   | "grunt"
   | "breath"
   | "step"
-  | "ui";
+  | "ui"
+  | "blade"
+  | "sweep"
+  | "scream"
+  | "clank"
+  | "spark";
 export type Layer = {
   freq: number;
   duration: number;
@@ -71,5 +76,35 @@ export function soundPlan(kind: SoundKind, metal = false): Layer[] {
       ];
     case "ui":
       return [l(420, 0.035, 0.07)];
+    // 0.8 Preceptora: blade ticks (GDD "tique de lâmina"), swing, scream,
+    // armour clank and the generator arc.
+    case "blade":
+      return [
+        l(3100, 0.03, 0.18, 0, true),
+        l(2600, 0.03, 0.16, 0.16, true),
+        l(3300, 0.03, 0.2, 0.32, true),
+        l(1250, 0.05, 0.08, 0.32),
+      ];
+    case "sweep":
+      return [l(900, 0.22, 0.22, 0, true), l(140, 0.18, 0.12, 0.04)];
+    case "scream":
+      return [
+        l(230, 0.95, 0.22, 0, false, "voices"),
+        l(347, 0.9, 0.12, 0.08, false, "voices"),
+        l(1800, 0.8, 0.08, 0.05, true, "voices"),
+      ];
+    case "clank":
+      return [
+        l(1450, 0.06, 0.24),
+        l(2900, 0.12, 0.12, 0, true),
+        l(330, 0.1, 0.12),
+      ];
+    case "spark":
+      return [
+        l(5200, 0.08, 0.22, 0, true),
+        l(60, 0.6, 0.35),
+        l(4100, 0.06, 0.18, 0.18, true),
+        l(4700, 0.05, 0.14, 0.36, true),
+      ];
   }
 }

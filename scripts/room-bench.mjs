@@ -44,13 +44,17 @@ for (const id of Object.keys(world.rooms)) {
   s.player.x = p.x;
   s.player.z = p.z;
   s.player.yaw = Math.atan2(-p.x, -p.z);
+  // ALIVE=preceptora keeps that enemy alive (B02 cost check in circulo).
+  const alive = (process.env.ALIVE || "").split(",");
   for (const e of Object.values(s.enemies)) {
+    if (alive.includes(e.id)) continue;
     e.dead = true;
     e.hp = 0;
     e.removed = true;
     e.deathAt = 1;
   }
   s.flags = { energia: true, boss: true, chave: true, fusivel: true };
+  if (alive.length && alive[0]) s.flags.prontuarios = true;
   logic.parseSave(JSON.stringify(s));
   saves[id] = JSON.stringify(s);
 }

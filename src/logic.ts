@@ -346,12 +346,17 @@ export function corpseOpacity(e: Enemy, now = Date.now()) {
   if (e.removed) return 0;
   return Math.max(
     0,
-    Math.min(1, (CORPSE_LIFETIME_MS - (now - e.deathAt)) / 500),
+    Math.min(1, (corpseLifetime(e) - (now - e.deathAt)) / 500),
   );
+}
+/** 0.8: the Preceptora stays on the floor long enough to read her death. */
+export const BOSS_CORPSE_LIFETIME_MS = 12000;
+export function corpseLifetime(e: Pick<Enemy, "kind">) {
+  return e.kind === "B02" ? BOSS_CORPSE_LIFETIME_MS : CORPSE_LIFETIME_MS;
 }
 export function updateCorpses(s: GameState, now = Date.now()) {
   for (const e of Object.values(s.enemies))
-    if (e.dead && now - e.deathAt >= CORPSE_LIFETIME_MS) e.removed = true;
+    if (e.dead && now - e.deathAt >= corpseLifetime(e)) e.removed = true;
 }
 export function isCollected(s: GameState, id: string) {
   return s.items.includes(id) || s.docs.includes(id);

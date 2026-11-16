@@ -7,6 +7,7 @@ import {
   type PlayerFrame,
 } from "./player";
 import { setZombieProbe, zombieActor } from "./zombie";
+import { preceptoraActor, setPreceptoraProbe } from "./preceptora";
 import { shoulderOffset } from "./controls";
 import { Environment } from "./environment";
 import { themes } from "./environment-logic";
@@ -71,6 +72,8 @@ export class View {
   };
   enemyMeshes = new Map<string, Actor>();
   proceduralZombies = false;
+  /** QA only: the 0.7 blocky boss, for before/after comparisons. */
+  legacyPreceptora = false;
   animationPreview: string | undefined;
   frustum = new T.Frustum();
   previousEnemyPositions = new Map<string, T.Vector3>();
@@ -626,6 +629,9 @@ export class View {
     for (const e of Object.values(s.enemies)) {
       if (e.room !== id || (e.dead && corpseOpacity(e) === 0)) continue;
       const a =
+        (e.kind === "B02" && !this.legacyPreceptora
+          ? preceptoraActor(e)
+          : undefined) ||
         (!e.boss && !this.proceduralZombies ? zombieActor(e) : undefined) ||
         person(true, e.boss, e.id, e.kind);
       this.scene.add(a.root);
@@ -826,6 +832,7 @@ export class View {
           zp.b += ((l.color & 255) / 255) * k;
         }
     setZombieProbe(zp);
+    setPreceptoraProbe(zp);
     const archFloor = new T.Group();
     archFloor.name = "arch-floor";
     arch.room.forEach((o) => archFloor.add(o));
@@ -1127,7 +1134,10 @@ export class View {
         );
         this.previousEnemyPositions.set(e.id, position);
         const visible = this.frustum.intersectsSphere(
-          new T.Sphere(new T.Vector3(e.x, 0.85, e.z), 1.5),
+          new T.Sphere(
+            new T.Vector3(e.x, e.boss ? 1.3 : 0.85, e.z),
+            e.boss ? 2.4 : 1.5,
+          ),
         );
         a.root.visible = visible;
         a.animation.preview = this.animationPreview;

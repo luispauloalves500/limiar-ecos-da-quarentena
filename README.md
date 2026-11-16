@@ -1,10 +1,21 @@
-# LIMIAR: Ecos da Quarentena — 0.7.0
+# LIMIAR: Ecos da Quarentena — 0.8.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.7.0 — pediatria, parede clara e mais contraste
+## Novo na 0.8.0 — a Preceptora refeita
+
+- **Modelo novo:** enfermeira-chefe infectada, alta (~2,5 m) e magra, com uniforme rasgado, avental manchado, touca com cruz vermelha, máscara cirúrgica, olhos acesos, bisturi longo fundido na mão, seringa crescida no antebraço, prancheta e crachá. Placas de bandeja de esterilização cobrem um núcleo incandescente; o gerador auxiliar as faz saltar abertas. Rig procedural mesclado por articulação e material, sem GLB novo.
+- **Legível no escuro:** rim de Fresnel e preenchimento pelo light probe da sala; o rim muda de cor no aviso de golpe e pisca no impacto. Luzes de emergência assadas na enfermaria circular (sem custo em tempo de execução).
+- **Animações:** despertar, espreita, ociosa com tiques, aviso próprio para cada golpe, golpes, recuperação (lâmina presa, tontura), grito de fase, convulsão elétrica, reação a tiro e morte em três tempos.
+- **Luta seguindo o GDD:** corte e corrida de bisturi, puxão por lençol, três cortes, giro cortante e golpe vertical, cada um com aviso de ~1 s, decalque no chão e som. O grito de fase fecha as placas (uma janela do gerador por fase). O gerador atordoa e afasta a chefe; exposta, ela manca. Quando ela cai, os rastejadores auxiliares caem junto. HP 700 e dano por tiro iguais aos da 0.7.
+- **Sem custo:** quadro e draw calls das 19 salas iguais aos da 0.7.0 (±0,5%, SwiftShader). Enfermaria circular mais clara (brilho 10,4 → 14,6). Campanha real venceu a Preceptora e chegou ao visor (ombro numa build intermediária, tank na build final).
+- [Antes/depois](docs/screenshots/v080/antes-depois-preceptora.jpg)
+
+[QA e medições](docs/QA.md) · [capturas 0.8](docs/screenshots/v080/README.md)
+
+## 0.7.0 preservada — pediatria, parede clara e mais contraste
 
 - **Correção da faixa clara:** nas entradas laterais (arquivo, enfermaria e outras), a câmera de ombro encostava ou atravessava a parede da porta; o near plane enchia o lado esquerdo com uma laje lisa e clara demais. A 0.7 impõe 1,2 m de folga no interior, afasta o spawn lateral e limita o bake (desgaste por vértice, wrap mais direcional, atenuação **1,85, teto de emissão e lâmpada da porta mais curta).
 - **Capítulo 2 da pediatria (GDD 1.6):** sete salas após a Porta 13 — espera, plantão seguro (3º gravador), brinquedoteca (E05 Rastejador), berçário, leitos infantis (puzzle P03: baleia, pássaro, árvore), enfermaria circular (B02 Preceptora) e ante-sala cirúrgica (final desta versão e gancho para o centro cirúrgico, ainda não construído). Documentos só no leitor; sem texto nas paredes. Saves da 0.6 (contentVersion 3) migram para a 4 e entram na ala se a fita já tiver sido transmitida. A Porta 13 deixa de encerrar a campanha.

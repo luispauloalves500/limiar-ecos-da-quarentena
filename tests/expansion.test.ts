@@ -100,11 +100,8 @@ describe("expansão e migração", () => {
   it("a arena da Preceptora deixa um anel para circular e um kit junto ao gerador", () => {
     const room = rooms.circulo;
     for (const o of room.obstacles) {
-      const outer =
-        o.x > 0 ? HALF_X - (o.x + o.w / 2) : o.x - o.w / 2 + HALF_X;
-      expect(outer, `corredor lateral em x=${o.x}`).toBeGreaterThanOrEqual(
-        2.5,
-      );
+      const outer = o.x > 0 ? HALF_X - (o.x + o.w / 2) : o.x - o.w / 2 + HALF_X;
+      expect(outer, `corredor lateral em x=${o.x}`).toBeGreaterThanOrEqual(2.5);
     }
     const kit = room.items.find((i) => i.id === "cir-kit");
     expect(kit).toBeTruthy();

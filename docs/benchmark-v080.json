@@ -1,0 +1,104 @@
+{
+ "method": "scripts/room-bench.mjs, Chromium 158 SwiftShader 1280x800, base/dev alternados, REPEAT=1; base = build exato 0.7.0 (c0cc6b5), dev = 0.8.0. Médias pareadas por sala (high: 18 salas, a linha dev-high-visor se perdeu num reinício da máquina). Não é FPS de GPU física.",
+ "allRooms": {
+  "low": {
+   "rooms": 19,
+   "base": {
+    "workMedianMs": 46.03,
+    "drawCalls": 61.89,
+    "triangles": 18956,
+    "enterMs": 2356
+   },
+   "dev": {
+    "workMedianMs": 45.84,
+    "drawCalls": 61.84,
+    "triangles": 18955,
+    "enterMs": 2315
+   },
+   "deltaPct": {
+    "workMedianMs": -0.41,
+    "drawCalls": -0.08,
+    "triangles": -0.01,
+    "enterMs": -1.74
+   }
+  },
+  "medium": {
+   "rooms": 19,
+   "base": {
+    "workMedianMs": 167.62,
+    "drawCalls": 89.47,
+    "triangles": 24691,
+    "enterMs": 3784
+   },
+   "dev": {
+    "workMedianMs": 167.11,
+    "drawCalls": 89.53,
+    "triangles": 24693,
+    "enterMs": 3837
+   },
+   "deltaPct": {
+    "workMedianMs": -0.3,
+    "drawCalls": 0.07,
+    "triangles": 0.01,
+    "enterMs": 1.4
+   }
+  },
+  "high": {
+   "rooms": 18,
+   "base": {
+    "workMedianMs": 205.2,
+    "drawCalls": 89.89,
+    "triangles": 34918,
+    "enterMs": 4262
+   },
+   "dev": {
+    "workMedianMs": 205.76,
+    "drawCalls": 90.28,
+    "triangles": 34922,
+    "enterMs": 4273
+   },
+   "deltaPct": {
+    "workMedianMs": 0.27,
+    "drawCalls": 0.43,
+    "triangles": 0.01,
+    "enterMs": 0.26
+   }
+  }
+ },
+ "circuloBossAlive_ALIVE_preceptora": {
+  "base-low": {
+   "workMedianMs": 69.79999999998836,
+   "drawCalls": 93,
+   "triangles": 22165
+  },
+  "dev-low": {
+   "workMedianMs": 70.40000000002328,
+   "drawCalls": 120,
+   "triangles": 24243
+  },
+  "dev-medium": {
+   "workMedianMs": 211.09999999997672,
+   "drawCalls": 149,
+   "triangles": 31301
+  },
+  "base-medium": {
+   "workMedianMs": 207.69999999995343,
+   "drawCalls": 145,
+   "triangles": 31079
+  },
+  "base-high": {
+   "workMedianMs": 269.9000000000233,
+   "drawCalls": 146,
+   "triangles": 41264
+  },
+  "dev-high": {
+   "workMedianMs": 252,
+   "drawCalls": 150,
+   "triangles": 41486
+  }
+ },
+ "circuloBrightnessPIL_medium": {
+  "base": 10.37,
+  "dev": 14.61
+ }
+}

@@ -8,13 +8,11 @@ import { chromium } from "@playwright/test";
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 
 const base =
-  process.env.GAME_URL ||
-  "http://127.0.0.1:4179/limiar-ecos-da-quarentena/";
+  process.env.GAME_URL || "http://127.0.0.1:4179/limiar-ecos-da-quarentena/";
 const savePath =
   process.env.RESUME_SAVE ||
   "/workspace/limiar-v070-smoke/segments/tank/saves/save-abrigo.json";
-const out =
-  process.env.PROBE_OUT || "/workspace/limiar-v070-smoke/tank-probe";
+const out = process.env.PROBE_OUT || "/workspace/limiar-v070-smoke/tank-probe";
 await mkdir(out, { recursive: true });
 
 const browser = await chromium.launch({
@@ -32,12 +30,23 @@ page.on("pageerror", (e) => console.log("PAGEERROR", String(e)));
 const state = () => page.evaluate(() => window.limiar);
 const hud = () =>
   page.evaluate(() => ({
-    notice: globalThis.globalThis.document.getElementById("notice")?.textContent || "",
-    region: globalThis.globalThis.document.getElementById("region")?.textContent || "",
-    health: globalThis.globalThis.document.getElementById("health")?.textContent || "",
-    ammo: globalThis.globalThis.document.getElementById("ammo")?.textContent || "",
-    objective: globalThis.globalThis.document.getElementById("objective")?.textContent || "",
-    targetDisplay: globalThis.globalThis.document.getElementById("target")?.style.display || "",
+    notice:
+      globalThis.globalThis.document.getElementById("notice")?.textContent ||
+      "",
+    region:
+      globalThis.globalThis.document.getElementById("region")?.textContent ||
+      "",
+    health:
+      globalThis.globalThis.document.getElementById("health")?.textContent ||
+      "",
+    ammo:
+      globalThis.globalThis.document.getElementById("ammo")?.textContent || "",
+    objective:
+      globalThis.globalThis.document.getElementById("objective")?.textContent ||
+      "",
+    targetDisplay:
+      globalThis.globalThis.document.getElementById("target")?.style.display ||
+      "",
   }));
 
 async function diag(tag) {
@@ -168,7 +177,11 @@ async function moveTo(x, z, tolerance = 0.6) {
     let count = 0;
     while (true) {
       s = await state();
-      if (s.mode === "pause" || s.mode === "document" || s.mode === "inventory") {
+      if (
+        s.mode === "pause" ||
+        s.mode === "document" ||
+        s.mode === "inventory"
+      ) {
         await page.keyboard.press("Escape");
         await page.waitForTimeout(250);
         s = await state();
@@ -180,10 +193,7 @@ async function moveTo(x, z, tolerance = 0.6) {
       if (++count > 40) break;
       await tankFace(Math.atan2(goal.x - s.player.x, goal.z - s.player.z));
       const keys = d > 2 ? ["Shift", "w"] : ["w"];
-      const ms = Math.min(
-        170,
-        Math.max(35, (d / 3.7) * 450),
-      );
+      const ms = Math.min(170, Math.max(35, (d / 3.7) * 450));
       for (const k of keys) await page.keyboard.down(k);
       await page.waitForTimeout(ms);
       for (const k of keys) await page.keyboard.up(k);
@@ -385,7 +395,13 @@ try {
     throw Error("modo não é tank: " + loaded.preferences?.mode);
   if (loaded.player.hp !== parsed.player.hp)
     throw Error("HP alterado no load — aborta (não é o save real)");
-  console.log("LOADED", loaded.room, loaded.player, "mode", loaded.preferences.mode);
+  console.log(
+    "LOADED",
+    loaded.room,
+    loaded.player,
+    "mode",
+    loaded.preferences.mode,
+  );
   await page.screenshot({ path: `${out}/00-abrigo-tank.png` });
 
   // --- caminho real até o recreio (controle: inimigo comum) ---
@@ -435,7 +451,10 @@ try {
   await page.keyboard.press("e");
   await travel(0, -7, "leitos");
   await moveTo(0, 3);
-  if ((await state()).enemies.rastejador02 && !(await state()).enemies.rastejador02.dead) {
+  if (
+    (await state()).enemies.rastejador02 &&
+    !(await state()).enemies.rastejador02.dead
+  ) {
     const s = await state();
     const e = s.enemies.rastejador02;
     const d = Math.hypot(e.x - s.player.x, e.z - s.player.z);
@@ -492,11 +511,17 @@ try {
   // anunciar "Armadura fechada". Mesmo caminho de fire() dos rastejadores.
   {
     const before = (await state()).enemies.preceptora;
-    console.log("INTRO-STUN before", before?.hp, before?.state, before?.vulnerable);
+    console.log(
+      "INTRO-STUN before",
+      before?.hp,
+      before?.state,
+      before?.vulnerable,
+    );
     report.introShot = await realTankShots("preceptora", 2);
     const after = (await state()).enemies.preceptora;
     const dmg = (before?.hp ?? 700) - (after?.hp ?? 700);
-    report.tankCanHitBoss = dmg > 0 || report.introShot.shots.some((x) => x.damage > 0);
+    report.tankCanHitBoss =
+      dmg > 0 || report.introShot.shots.some((x) => x.damage > 0);
     report.bestBossHp = after?.hp ?? 700;
     report.notes.push(
       "tiro no stun de entrada: dano=" +
@@ -584,17 +609,23 @@ try {
       console.log("WINDOW", JSON.stringify(rec));
       if (after && after.hp < before) report.tankCanHitBoss = true;
       bestHp = Math.min(bestHp, after?.hp ?? before);
-      await page.screenshot({ path: `${out}/window-${bossWindows.length}.png` });
+      await page.screenshot({
+        path: `${out}/window-${bossWindows.length}.png`,
+      });
       // após a rajada, afasta
       await moveTo(-5.2, 6.2);
       if (bossWindows.filter((w) => w.damage > 0).length >= 2) {
-        report.notes.push("duas janelas com dano: prova suficiente, encerra o probe");
+        report.notes.push(
+          "duas janelas com dano: prova suficiente, encerra o probe",
+        );
         break;
       }
     } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
       const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 5.5;
       if (genClear && d > 4) {
-        console.log("generator-go", { bossToGen: Math.hypot(b.x - 4, b.z + 6.2) });
+        console.log("generator-go", {
+          bossToGen: Math.hypot(b.x - 4, b.z + 6.2),
+        });
         await moveTo(4, -6, 0.5);
         await page.keyboard.press("e");
         await page.waitForTimeout(200);
@@ -617,9 +648,7 @@ try {
   if (report.tankCanHitBoss == null)
     report.tankCanHitBoss = bossWindows.some((w) => w.damage > 0);
   if (report.adsWorks == null)
-    report.adsWorks = bossWindows.some((w) =>
-      w.aiming?.some((a) => a.aiming),
-    );
+    report.adsWorks = bossWindows.some((w) => w.aiming?.some((a) => a.aiming));
   await page.screenshot({ path: `${out}/99-final.png` });
 } catch (e) {
   report.error = String(e);
@@ -634,14 +663,23 @@ try {
 } finally {
   report.finished = new Date().toISOString();
   await writeFile(out + "/report.json", JSON.stringify(report, null, 2));
-  console.log("PROBE REPORT", JSON.stringify({
-    adsWorks: report.adsWorks,
-    tankCanHitRegular: report.tankCanHitRegular,
-    tankCanHitBoss: report.tankCanHitBoss,
-    bestBossHp: report.bestBossHp,
-    error: report.error,
-    notes: report.notes,
-  }, null, 2));
+  console.log(
+    "PROBE REPORT",
+    JSON.stringify(
+      {
+        adsWorks: report.adsWorks,
+        tankCanHitRegular: report.tankCanHitRegular,
+        tankCanHitBoss: report.tankCanHitBoss,
+        bestBossHp: report.bestBossHp,
+        error: report.error,
+        notes: report.notes,
+      },
+      null,
+      2,
+    ),
+  );
   await browser.close();
-  process.exit(report.error && !report.tankCanHitBoss && !report.tankCanHitRegular ? 1 : 0);
+  process.exit(
+    report.error && !report.tankCanHitBoss && !report.tankCanHitRegular ? 1 : 0,
+  );
 }

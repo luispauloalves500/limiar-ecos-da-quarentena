@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LIMIAR · QA da Preceptora</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body {
+        margin: 0;
+        background: #07100d;
+        color: #e1e8d7;
+        font: 14px monospace;
+      }
+      #scene {
+        height: 100vh;
+      }
+      #tools {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 3;
+        padding: 10px;
+        background: #08100dd8;
+        border: 1px solid #68806d;
+        max-width: 94vw;
+      }
+      select {
+        background: #243b30;
+        color: #eee;
+        padding: 5px;
+        border: 1px solid #78917e;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene"></div>
+    <div id="tools">
+      <b>Galeria técnica B02 — não altera seu jogo/saves</b>
+      <label
+        >Pose
+        <select id="pose">
+          <option>Idle</option>
+          <option>Stalk</option>
+          <option>Wake</option>
+          <option>Roar</option>
+          <option>Shock</option>
+          <option>Exposed</option>
+          <option>Hit</option>
+          <option>Windup-10</option>
+          <option>Windup-11</option>
+          <option>Windup-12</option>
+          <option>Windup-13</option>
+          <option>Windup-14</option>
+          <option>Windup-15</option>
+          <option>Attack-11</option>
+          <option>Attack-12</option>
+          <option>Attack-14</option>
+          <option>Attack-15</option>
+          <option>Recover-15</option>
+          <option>Death</option>
+        </select></label
+      >
+      <label
+        >Câmera
+        <select id="cam">
+          <option value="close">Perto</option>
+          <option value="mid">Média</option>
+          <option value="wide">Arena</option>
+        </select></label
+      >
+      <label
+        >Modelo
+        <select id="model">
+          <option value="new">0.8</option>
+          <option value="legacy">0.7 (anterior)</option>
+        </select></label
+      >
+      <span id="status">Carregando…</span>
+    </div>
+    <script type="module" src="/src/preceptora-qa.ts"></script>
+  </body>
+</html>

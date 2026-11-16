@@ -263,6 +263,23 @@ export function architecture(
       intensity: 2.4 * practicalGain,
       range: 12,
     });
+  // 0.8: the B02 arena gets two baked emergency lights (GDD: "luzes de
+  // emergência") so the fight reads. Vertex-baked: no runtime cost; the
+  // darkness phase still dims them through bakedGain.
+  if (id === "circulo")
+    for (const [x, z] of [
+      [-5.2, -1.5],
+      [5.2, 2.5],
+      [0, 6.6],
+    ])
+      out.lights.push({
+        x,
+        y: 2.5,
+        z,
+        color: 0xe0927a,
+        intensity: 1.5,
+        range: 7.5,
+      });
   const piece = (
     wall: number,
     u0: number,

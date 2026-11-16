@@ -1,4 +1,33 @@
-# QA — LIMIAR 0.7.0
+# QA — LIMIAR 0.8.0
+
+## 0.8.0 — Preceptora (B02)
+**Gates:** 208 testes em 11 arquivos (11 novos em `tests/preceptora.test.ts`: fases, escolha de golpe sem repetir 3×, avisos e alcance, puxão por lençol, descarga do gerador, grito de fase fechando as placas), lint, TypeScript e build. Mesmo ambiente da 0.7 (Chromium 158, SwiftShader).
+
+**Benchmark** (`scripts/room-bench.mjs`, base = build exata 0.7.0 c0cc6b5, dev = 0.8.0, alternados; `docs/benchmark-v080.json`):
+
+| Qualidade | Quadro mediano 0.7 → 0.8 | Draws | Triângulos |
+|---|---|---|---|
+| Baixa (19 salas) | 46,0 → 45,8 ms (−0,4%) | 61,9 → 61,8 | iguais |
+| Média (19 salas) | 167,6 → 167,1 ms (−0,3%) | 89,5 → 89,5 | iguais |
+| Alta (18 salas*) | 205,2 → 205,8 ms (+0,3%) | 89,9 → 90,3 | iguais |
+| Circular com a chefe viva (baixa/média/alta) | 69,8/207,7/269,9 → 70,4/211,1/252,0 ms | 93/145/146 → 120/149/150 | 22,2k/31,1k/41,3k → 24,2k/31,3k/41,5k |
+
+\* a linha dev-alta-visor se perdeu num reinício da máquina; as médias são pareadas por sala. Uma repetição; diferenças abaixo de ~2% são ruído. O salto de draws na baixa com a chefe viva (+27) vem das partes do rig por material e dos decalques de aviso; na média/alta a diferença é de +4.
+
+**Brilho (PIL, escala de cinza):** enfermaria circular 10,37 → 14,61 (três luzes de emergência assadas). Galeria: modelo 0.7 17,1 × 0.8 20,1 na mesma câmera.
+
+**Campanha real** (`scripts/run-segments.mjs`, SKIP_SEG1 a partir das gravações reais do abrigo da 0.7, máx. 2 tentativas por modo):
+- r1 (build inicial): ombro venceu, mas fácil demais (700 → 0 em 2 janelas). O grito de fase passou a fechar as placas (mínimo de 3 janelas).
+- r2 (3f04ed3): **ombro venceu de ponta a ponta até o final do visor** (3 janelas, Helena 100). Tank morreu 2× na rota de entrada. Ajustes: espera de 1,4 s após acertar Helena, puxão limitado a 1,2 m.
+- r3/r4: máquina com carga 11–15 de outros projetos; tank chegou a deixar a chefe com 25 HP; r4 falhou antes do chefe (puzzle dos leitos, instabilidade da automação).
+- r5: ombro derrubou a chefe (Helena 100), mas os rastejadores restantes mataram Helena a caminho do visor. Ajuste: os auxiliares caem com a chefe.
+- r6 (build final): **tank venceu de ponta a ponta** (10 idas ao gerador, Helena 50, final do visor). Ombro perdeu as 2 tentativas: chefe em 254 HP; e uma morte quando a rota da automação até o gerador passou entre os dois rastejadores durante a sequência de três cortes.
+
+**Limitações:** a automação lê o estado do jogo para fugir no aviso; a dificuldade para um humano não foi medida. Na fase 2/3, rastejadores e chefe podem acertar Helena em sequência (a invulnerabilidade de 1,3 s após cada golpe limita, mas não impede). Não houve vitória do ombro na build exata final (só na intermediária r2 e a queda da chefe na r5). HP 700 mantido (GDD cita 850). Medições em GPU de software.
+
+---
+
+# Histórico — QA 0.7.0
 
 ## Método
 Linux / Node 24.22.1, Chromium 158.0.8127.18, ANGLE SwiftShader, viewport 1280×800. Testes headless por GPU de software, não certificação de hardware físico. Histórico em [QA-v060.md](QA-v060.md). Comandos reais de teclado/mouse e diagnósticos somente leitura; nenhum teleporte, HP artificial ou flags de progressão criadas pelo bot (o fixture de captura das 19 entradas é um save de revisão, não a campanha).

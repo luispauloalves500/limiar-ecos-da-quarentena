@@ -16,6 +16,12 @@ import {
   enemyPattern,
 } from "./logic";
 import "./style.css";
+import {
+  MOVE,
+  tickPreceptora,
+  shockPreceptora,
+  type MoveCode,
+} from "./preceptora-logic";
 import { View } from "./render";
 import { Audio } from "./audio";
 import {
@@ -636,12 +642,16 @@ function interactions(): Interaction[] {
         const b = s.enemies.preceptora;
         if (!b || b.dead) return announce("O gerador não responde mais.");
         auxCooldown = 20;
-        b.vulnerable = 15;
-        b.state = "stun";
-        b.timer = 1.2;
+        shockPreceptora(b, { x: 4, z: -6.2 }, (en, dx, dz) =>
+          moveBody(en, dx, dz, 0.6, false, true),
+        );
         view.dim = 1;
+        audio.play("spark", { x: 4, z: -6.2 });
+        audio.play("scream", b);
         audio.tone(90, 0.8);
-        announce("Quinze segundos de claridade. A Preceptora está exposta.");
+        announce(
+          "Descarga! As placas da Preceptora se abrem — atire no núcleo por 15 segundos.",
+        );
       },
     });
   if (s.room === "visor")
@@ -709,6 +719,7 @@ async function changeRoom(id: string) {
       ) {
         s.enemies.preceptora.state = "stun";
         s.enemies.preceptora.timer = 5;
+        s.enemies.preceptora.attack = MOVE.NONE;
         announce(
           "A Preceptora ergue a cabeça. O gerador auxiliar está no fundo, à direita.",
         );
@@ -805,6 +816,7 @@ function fire() {
   if (e) {
     const result = damage(e, hitRegion, Math.random, e.exposure >= 25);
     audio.play(hitRegion === "head" ? "head" : "flesh", e);
+    if (e.boss && e.vulnerable <= 0 && !e.dead) audio.play("clank", e);
     announce(
       e.dead
         ? result.critical
@@ -813,7 +825,9 @@ function fire() {
         : e.boss
           ? e.vulnerable > 0
             ? "Núcleo atingido!"
-            : "Armadura fechada. Use a trava elétrica."
+            : e.kind === "B02"
+              ? "Placas fechadas. Ligue o gerador auxiliar para abri-las."
+              : "Armadura fechada. Use a trava elétrica."
           : e.crawl
             ? "Perna inutilizada. Ele ainda se move."
             : hitRegion === "head"
@@ -864,9 +878,15 @@ function preceptoraWin() {
   s.flags.preceptora = true;
   s.flags.cracha = true;
   view.dim = 1;
+  if (s.enemies.preceptora) audio.play("scream", s.enemies.preceptora);
+  // Her helpers collapse with her (0.8: no crawler left blocking the visor).
+  for (const id of ["rastejador03", "rastejador04"]) {
+    const h = s.enemies[id];
+    if (h && !h.dead && h.room === s.room) killEnemy(h);
+  }
   audio.tone(240, 1);
   announce(
-    "Preceptora neutralizada. O crachá cirúrgico abre o visor ao fundo.",
+    "Preceptora neutralizada. Os rastejadores caem com ela. O crachá cirúrgico abre o visor ao fundo.",
   );
 }
 function pediatricWin() {
@@ -979,8 +999,75 @@ function bossPhase(e: Enemy) {
   const r = e.hp / enemyStats(e.kind).hp;
   return r > 0.71 ? 1 : r > 0.31 ? 2 : 3;
 }
+const B02_HINT: Record<number, string> = {
+  [MOVE.SLASH]: "Bisturi erguido · recue para fora do anel.",
+  [MOVE.DASH]:
+    "Tique de lâmina · corrida em linha reta: saia da faixa para o lado.",
+  [MOVE.SHEET]: "Lençol girando · puxão em linha: esquive para o lado.",
+  [MOVE.TRIPLE]:
+    "Lâminas acesas · três cortes seguidos: recue até o anel apagar.",
+  [MOVE.SPIN]:
+    "Braços abertos · giro cortante: saia do anel; ela fica tonta depois.",
+  [MOVE.CLEAVE]:
+    "Lâminas ao alto · golpe vertical: saia da frente; a lâmina prende no chão.",
+};
+function tickB02(e: Enemy, dt: number) {
+  tickPreceptora(e, dt, {
+    player: s.player,
+    maxHp: enemyStats("B02").hp,
+    clear: (a, b) => lineClear(a, b, rooms[s.room].obstacles),
+    move: (en, dx, dz) => moveBody(en, dx, dz, 0.6, false, true),
+    hit: (amount) => hitPlayer(amount, false, e),
+    pull: (m) => {
+      const d = dist(e, s.player);
+      if (d < 0.01 || m <= 0) return;
+      for (let i = 0; i < 4; i++)
+        moveBody(
+          s.player,
+          (((e.x - s.player.x) / d) * m) / 4,
+          (((e.z - s.player.z) / d) * m) / 4,
+          0.3,
+          true,
+        );
+      announce("O lençol enrosca no tornozelo e puxa você.");
+    },
+    cue: (name: string, move: MoveCode) => {
+      if (name === "telegraph") {
+        audio.play(
+          move === MOVE.CLEAVE || move === MOVE.SHEET ? "grunt" : "blade",
+          e,
+        );
+        const key = "b02-dica-" + move;
+        if (!s.flags[key] && B02_HINT[move]) {
+          s.flags[key] = true;
+          announce(B02_HINT[move]);
+        }
+      } else if (name === "strike" || name === "cut") audio.play("sweep", e);
+      else if (name === "stuck") {
+        audio.play("clank", e);
+        announce(
+          "A lâmina prendeu no leito. Abra distância ou corra ao gerador.",
+        );
+      } else if (name === "phase2") {
+        audio.play("scream", e);
+        announce(
+          "A Preceptora grita e as placas se fecham. As luzes caem e os rastejadores saem dos leitos.",
+        );
+      } else if (name === "phase3") {
+        audio.play("scream", e);
+        announce(
+          "Ela fecha as placas de novo e a respiração cresce. Giro e golpe vertical: espere a abertura.",
+        );
+      }
+    },
+    rng: Math.random,
+    flags: s.flags,
+    path: () => pathDirection(e, s.player),
+  });
+}
 function tickEnemy(e: Enemy, dt: number) {
   if (e.dead) return;
+  if (e.kind === "B02") return tickB02(e, dt);
   // B02 helpers stay under the beds until phase 2.
   if (
     (e.id === "rastejador03" || e.id === "rastejador04") &&
@@ -1063,13 +1150,7 @@ function tickEnemy(e: Enemy, dt: number) {
           lineClear(e, s.player, rooms[s.room].obstacles)
         )
           hitPlayer(
-            e.boss
-              ? bossPhase(e) >= 3
-                ? 28
-                : e.kind === "B02"
-                  ? 18
-                  : 20
-              : stats.damage,
+            e.boss ? (bossPhase(e) >= 3 ? 28 : 20) : stats.damage,
             e.kind === "E02" && !e.crawl,
             e,
           );

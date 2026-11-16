@@ -314,7 +314,7 @@ export class Audio {
           l.freq,
           l.duration,
           l.volume,
-          kind === "grunt" ? "sawtooth" : "triangle",
+          kind === "grunt" || kind === "scream" ? "sawtooth" : "triangle",
           position,
           l.bus,
           l.delay,
