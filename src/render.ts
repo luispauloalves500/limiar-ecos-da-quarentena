@@ -8,6 +8,8 @@ import {
 } from "./player";
 import { setZombieProbe, zombieActor } from "./zombie";
 import { preceptoraActor, setPreceptoraProbe } from "./preceptora";
+import { crawlerActor } from "./crawler";
+import { CHAPTER2, preloadChapter2, setSmartProbe } from "./smartrig";
 import { shoulderOffset } from "./controls";
 import { Environment } from "./environment";
 import { themes } from "./environment-logic";
@@ -27,7 +29,7 @@ import {
 const PROBE_GAIN = 0.55;
 import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
-import type { GameState } from "./logic";
+import type { Enemy, GameState } from "./logic";
 import { defaults, profiles, lookInput, type Preferences } from "./controls";
 import {
   raycastShot,
@@ -74,6 +76,10 @@ export class View {
   proceduralZombies = false;
   /** QA only: the 0.7 blocky boss, for before/after comparisons. */
   legacyPreceptora = false;
+  /** QA: "glb" (0.9 default) or "procedural" (0.8 rig). */
+  preceptoraModel: "glb" | "procedural" = "glb";
+  /** QA: "glb" (0.9 default) or "zombie" (0.8 Mixamo crawler). */
+  crawlerModel: "glb" | "zombie" = "glb";
   animationPreview: string | undefined;
   frustum = new T.Frustum();
   previousEnemyPositions = new Map<string, T.Vector3>();
@@ -272,6 +278,39 @@ export class View {
     this.group.add(mesh);
     this.obstacles.push(mesh);
     return mesh;
+  }
+  /** Actor for one enemy: user GLBs (0.9) → Mixamo zombie → procedural. */
+  spawnActor(e: Enemy) {
+    const a =
+      (e.kind === "B02" && !this.legacyPreceptora
+        ? preceptoraActor(e, this.preceptoraModel !== "procedural")
+        : undefined) ||
+      (e.kind === "E05" &&
+      !this.proceduralZombies &&
+      this.crawlerModel === "glb"
+        ? crawlerActor(e)
+        : undefined) ||
+      (!e.boss && !this.proceduralZombies ? zombieActor(e) : undefined) ||
+      person(true, e.boss, e.id, e.kind);
+    this.scene.add(a.root);
+    this.enemyMeshes.set(e.id, a);
+    return a;
+  }
+  /** Rebuild E05/B02 actors of the current room once the GLBs are ready. */
+  refreshChapter2(s: GameState) {
+    for (const e of Object.values(s.enemies)) {
+      if (e.room !== this.room || (e.kind !== "E05" && e.kind !== "B02"))
+        continue;
+      const old = this.enemyMeshes.get(e.id);
+      if (!old || old.root.userData.glb) continue;
+      if (e.kind === "E05" && this.crawlerModel !== "glb") continue;
+      if (e.kind === "B02" && this.preceptoraModel !== "glb") continue;
+      old.animation?.dispose();
+      this.disposeGroup(old.root);
+      this.enemyMeshes.delete(e.id);
+      this.previousEnemyPositions.delete(e.id);
+      this.spawnActor(e);
+    }
   }
   load(id: RoomId, s: GameState) {
     this.enemyYaw.clear();
@@ -628,14 +667,14 @@ export class View {
     }
     for (const e of Object.values(s.enemies)) {
       if (e.room !== id || (e.dead && corpseOpacity(e) === 0)) continue;
-      const a =
-        (e.kind === "B02" && !this.legacyPreceptora
-          ? preceptoraActor(e)
-          : undefined) ||
-        (!e.boss && !this.proceduralZombies ? zombieActor(e) : undefined) ||
-        person(true, e.boss, e.id, e.kind);
-      this.scene.add(a.root);
-      this.enemyMeshes.set(e.id, a);
+      this.spawnActor(e);
+    }
+    // 0.9: chapter-2 GLBs load lazily; actors swap in when they arrive.
+    if (CHAPTER2.has(id) || s.flags.final) {
+      const room = id;
+      void preloadChapter2().then(() => {
+        if (this.room === room) this.refreshChapter2(s);
+      });
     }
     const rand = seeded(id.length * 719);
     for (let i = 0; i < 10; i++) {
@@ -833,6 +872,7 @@ export class View {
         }
     setZombieProbe(zp);
     setPreceptoraProbe(zp);
+    setSmartProbe(zp);
     const archFloor = new T.Group();
     archFloor.name = "arch-floor";
     arch.room.forEach((o) => archFloor.add(o));

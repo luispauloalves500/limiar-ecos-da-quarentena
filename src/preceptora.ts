@@ -11,6 +11,17 @@ import type { ZombieAnimator } from "./zombie";
 import { MOVE, MOVES, preceptoraPhase } from "./preceptora-logic";
 import { enemyStats } from "./logic";
 import { seeded } from "./art";
+import { SmartSkin, smartMaterial, smartReady } from "./smartrig";
+
+/** 0.9: the user's GLB (veiled woman, SmartRig, T-pose) driven by the 0.8
+ * procedural rig: every procedural joint's model-space rotation is copied to
+ * the matching bone, so all 0.8 animations, hitboxes and telegraphs stay. */
+export const PRECEPTORA_GLB_SCALE = 1.44;
+const GLB_HIP = 1.07 * PRECEPTORA_GLB_SCALE;
+type Retarget = { part: () => T.Object3D; bone: string; fix: T.Quaternion };
+const qz = (a: number) =>
+  new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 0, 1), a);
+const ID = new T.Quaternion();
 
 const probe = new T.Color(0, 0, 0);
 const live = new Set<Preceptora>();
@@ -228,7 +239,12 @@ export class Preceptora {
   stateName = "Idle";
   spin = 0;
   stuckAt = -1;
-  constructor(public enemy: Enemy) {
+  skin?: SmartSkin;
+  retargets: Retarget[] = [];
+  constructor(
+    public enemy: Enemy,
+    glb = false,
+  ) {
     live.add(this);
     const rim = this.rim;
     const stain = stainTexture();
@@ -759,11 +775,152 @@ export class Preceptora {
     shadow.position.y = 0.012;
     this.root.add(shadow);
     this.materials.push(shadow.material as T.Material);
+    if (glb && smartReady("preceptora")) this.attachSkin();
     this.applyProbe();
     this.serial = enemy.hitSerial || 0;
     this.update(enemy, 0, true, 0, 0);
     this.pose = { ...this.target };
     this.apply();
+  }
+  attachSkin() {
+    const base = smartMaterial("preceptora", "medium");
+    const m = base.clone();
+    m.userData.zombieShared = false;
+    m.userData.albedo = new T.Color(0xb8b4ac);
+    m.name = "preceptora-glb";
+    const rim = this.rim;
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.rimColor = rim;
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nuniform vec3 rimColor;",
+        )
+        .replace(
+          "#include <emissivemap_fragment>",
+          "#include <emissivemap_fragment>\nfloat rimF = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.6);\ntotalEmissiveRadiance += rimColor * rimF;",
+        );
+    };
+    m.customProgramCacheKey = () => "preceptora-glb-rim";
+    this.cloth.push(m);
+    this.materials.push(m);
+    const skin = new SmartSkin("preceptora", m);
+    skin.scene.scale.setScalar(PRECEPTORA_GLB_SCALE);
+    skin.scene.name = "preceptora-glb";
+    this.root.add(skin.scene);
+    this.skin = skin;
+    const j = this.j;
+    // Keep plates, core and glow (the fight mechanic) and the sheet; hide
+    // the procedural body itself.
+    const keep = new Set<T.Object3D>([
+      ...j.plate,
+      this.core,
+      this.glow,
+      this.sheet,
+      ...this.hitboxes,
+    ]);
+    j.body.traverse((o) => {
+      if (!(o instanceof T.Mesh)) return;
+      let n: T.Object3D | null = o;
+      while (n && !keep.has(n)) n = n.parent;
+      if (!n) o.visible = false;
+    });
+    // Armour anchor on the GLB sternum; children keep 0.8 chest coordinates.
+    const anchor = new T.Group();
+    anchor.name = "placas-glb";
+    skin.pin("Bone_003", anchor, new T.Vector3(0, 1.17, 0.13));
+    anchor.scale.multiplyScalar(1 / PRECEPTORA_GLB_SCALE);
+    for (const o of [...j.plate, this.core, this.glow]) anchor.add(o);
+    const hand = new T.Group();
+    skin.pin("Bone_025", hand, new T.Vector3(0.6, 1.46, 0.13));
+    hand.scale.multiplyScalar(1 / PRECEPTORA_GLB_SCALE);
+    hand.add(this.sheet);
+    this.sheet.position.set(0, -0.1, 0.02);
+    const down = 1.32;
+    this.retargets = [
+      { part: () => j.hips, bone: "Bone_000", fix: ID },
+      { part: () => j.spine, bone: "Bone_005", fix: ID },
+      { part: () => j.chest, bone: "Bone_002", fix: ID },
+      { part: () => j.neck, bone: "Bone_018", fix: ID },
+      { part: () => j.head, bone: "Bone_017", fix: ID },
+      { part: () => j.arm[0], bone: "Bone_027", fix: qz(-down) },
+      { part: () => j.elbow[0], bone: "Bone_026", fix: qz(-down) },
+      { part: () => j.hand[0], bone: "Bone_025", fix: qz(-down) },
+      { part: () => j.arm[1], bone: "Bone_022", fix: qz(down) },
+      { part: () => j.elbow[1], bone: "Bone_021", fix: qz(down) },
+      { part: () => j.hand[1], bone: "Bone_020", fix: qz(down) },
+      { part: () => j.leg[0], bone: "Bone_010", fix: ID },
+      { part: () => j.knee[0], bone: "Bone_009", fix: ID },
+      { part: () => j.leg[1], bone: "Bone_015", fix: ID },
+      { part: () => j.knee[1], bone: "Bone_014", fix: ID },
+    ];
+  }
+  /** Copy procedural joint rotations (relative to the actor root) onto
+   * the GLB bones, plus the hips translation scaled to the GLB's legs. */
+  retarget() {
+    const skin = this.skin!,
+      q = new T.Quaternion(),
+      t = new T.Quaternion();
+    skin.reset();
+    const rel = (o: T.Object3D) => {
+      q.identity();
+      let n: T.Object3D | null = o;
+      while (n && n !== this.root) {
+        q.premultiply(n.quaternion);
+        n = n.parent;
+      }
+      return q;
+    };
+    for (const r of this.retargets) {
+      const bone = skin.bone(r.bone);
+      t.copy(rel(r.part())).multiply(r.fix).multiply(skin.restModel.get(bone)!);
+      skin.setModel(r.bone, t);
+    }
+    // Hips: procedural hips position delta (rest y 1.2) → GLB root bone.
+    const hp = new T.Vector3();
+    let n: T.Object3D | null = this.j.hips;
+    const m = new T.Matrix4();
+    const chain: T.Object3D[] = [];
+    while (n && n !== this.root) {
+      chain.unshift(n);
+      n = n.parent;
+    }
+    m.identity();
+    for (const c of chain) {
+      c.updateMatrix();
+      m.multiply(c.matrix);
+    }
+    hp.setFromMatrixPosition(m);
+    const k = GLB_HIP / 1.2;
+    const root = skin.bone("Bone_000");
+    root.position
+      .copy(skin.bindP.get(root)!)
+      .add(
+        new T.Vector3(hp.x * k, (hp.y - 1.2) * k, hp.z * k).divideScalar(
+          PRECEPTORA_GLB_SCALE,
+        ),
+      );
+    // Floor clamp so kneeling/toppled poses never sink.
+    skin.scene.position.y = 0;
+    skin.scene.updateMatrixWorld(true);
+    let low = Infinity;
+    const w = new T.Vector3();
+    for (const b of [
+      "Bone_007",
+      "Bone_012",
+      "Bone_008",
+      "Bone_013",
+      "Bone_016",
+      "Bone_025",
+      "Bone_020",
+    ]) {
+      w.setFromMatrixPosition(skin.bone(b).matrixWorld);
+      low = Math.min(low, this.root.worldToLocal(w).y);
+    }
+    if (low < 0.03) {
+      skin.scene.position.y = 0.03 - low;
+      skin.scene.updateMatrixWorld(true);
+    }
   }
   applyProbe() {
     // Fill from the room probe plus a floor, so she never reads as a void.
@@ -1310,6 +1467,10 @@ export class Preceptora {
       j.plate[i].rotation.y = (i ? -1 : 1) * p["plate"];
     }
     j.skirt.rotation.x = p["skirt.x"];
+    if (this.skin) {
+      this.root.updateMatrixWorld(true);
+      this.retarget();
+    }
   }
   fade(alpha: number) {
     for (const m of this.materials) {
@@ -1327,8 +1488,9 @@ export class Preceptora {
   dispose() {
     live.delete(this);
     this.root.traverse((o) => {
+      if (o instanceof T.SkinnedMesh) o.skeleton.dispose();
       if (o instanceof T.Mesh) {
-        o.geometry.dispose();
+        if (!o.geometry.userData.zombieShared) o.geometry.dispose();
         if (!this.materials.includes(o.material as T.Material))
           (o.material as T.Material).dispose();
       }
@@ -1339,8 +1501,9 @@ export class Preceptora {
 }
 
 /** Actor wrapper with the same animator contract as the zombies. */
-export function preceptoraActor(e: Enemy): Actor {
-  const p = new Preceptora(e);
+export function preceptoraActor(e: Enemy, glb = true): Actor {
+  const p = new Preceptora(e, glb);
+  p.root.userData.glb = !!p.skin;
   const animation: ZombieAnimator = {
     stateName: "Idle",
     lod: 0,

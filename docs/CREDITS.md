@@ -29,3 +29,9 @@ Foram criados 14 clips em keyframes: idle, mira, andar mirando, tiro/recuo, reca
 
 ## Atualização 0.5
 Título 3D, chuva, síntese musical e efeitos WebAudio em camadas são procedurais e originais deste projeto. Não foram usados áudio CC0 ou outros arquivos de terceiros. Modelos enviados e seus créditos permanecem inalterados.
+
+## Rastejador e Preceptora (0.9.0): modelos fornecidos pelo usuário
+
+Dois GLBs enviados pelo usuário para o rastejador (E05) e para a Preceptora (B02): exportação com rig SmartRig de 69 juntas, uma malha skinned cada, três PNG 2048² cada, sem clips. **Modelo, texturas e rig não são de nossa autoria**; origem/licença original não foi verificada independentemente, e não se presume licença aberta. Originais fora do repositório: rastejador 16.183.396 bytes, SHA-256 `0d98e707bce948a7daea139e29a8f139f6f16b3aa371708cd14dbfb2a5f8c398`; Preceptora 11.874.432 bytes, SHA-256 `c16e14b26207ff39bc32df1dac1ea760e3d81cbf48417477dc19d5aaa6148a7c`. Distribuímos só as versões otimizadas (`src/assets/rastejador.glb`, `src/assets/preceptora.glb`).
+
+Criado para esta implementação: animação procedural por osso do rastejador (`src/crawler-pose.ts`, `src/crawler.ts`), o retarget do rig procedural da Preceptora 0.8 para o esqueleto recebido, placas/núcleo/lençol/rim procedurais, hitboxes e o carregamento preguiçoso do Capítulo 2.

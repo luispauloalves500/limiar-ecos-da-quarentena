@@ -8,6 +8,7 @@ export default defineConfig({
         zombieQA: "qa-zombies.html",
         playerQA: "qa-player.html",
         preceptoraQA: "qa-preceptora.html",
+        crawlerQA: "qa-rastejador.html",
       },
     },
   },

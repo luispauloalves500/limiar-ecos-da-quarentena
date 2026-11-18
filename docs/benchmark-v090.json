@@ -1,0 +1,343 @@
+{
+ "method": "scripts/room-bench.mjs (da árvore 0.8, saves contentVersion 4), Chromium 158 SwiftShader 1280x800, base/dev alternados, REPEAT=1, aquecimento 1,5 s + 4 s de amostra. base = build exata 0.8.0 (fb71ed5), dev = 0.9.0. Bench reduzido às salas do Capítulo 2 que mudam (uma amostra levava ~100 s; as 19 salas × 3 perfis passariam de 3 h). A 0.9 migra o save v4 e recebe o rastejador05 vivo no berçário (a 0.8 não tem esse inimigo). Não é FPS de GPU física.",
+ "semInimigos_bercarioComRastejador05NaDev": {
+  "recreio-low": {
+   "base": {
+    "workMedianMs": 44.8,
+    "drawCalls": 62,
+    "triangles": 18409,
+    "texMB": 2.92,
+    "enterMs": 3045,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 44.6,
+    "drawCalls": 62,
+    "triangles": 18409,
+    "texMB": 2.92,
+    "enterMs": 2449,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": -0.4,
+    "drawCalls": 0.0,
+    "triangles": 0.0,
+    "texMB": 0.0
+   }
+  },
+  "bercario-low": {
+   "dev": {
+    "workMedianMs": 50.6,
+    "drawCalls": 67,
+    "triangles": 26544,
+    "texMB": 9.62,
+    "enterMs": 2551,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 47.5,
+    "drawCalls": 66,
+    "triangles": 17883,
+    "texMB": 2.96,
+    "enterMs": 2434,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": 6.5,
+    "drawCalls": 1.5,
+    "triangles": 48.4,
+    "texMB": 225.0
+   }
+  },
+  "leitos-low": {
+   "base": {
+    "workMedianMs": 48.5,
+    "drawCalls": 56,
+    "triangles": 19971,
+    "texMB": 2.96,
+    "enterMs": 2459,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 44.9,
+    "drawCalls": 56,
+    "triangles": 19971,
+    "texMB": 2.96,
+    "enterMs": 2460,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": -7.4,
+    "drawCalls": 0.0,
+    "triangles": 0.0,
+    "texMB": 0.0
+   }
+  },
+  "circulo-low": {
+   "dev": {
+    "workMedianMs": 49.3,
+    "drawCalls": 67,
+    "triangles": 20079,
+    "texMB": 2.96,
+    "enterMs": 2450,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 50.1,
+    "drawCalls": 67,
+    "triangles": 20079,
+    "texMB": 2.96,
+    "enterMs": 2517,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": -1.6,
+    "drawCalls": 0.0,
+    "triangles": 0.0,
+    "texMB": 0.0
+   }
+  },
+  "recreio-medium": {
+   "base": {
+    "workMedianMs": 171.9,
+    "drawCalls": 90,
+    "triangles": 23717,
+    "texMB": 18.23,
+    "enterMs": 4170,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 175.1,
+    "drawCalls": 90,
+    "triangles": 23717,
+    "texMB": 18.23,
+    "enterMs": 3944,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": 1.9,
+    "drawCalls": 0.0,
+    "triangles": 0.0,
+    "texMB": 0.0
+   }
+  },
+  "bercario-medium": {
+   "dev": {
+    "workMedianMs": 172,
+    "drawCalls": 99,
+    "triangles": 31910,
+    "texMB": 30.25,
+    "enterMs": 4108,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 168.9,
+    "drawCalls": 98,
+    "triangles": 23249,
+    "texMB": 18.27,
+    "enterMs": 3885,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": 1.8,
+    "drawCalls": 1.0,
+    "triangles": 37.3,
+    "texMB": 65.6
+   }
+  },
+  "leitos-medium": {
+   "base": {
+    "workMedianMs": 175.2,
+    "drawCalls": 81,
+    "triangles": 26806,
+    "texMB": 18.27,
+    "enterMs": 4176,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 173,
+    "drawCalls": 81,
+    "triangles": 26806,
+    "texMB": 18.27,
+    "enterMs": 4238,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": -1.3,
+    "drawCalls": 0.0,
+    "triangles": 0.0,
+    "texMB": 0.0
+   }
+  },
+  "circulo-medium": {
+   "dev": {
+    "workMedianMs": 177.8,
+    "drawCalls": 96,
+    "triangles": 27137,
+    "texMB": 18.27,
+    "enterMs": 4034,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 175.2,
+    "drawCalls": 96,
+    "triangles": 27137,
+    "texMB": 18.27,
+    "enterMs": 4269,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": 1.5,
+    "drawCalls": 0.0,
+    "triangles": 0.0,
+    "texMB": 0.0
+   }
+  }
+ },
+ "vivos_ALIVE_rastejador01_rastejador02_preceptora": {
+  "recreio-low": {
+   "base": {
+    "workMedianMs": 55.7,
+    "drawCalls": 63,
+    "triangles": 34035,
+    "texMB": 4.25,
+    "enterMs": 3135,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 57.8,
+    "drawCalls": 65,
+    "triangles": 27198,
+    "texMB": 9.58,
+    "enterMs": 2555,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": 3.8,
+    "drawCalls": 3.2,
+    "triangles": -20.1,
+    "texMB": 125.4
+   }
+  },
+  "leitos-low": {
+   "dev": {
+    "workMedianMs": 59.5,
+    "drawCalls": 57,
+    "triangles": 28632,
+    "texMB": 9.62,
+    "enterMs": 2487,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 54.3,
+    "drawCalls": 57,
+    "triangles": 35597,
+    "texMB": 5.63,
+    "enterMs": 2645,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": 9.6,
+    "drawCalls": 0.0,
+    "triangles": -19.6,
+    "texMB": 70.9
+   }
+  },
+  "circulo-low": {
+   "base": {
+    "workMedianMs": 49.8,
+    "drawCalls": 120,
+    "triangles": 24243,
+    "texMB": 3.05,
+    "enterMs": 2436,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 62.1,
+    "drawCalls": 77,
+    "triangles": 28392,
+    "texMB": 9.78,
+    "enterMs": 2644,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": 24.7,
+    "drawCalls": -35.8,
+    "triangles": 17.1,
+    "texMB": 220.7
+   }
+  },
+  "recreio-medium": {
+   "dev": {
+    "workMedianMs": 180.1,
+    "drawCalls": 91,
+    "triangles": 32378,
+    "texMB": 42.18,
+    "enterMs": 4482,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 175.7,
+    "drawCalls": 91,
+    "triangles": 39343,
+    "texMB": 34.19,
+    "enterMs": 4238,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": 2.5,
+    "drawCalls": 0.0,
+    "triangles": -17.7,
+    "texMB": 23.4
+   }
+  },
+  "leitos-medium": {
+   "base": {
+    "workMedianMs": 179.1,
+    "drawCalls": 82,
+    "triangles": 42432,
+    "texMB": 34.24,
+    "enterMs": 4299,
+    "transferKB": 1525.26
+   },
+   "dev": {
+    "workMedianMs": 190.2,
+    "drawCalls": 81,
+    "triangles": 35446,
+    "texMB": 42.22,
+    "enterMs": 4148,
+    "transferKB": 1529.38
+   },
+   "deltaPct": {
+    "workMedianMs": 6.2,
+    "drawCalls": -1.2,
+    "triangles": -16.5,
+    "texMB": 23.3
+   }
+  },
+  "circulo-medium": {
+   "dev": {
+    "workMedianMs": 186.5,
+    "drawCalls": 106,
+    "triangles": 35450,
+    "texMB": 25.01,
+    "enterMs": 4062,
+    "transferKB": 1529.38
+   },
+   "base": {
+    "workMedianMs": 178,
+    "drawCalls": 154,
+    "triangles": 31317,
+    "texMB": 18.36,
+    "enterMs": 4523,
+    "transferKB": 1525.26
+   },
+   "deltaPct": {
+    "workMedianMs": 4.8,
+    "drawCalls": -31.2,
+    "triangles": 13.2,
+    "texMB": 36.2
+   }
+  }
+ }
+}

@@ -47,6 +47,23 @@ Quatorze clips próprios em keyframes: PlayerIdle, Aim, WalkAim, Fire, Reload, F
 
 Não há sistema novo de golpe corpo a corpo: Attack/combos/arco/escalada/Run_and_Shoot foram descartados. Agarrão/soltura são reações visuais, não QTE ou IK sincronizado com mordida. A recarga não manipula um carregador físico. Porta tem gesto na transição, não mão resolvida sobre cada maçaneta. Não há rig facial, mocap adicional, ragdoll nem retarget universal; usamos o mesmo padrão de nomes/pose do rig recebido e utilitários in-place/BonePose compartilhados.
 
+### Rastejador e Preceptora (0.9.0, modelos enviados pelo usuário)
+
+| Modelo | Bytes GLB | Triângulos | Texturas |
+|---|---:|---:|---|
+| Rastejador recebido | 16.183.396 | 10.414 | 3 PNG 2048² |
+| Rastejador otimizado (`src/assets/rastejador.glb`) | 608.428 | 8.661 | cor WebP 1024²; normal e metal-rough WebP 512² |
+| Preceptora recebida | 11.874.432 | 8.286 | 3 PNG 2048² |
+| Preceptora otimizada (`src/assets/preceptora.glb`) | 574.924 | 7.785 | cor WebP 1024²; normal WebP 512² (metal-rough quase constante, removido) |
+
+Reduções: **96,2%** e **95,2%** em bytes. Rig SmartRig (69 juntas, 4 influências), sem clips nos arquivos. `gltf-transform resize --pattern "*normal*"/"*metallic*" 512` e depois `optimize --texture-compress webp --texture-size 1024 --compress meshopt --simplify-error 0.008 --join false --instance false --flatten false`. Os originais não vão para o repositório.
+
+Os dois só carregam quando a Helena entra no Capítulo 2 (espera em diante) ou num save que já esteja lá (`preloadChapter2`, `src/smartrig.ts`); até lá, o ator da 0.8 fica como substituto e é trocado quando o GLB chega. Material único com o light probe da sala (o camisolão do rastejador tem ganho 0,6 para não estourar). Na qualidade Baixa, normal e roughness são descartados.
+
+**Rastejador (`src/crawler.ts`, `src/crawler-pose.ts`):** animação procedural por osso, sem clips: Idle (respiração, tique de cabeça), Crawl (passada em quatro apoios sincronizada com a velocidade real, quadril e coluna ondulando), CrawlAttack (aviso: empina o tronco por 0,55 s), Strike (bote de 0,22 s), Recover, Cower/Hit (impacto 0,38 s) e Death (colapso e rolagem de 1,1 s; tiro crítico apaga a cabeça). O cadáver some como os demais. Hitboxes presas aos ossos (cabeça, tronco, braços, coxas). Todos os E05 (recreio, berçário, leitos e auxiliares da Preceptora) usam o modelo.
+
+**Preceptora (`src/preceptora.ts`):** o rig procedural da 0.8 continua rodando invisível e cada junta é retargetada para o osso do GLB (ombros corrigidos da pose T, quadril escalado). Assim ficam todas as animações 0.8 (despertar, espreita, ociosa, avisos, golpes, recuperação, grito de fase, convulsão, reação a tiro e morte em três tempos), as hitboxes, as placas/núcleo/brilho (presos ao peito), o lençol (preso à mão) e o rim de Fresnel.
+
 ## Cache, LOD, culling e descarte
 
 GLTFLoader + MeshoptDecoder carregam os dois zumbis uma vez e Helena uma vez, com tela de espera. Falha mostra aviso de fallback procedural; não há tela silenciosamente vazia. SkeletonUtils.clone mantém skeleton/mixer independentes e compartilha geometria/imagens; materiais são cacheados por LOD/variante/perfil. No Baixo, cor é 512² e normal/metal-rough são desligados; cor 1024² próxima no Médio/Alto.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+- **Rastejador com o modelo enviado pelo usuário.** O E05 do berçário (novo inimigo, `rastejador05`) e todos os outros rastejadores (brinquedoteca, leitos e auxiliares da Preceptora) usam o GLB recebido: criança de camisola em ponte, de quatro. Arquivo de 16,2 MB otimizado para **608 KB** (8,7k triângulos, WebP 1024/512, meshopt). Sem clips no arquivo: animação procedural por osso (`src/crawler-pose.ts`): ociosa, rastejar sincronizado com a velocidade real, aviso de bote (empina o tronco 0,55 s), bote, recuperação, impacto/acuado e morte com colapso e rolagem; tiro crítico apaga a cabeça. Hitboxes presas aos ossos. Stats, dano e IA iguais aos da 0.8; o cadáver some como antes e os auxiliares continuam caindo com a Preceptora.
+- **Preceptora com o modelo enviado pelo usuário.** 11,9 MB → **575 KB** (7,8k triângulos). O rig procedural da 0.8 continua por baixo e é retargetado para o esqueleto do GLB a cada quadro, então ficam todas as animações (despertar, espreita, avisos, golpes, recuperação, grito de fase, convulsão, reação a tiro, morte em três tempos), os decalques de aviso, as hitboxes, as placas/núcleo (presos ao peito), o lençol (na mão) e o rim de Fresnel. Luta, HP e dano iguais aos da 0.8.
+- **Carregamento preguiçoso:** os dois GLBs só são baixados ao entrar no Capítulo 2 (ou ao carregar um save lá); até chegarem, o ator da 0.8 fica no lugar e é trocado sozinho.
+- **Saves:** `contentVersion` 5. Gravações da 0.7/0.8 (v4) carregam e ganham o rastejador do berçário.
+- Galerias `qa-rastejador.html` (nova) e `qa-preceptora.html` (opção `model=glb`). 9 testes novos (`tests/crawler.test.ts`).
+- Automação: quando um rastejador cola na Helena (abaixo do limite da câmera de ombro), o smoke empurra e recua antes de mirar, como um jogador faria.
+
 ## 0.8.0
 - **A Preceptora (B02) refeita.** O bloco escuro da 0.7 vira uma enfermeira-chefe infectada, alta e magra (~2,5 m): uniforme rasgado com sangue seco, avental, touca com cruz vermelha, máscara cirúrgica, olhos que brilham, colar cervical, prancheta no cinto, crachá cirúrgico no peito, bisturi longo fundido na mão direita, seringa crescida no antebraço esquerdo, esporões de osso no cotovelo e na canela. Duas placas de bandeja de esterilização cobrem um núcleo incandescente entre as costelas. Rig procedural próprio (`src/preceptora.ts`), malhas mescladas por articulação e material, sem GLB novo.
 - **Leitura no escuro:** material com rim de Fresnel (um uniforme, sem luz extra) que também carrega a cor do aviso e do impacto, e preenchimento pelo mesmo light probe dos zumbis (probe × albedo). Três luzes de emergência assadas na enfermaria circular (GDD), sem custo em tempo de execução; a fase escura continua escurecendo-as.

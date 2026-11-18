@@ -43,7 +43,7 @@ const shot = async (name) => {
 };
 try {
   await page.goto(url, { waitUntil: "networkidle" });
-  assert.equal((await state()).version, "0.8.0");
+  assert.equal((await state()).version, "0.9.0");
   assert.equal((await state()).preferences.mode, "shoulder");
   await page.locator("#options").click();
   await page.locator("#opt-sensitivity").fill("1.4");

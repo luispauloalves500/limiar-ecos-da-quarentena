@@ -39,7 +39,7 @@ export type Enemy = Vec & {
 };
 export type GameState = {
   version: 1;
-  contentVersion?: 3 | 4;
+  contentVersion?: 3 | 4 | 5;
   room: RoomId;
   player: Vec & { hp: number; yaw: number };
   ammo: number;
@@ -83,7 +83,7 @@ export function newGame(): GameState {
       };
   return {
     version: 1,
-    contentVersion: 4,
+    contentVersion: 5,
     room: "recepcao",
     player: { x: 0, z: 5, hp: 100, yaw: Math.PI },
     ammo: 12,
@@ -209,7 +209,8 @@ export function parseSave(raw: string): GameState {
     s.version !== 1 ||
     (s.contentVersion !== undefined &&
       s.contentVersion !== 3 &&
-      s.contentVersion !== 4) ||
+      s.contentVersion !== 4 &&
+      s.contentVersion !== 5) ||
     !Object.hasOwn(rooms, s.room) ||
     !s.player ||
     !finite(s.player.hp, 1, 100) ||
@@ -233,9 +234,14 @@ export function parseSave(raw: string): GameState {
     !s.enemies
   )
     throw Error("Save inválido ou versão incompatível");
-  const legacy = s.contentVersion !== 4;
+  const legacy = s.contentVersion !== 4 && s.contentVersion !== 5;
   for (const [id, base] of Object.entries(initial.enemies)) {
-    if (!s.enemies[id] && legacy) s.enemies[id] = { ...base };
+    // Saves before 0.9 (content 4) receive enemies added since (berçário).
+    if (
+      !s.enemies[id] &&
+      (legacy || (s.contentVersion === 4 && ADDED_V5.has(id)))
+    )
+      s.enemies[id] = { ...base };
     const raw = s.enemies[id];
     if (raw) {
       raw.kind ??= base.kind;
@@ -281,11 +287,13 @@ export function parseSave(raw: string): GameState {
       throw Error("Estado de inimigo inválido");
   }
   s.ambience = validateAmbientSave(s.ambience);
-  s.contentVersion = 4;
+  s.contentVersion = 5;
   s.items = [...new Set([...s.items, ...s.docs])];
   updateCorpses(s);
   return s;
 }
+/** Enemies introduced with content version 5 (0.9). */
+export const ADDED_V5 = new Set(["rastejador05"]);
 export function writeSave(
   s: GameState,
   storage: Pick<Storage, "getItem" | "setItem">,

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LIMIAR · QA do rastejador</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body {
+        margin: 0;
+        background: #07100d;
+        color: #e1e8d7;
+        font: 14px monospace;
+      }
+      #scene {
+        height: 100vh;
+      }
+      #tools {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 3;
+        padding: 10px;
+        background: #08100dd8;
+        border: 1px solid #68806d;
+      }
+      select {
+        background: #243b30;
+        color: #eee;
+        padding: 5px;
+        border: 1px solid #78917e;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene"></div>
+    <div id="tools">
+      <b>Galeria técnica E05 (berçário) — não altera seu jogo/saves</b>
+      <label
+        >Pose
+        <select id="pose">
+          <option>Idle</option>
+          <option>Crawl</option>
+          <option>Windup</option>
+          <option>Strike</option>
+          <option>Stun</option>
+          <option>Hit</option>
+          <option>Death</option>
+        </select></label
+      >
+      <label
+        >Câmera
+        <select id="cam">
+          <option value="close">Perto</option>
+          <option value="mid">Média</option>
+          <option value="side">Lado</option>
+        </select></label
+      >
+      <label
+        >Modelo
+        <select id="model">
+          <option value="glb">0.9 (GLB)</option>
+          <option value="zombie">0.8 (zumbi rastejando)</option>
+        </select></label
+      >
+      <span id="status">Carregando…</span>
+    </div>
+    <script type="module" src="/src/crawler-qa.ts"></script>
+  </body>
+</html>

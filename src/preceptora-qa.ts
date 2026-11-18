@@ -3,6 +3,7 @@ import { View } from "./render";
 import { newGame, killEnemy, type GameState } from "./logic";
 import { defaults } from "./controls";
 import { MOVE, MOVES } from "./preceptora-logic";
+import { preloadChapter2 } from "./smartrig";
 const view = new View(document.getElementById("scene")!),
   params = new URLSearchParams(location.search);
 const input = (id: string) => document.getElementById(id) as HTMLSelectElement;
@@ -43,6 +44,7 @@ function setup() {
   s.player = { x: 0.35, z: -3 + dz, hp: 100, yaw: Math.PI };
   s.flags = { prontuarios: true };
   view.legacyPreceptora = input("model").value === "legacy";
+  view.preceptoraModel = input("model").value === "glb" ? "glb" : "procedural";
   view.setPreferences({ ...defaults, mode: "shoulder", quality: "medium" });
   view.load(s.room, s);
   if (input("pose").value === "Death") {
@@ -101,6 +103,7 @@ function drive(time: number) {
 }
 for (const id of ["pose", "cam", "model"])
   input(id).addEventListener("change", setup);
+await preloadChapter2();
 setup();
 function frame(now: number) {
   requestAnimationFrame(frame);
@@ -121,6 +124,7 @@ Object.defineProperty(window, "preceptoraQA", {
       frames,
       pose: input("pose").value,
       model: input("model").value,
+      glb: !!a?.root.userData.glb,
       state: a?.animation?.stateName,
       drawCalls: view.renderer.info.render.calls,
       triangles: view.renderer.info.render.triangles,

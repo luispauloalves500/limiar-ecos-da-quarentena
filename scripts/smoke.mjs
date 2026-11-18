@@ -402,6 +402,24 @@ async function aimAtEnemy(id, region) {
       await page.waitForTimeout(180);
     }
     if (s.enemies[id].dead) return;
+    // A crawler under the shoulder camera sits below the pitch limit: shove
+    // it off and step back, as a player would, instead of staring at it.
+    const near = Math.hypot(
+      s.enemies[id].x - s.player.x,
+      s.enemies[id].z - s.player.z,
+    );
+    if (s.enemies[id].crawl && near < 1.15 && i % 6 === 5) {
+      await page.keyboard.up("j");
+      await tap(" ");
+      const ux = (s.player.x - s.enemies[id].x) / Math.max(near, 0.01),
+        uz = (s.player.z - s.enemies[id].z) / Math.max(near, 0.01);
+      await moveTo(s.player.x + ux * 1.2, s.player.z + uz * 1.2, 0.5).catch(
+        () => {},
+      );
+      await page.keyboard.down("j");
+      await page.waitForTimeout(200);
+      continue;
+    }
     if (
       s.room === "circulo" &&
       s.enemies[id].boss &&
@@ -421,6 +439,16 @@ async function aimAtEnemy(id, region) {
       return;
     const target = s.aimTargets.find((t) => t.id === id && t.region === wanted);
     assert.ok(target, "Hitbox exists");
+    if (i === 8 || i === 30)
+      console.log("aim-slow", id, {
+        i,
+        target: target.position.map((v) => +v.toFixed(2)),
+        rayHit: s.rayHit && { id: s.rayHit.id, region: s.rayHit.region },
+        enemy: [s.enemies[id].x, s.enemies[id].z].map((v) => +v.toFixed(2)),
+        player: [s.player.x, s.player.z].map((v) => +v.toFixed(2)),
+        pitch: s.cameraPitch,
+        hp: s.hp,
+      });
     await lookAt(target.position);
     const after = await state();
     if (
@@ -961,6 +989,21 @@ try {
     await moveTo(4, -5);
     await tap("e");
     await travel(0, -7, "bercario");
+    // 0.9: the berçário crawler (user GLB) waits in the centre aisle.
+    {
+      const c = (await state()).enemies.rastejador05;
+      if (c && !c.dead) {
+        await page.waitForTimeout(900);
+        await page.screenshot({ path: out + "/17b-bercario-rastejador.png" });
+        await shoot("rastejador05", "2", 4);
+        if (!(await state()).enemies.rastejador05.dead)
+          await shoot("rastejador05", "2", 3);
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: out + "/17c-bercario-morte.png" });
+        assert.ok((await state()).enemies.rastejador05.dead);
+      }
+    }
+    if ((await state()).hp < 65) await tap("h");
     await moveTo(0, 4);
     await tap("e");
     await tap("Escape");
@@ -976,183 +1019,205 @@ try {
     if (!(await state()).enemies.rastejador02.dead)
       await shoot("rastejador02", "2", 3);
     if ((await state()).hp < 65) await tap("h");
-    await moveTo(-2, -2);
-    await tap("e");
-    await moveTo(0, -5.2);
-    await tap("e");
-    await moveTo(2, -2);
-    await tap("e");
+    await moveTo(0, 1.2, 0.7);
+    // P03: a missed interaction prompt (2/3) is retried, never forced.
+    for (
+      let round = 0;
+      round < 3 && !(await state()).flags.prontuarios;
+      round++
+    )
+      for (const [x, z] of [
+        [-2, -2],
+        [0, -5.2],
+        [2, -2],
+      ]) {
+        if ((await state()).flags.prontuarios) break;
+        // Come back through the open centre: a shove can leave Helena
+        // behind a bed, where the route hugs the wall and stalls.
+        if (round) await moveTo(0, 1.2, 0.7);
+        await moveTo(round && x ? x * 0.8 : x, z, round ? 0.5 : 0.6);
+        await page.waitForTimeout(150);
+        await tap("e");
+        await page.waitForTimeout(250);
+        if ((await state()).mode === "document") await tap("Escape");
+      }
     assert.ok((await state()).flags.prontuarios);
     await page.screenshot({ path: out + "/18-leitos.png" });
-    await moveTo(4, 5);
-    await tap("e");
-    if ((await state()).hp < 80) await tap("h");
-    await moveTo(-4, 5);
-    await tap("e");
-    await tap("r");
-    await page.waitForFunction(() => !window.limiar.reloading);
-    await travel(0, -7, "circulo");
-    if ((await state()).hp < 90) await tap("h");
-    // Intro: corredor leste, gerador, sai imediatamente pelo sul.
-    // Kit e recarga no canto mataram o C6k/C6m; recuar é a jogada honesta.
-    await moveTo(5, 5.5);
-    await moveTo(5, -6);
-    await moveTo(4, -6);
-    await tap("e");
-    await moveTo(0, -7.2);
-    await moveTo(-5.2, -7.2);
-    await tap("r");
-    try {
-      await page.waitForFunction(() => !window.limiar.reloading, {
-        timeout: 8000,
-      });
-    } catch {
-      /* continua no anel se a recarga atrasar */
-    }
-    // C7 oficial: o teto de 24 ciclos encerrava a luta com a Preceptora ainda
-    // em pé (ombro 639, tanque 700) e Helena viva. 90 ciclos cabem nas janelas
-    // reais do gerador (~15 s + 20 s). Sem atirar nos ajudantes (mataram o C7
-    // ombro a1) e com rajada curta: aimAtEnemy já recua no windup.
-    const preceptoraLimit = 90;
-    for (
-      let i = 0;
-      i < preceptoraLimit && !(await state()).flags.preceptora;
-      i++
-    ) {
-      let s = await state();
-      if (s.mode !== "play") break;
-      if (s.hp < 80 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
-      if (s.ammo === 0 && (s.reserve || 0) > 0) {
-        await tap("r");
-        try {
-          await page.waitForFunction(() => !window.limiar.reloading, {
-            timeout: 8000,
-          });
-        } catch {
-          /* segue no anel */
-        }
-      }
-      s = await state();
-      const boss = s.enemies.preceptora;
-      if (!boss || boss.dead) break;
-      let d = Math.hypot(boss.x - s.player.x, boss.z - s.player.z);
-      if (d < 4 || boss.state === "windup") {
-        await fleePreceptora(boss);
-        s = await state();
-      }
-      const b = (await state()).enemies.preceptora;
-      if (!b || b.dead) break;
-      s = await state();
-      d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
-      if (b.vulnerable > 0.3 && d >= 3.4) {
-        const beforeHp = b.hp;
-        await shoot("preceptora", "2", 3);
-        const afterShot = (await state()).enemies.preceptora;
-        console.log("preceptora-shot", {
-          before: beforeHp,
-          after: afterShot?.hp,
-          aiming: (await state()).aiming,
+    if (until === "leitos") {
+      assert.deepEqual(errors, []);
+      assert.deepEqual(responses, []);
+      console.log("SMOKE PASS BERCARIO");
+    } else {
+      await moveTo(4, 5);
+      await tap("e");
+      if ((await state()).hp < 80) await tap("h");
+      await moveTo(-4, 5);
+      await tap("e");
+      await tap("r");
+      await page.waitForFunction(() => !window.limiar.reloading);
+      await travel(0, -7, "circulo");
+      if ((await state()).hp < 90) await tap("h");
+      // Intro: corredor leste, gerador, sai imediatamente pelo sul.
+      // Kit e recarga no canto mataram o C6k/C6m; recuar é a jogada honesta.
+      await moveTo(5, 5.5);
+      await moveTo(5, -6);
+      await moveTo(4, -6);
+      await tap("e");
+      await moveTo(0, -7.2);
+      await moveTo(-5.2, -7.2);
+      await tap("r");
+      try {
+        await page.waitForFunction(() => !window.limiar.reloading, {
+          timeout: 8000,
         });
-      } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
-        // C7b ombro morreu a 22 HP de HP do chefe indo ao gerador com o chefe a 4,59 m.
-        const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 6.5;
-        if (genClear) {
-          console.log("generator-go", {
-            bossToGen: Math.hypot(b.x - 4, b.z - -6.2),
+      } catch {
+        /* continua no anel se a recarga atrasar */
+      }
+      // C7 oficial: o teto de 24 ciclos encerrava a luta com a Preceptora ainda
+      // em pé (ombro 639, tanque 700) e Helena viva. 90 ciclos cabem nas janelas
+      // reais do gerador (~15 s + 20 s). Sem atirar nos ajudantes (mataram o C7
+      // ombro a1) e com rajada curta: aimAtEnemy já recua no windup.
+      const preceptoraLimit = 90;
+      for (
+        let i = 0;
+        i < preceptoraLimit && !(await state()).flags.preceptora;
+        i++
+      ) {
+        let s = await state();
+        if (s.mode !== "play") break;
+        if (s.hp < 80 && s.hp > 0 && (s.kits || 0) > 0) await tap("h");
+        if (s.ammo === 0 && (s.reserve || 0) > 0) {
+          await tap("r");
+          try {
+            await page.waitForFunction(() => !window.limiar.reloading, {
+              timeout: 8000,
+            });
+          } catch {
+            /* segue no anel */
+          }
+        }
+        s = await state();
+        const boss = s.enemies.preceptora;
+        if (!boss || boss.dead) break;
+        let d = Math.hypot(boss.x - s.player.x, boss.z - s.player.z);
+        if (d < 4 || boss.state === "windup") {
+          await fleePreceptora(boss);
+          s = await state();
+        }
+        const b = (await state()).enemies.preceptora;
+        if (!b || b.dead) break;
+        s = await state();
+        d = Math.hypot(b.x - s.player.x, b.z - s.player.z);
+        if (b.vulnerable > 0.3 && d >= 3.4) {
+          const beforeHp = b.hp;
+          await shoot("preceptora", "2", 3);
+          const afterShot = (await state()).enemies.preceptora;
+          console.log("preceptora-shot", {
+            before: beforeHp,
+            after: afterShot?.hp,
+            aiming: (await state()).aiming,
+          });
+        } else if (b.vulnerable <= 0.3 && (s.auxCooldown || 0) <= 0.4) {
+          // C7b ombro morreu a 22 HP de HP do chefe indo ao gerador com o chefe a 4,59 m.
+          const genClear = Math.hypot(b.x - 4, b.z - -6.2) > 6.5;
+          if (genClear) {
+            console.log("generator-go", {
+              bossToGen: Math.hypot(b.x - 4, b.z - -6.2),
+              helena: s.hp,
+              kits: s.kits,
+            });
+            // Kit ao lado do gerador: só se o chefe está longe. Jogada honesta.
+            if ((s.kits || 0) === 0) {
+              const bossToKit = Math.hypot(b.x - 5.2, b.z - -5.0);
+              if (bossToKit > 5) {
+                await moveTo(5.2, -5.0);
+                await tap("e");
+              }
+            }
+            await moveTo(5, -6);
+            await moveTo(4, -6);
+            await tap("e");
+            await fleePreceptora((await state()).enemies.preceptora);
+          } else {
+            // Chefe acampou o gerador: atrai para o canto oposto, não só foge.
+            console.log("generator-lure", { x: b.x, z: b.z, helena: s.hp });
+            await moveTo(-5.2, 6.2);
+            await page.waitForTimeout(450);
+          }
+        } else {
+          if (d < 4.5) await fleePreceptora(b);
+          else await page.waitForTimeout(350);
+        }
+        s = await state();
+        if (s.enemies.preceptora)
+          console.log("preceptora", {
+            i,
+            hp: s.enemies.preceptora.hp,
+            vulnerable: s.enemies.preceptora.vulnerable,
+            state: s.enemies.preceptora.state,
             helena: s.hp,
             kits: s.kits,
+            auxCooldown: s.auxCooldown,
+            dist: Math.hypot(
+              s.enemies.preceptora.x - s.player.x,
+              s.enemies.preceptora.z - s.player.z,
+            ),
           });
-          // Kit ao lado do gerador: só se o chefe está longe. Jogada honesta.
-          if ((s.kits || 0) === 0) {
-            const bossToKit = Math.hypot(b.x - 5.2, b.z - -5.0);
-            if (bossToKit > 5) {
-              await moveTo(5.2, -5.0);
-              await tap("e");
-            }
-          }
-          await moveTo(5, -6);
-          await moveTo(4, -6);
-          await tap("e");
-          await fleePreceptora((await state()).enemies.preceptora);
-        } else {
-          // Chefe acampou o gerador: atrai para o canto oposto, não só foge.
-          console.log("generator-lure", { x: b.x, z: b.z, helena: s.hp });
-          await moveTo(-5.2, 6.2);
-          await page.waitForTimeout(450);
+      }
+      {
+        const end = await state();
+        if (!end.flags.preceptora) {
+          const p = end.enemies && end.enemies.preceptora;
+          throw Error(
+            "Preceptora ainda em combate após " +
+              preceptoraLimit +
+              " ciclos (hp=" +
+              (p ? p.hp : "?") +
+              ", helena=" +
+              end.hp +
+              ", kits=" +
+              end.kits +
+              ", vuln=" +
+              (p ? p.vulnerable : "?") +
+              ", state=" +
+              (p ? p.state : "?") +
+              "). A automação esgotou o tempo; o jogo não foi alterado.",
+          );
         }
-      } else {
-        if (d < 4.5) await fleePreceptora(b);
-        else await page.waitForTimeout(350);
       }
-      s = await state();
-      if (s.enemies.preceptora)
-        console.log("preceptora", {
-          i,
-          hp: s.enemies.preceptora.hp,
-          vulnerable: s.enemies.preceptora.vulnerable,
-          state: s.enemies.preceptora.state,
-          helena: s.hp,
-          kits: s.kits,
-          auxCooldown: s.auxCooldown,
-          dist: Math.hypot(
-            s.enemies.preceptora.x - s.player.x,
-            s.enemies.preceptora.z - s.player.z,
-          ),
-        });
-    }
-    {
-      const end = await state();
-      if (!end.flags.preceptora) {
-        const p = end.enemies && end.enemies.preceptora;
-        throw Error(
-          "Preceptora ainda em combate após " +
-            preceptoraLimit +
-            " ciclos (hp=" +
-            (p ? p.hp : "?") +
-            ", helena=" +
-            end.hp +
-            ", kits=" +
-            end.kits +
-            ", vuln=" +
-            (p ? p.vulnerable : "?") +
-            ", state=" +
-            (p ? p.state : "?") +
-            "). A automação esgotou o tempo; o jogo não foi alterado.",
-        );
-      }
-    }
-    assert.ok((await state()).flags.preceptora);
-    assert.ok((await state()).flags.cracha);
-    await page.screenshot({ path: out + "/19-preceptora.png" });
-    await travel(0, -7, "visor");
-    await moveTo(0, 4);
-    await tap("e");
-    await tap("Escape");
-    await moveTo(0, -6.5);
-    await tap("e");
-    assert.equal((await state()).mode, "win");
-    assert.ok((await state()).flags.cirurgia);
-    await page.screenshot({ path: out + "/20-final.png" });
-    await note("complete");
-    await page.locator("#explore").click();
-    await page.keyboard.press("v");
-    assert.notEqual((await state()).preferences.mode, gameMode);
-    await page.keyboard.press("v");
-    assert.equal((await state()).preferences.mode, gameMode);
-    await page.reload();
-    await page.waitForFunction(
-      () => window.limiar?.asset.status === "ready",
-      null,
-      { timeout: 60000 },
-    );
-    assert.equal((await state()).preferences.mode, gameMode);
-    await page.locator("#load").click();
-    assert.equal((await state()).room, "abrigo");
-    assert.ok((await state()).flags.final);
-    assert.equal((await state()).preferences.mode, gameMode);
-    assert.deepEqual(errors, []);
-    assert.deepEqual(responses, []);
-    console.log("SMOKE PASS");
+      assert.ok((await state()).flags.preceptora);
+      assert.ok((await state()).flags.cracha);
+      await page.screenshot({ path: out + "/19-preceptora.png" });
+      await travel(0, -7, "visor");
+      await moveTo(0, 4);
+      await tap("e");
+      await tap("Escape");
+      await moveTo(0, -6.5);
+      await tap("e");
+      assert.equal((await state()).mode, "win");
+      assert.ok((await state()).flags.cirurgia);
+      await page.screenshot({ path: out + "/20-final.png" });
+      await note("complete");
+      await page.locator("#explore").click();
+      await page.keyboard.press("v");
+      assert.notEqual((await state()).preferences.mode, gameMode);
+      await page.keyboard.press("v");
+      assert.equal((await state()).preferences.mode, gameMode);
+      await page.reload();
+      await page.waitForFunction(
+        () => window.limiar?.asset.status === "ready",
+        null,
+        { timeout: 60000 },
+      );
+      assert.equal((await state()).preferences.mode, gameMode);
+      await page.locator("#load").click();
+      assert.equal((await state()).room, "abrigo");
+      assert.ok((await state()).flags.final);
+      assert.equal((await state()).preferences.mode, gameMode);
+      assert.deepEqual(errors, []);
+      assert.deepEqual(responses, []);
+      console.log("SMOKE PASS");
+    } // until !== "leitos"
   } // until !== "abrigo"
 } catch (e) {
   errors.push(String(e));

@@ -1,4 +1,35 @@
-# QA — LIMIAR 0.8.0
+# QA — LIMIAR 0.9.0
+
+## 0.9.0 — rastejador e Preceptora com os modelos do usuário
+**Gates:** 217 testes em 12 arquivos (9 novos em `tests/crawler.test.ts`: fases da passada, aviso/bote/recuperação, morte, migração de save v4 → v5 com o `rastejador05`), lint, TypeScript, Prettier em src/tests/scripts, build e `npm audit --omit=dev` (0 vulnerabilidades). Chromium 158, SwiftShader.
+
+**Assets:** rastejador 16.183.396 → 608.428 bytes (8.661 triângulos), Preceptora 11.874.432 → 574.924 bytes (7.785 triângulos); detalhes em [MODELOS.md](MODELOS.md). Os dois carregam só no Capítulo 2. JS de render 855 → 869 KB (gzip 231 → 236 KB).
+
+**Galeria (draws/triângulos na mesma câmera):** rastejador GLB ~46–49 draws / 15,7k triângulos contra 67 / 9k do rastejador zumbi; Preceptora GLB ~60–68 draws / 18k contra 103 / 13,6k da procedural 0.8.
+
+**Benchmark** (`scripts/room-bench.mjs` da árvore 0.8, base = build exata 0.8.0 fb71ed5, dev = 0.9.0, alternados, uma repetição; `docs/benchmark-v090.json`). Reduzido às salas do Capítulo 2 que mudam e às qualidades Baixa/Média: cada amostra levou ~100 s e as 19 salas × 3 perfis passariam de 3 h.
+
+| Sala (quadro mediano, ms) | Baixa 0.8 → 0.9 | Média 0.8 → 0.9 | Draws (baixa/média) |
+|---|---|---|---|
+| Berçário (0.9 tem o rastejador05 vivo; a 0.8 não tem inimigo) | 47,5 → 50,6 (+6,5%) | 168,9 → 172,0 (+1,8%) | 66→67 / 98→99 |
+| Brinquedoteca, leitos, circular sem inimigos | −7,4% a +1,9% (ruído) | | iguais |
+| Brinquedoteca com rastejador vivo | 55,7 → 57,8 (+3,8%) | 175,7 → 180,1 (+2,5%) | 63→65 / 91→91 |
+| Leitos com rastejador vivo | 54,3 → 59,5 (+9,6%) | 179,1 → 190,2 (+6,2%) | 57→57 / 82→81 |
+| Circular com a Preceptora viva | 49,8 → 62,1 (**+24,7%**) | 178,0 → 186,5 (+4,8%) | **120→77 / 154→106** |
+
+Os GLBs têm menos draws que os atores 0.8 (a Preceptora cai 31–36%), mas a malha skinned com 69 ossos e o retarget custam mais no SwiftShader, onde o skinning roda na CPU; na Baixa com a chefe viva o quadro sobe ~25%. Memória de textura estimada: +6,6 MB na Baixa e +7 a +24 MB na Média (WebP é compressão de transmissão, não de GPU). Não é FPS de GPU física.
+
+**Campanha real a partir das gravações do abrigo da 0.8 (r6), uma tentativa de chefe por modo:**
+- Ombro até os leitos (run-shoulder3): rastejador05 morto no berçário, P03 resolvido, Helena com 76. Uma rodada anterior (run-shoulder2) morreu nos leitos: o rastejador colou a 0,7 m, abaixo do limite de inclinação da câmera de ombro (−1,05), e a automação insistiu na mira. A 0.8 exata no mesmo save também travou a mira a ~0,7 m (run-080), mas matou o rastejador; depois falhou no puzzle dos leitos. O smoke passou a empurrar e recuar quando um rastejador cola.
+- Tank, chefe: **Preceptora 700 → 28 HP**, Helena morreu na fase 3 (sem kits). Sem vitória.
+- Ombro, chefe (boss-shoulder3; a boss-shoulder2 não chegou à chefe, ficou presa atrás de um leito depois do empurrão e o smoke passou a voltar pelo centro antes do P03): rastejadores e P03 ok, **Preceptora 700 → 309 HP**, Helena morreu. Sem vitória.
+- **Nesta build a chefe não foi derrotada pela automação em nenhum modo, e o final no visor não foi verificado.** As rodadas pararam aqui para não gastar horas na luta; a lógica da luta é a da 0.8 (que venceu no tank na build final).
+
+**Limitações:** a automação lê o estado para fugir no aviso; a dificuldade para um humano não foi medida. A Preceptora GLB é escura (cabelo preto, camisola) e na câmera alta do modo tank se lê pior que a 0.8; o rim de Fresnel e os olhos ajudam de perto. Os GLBs não têm clips: rastejador animado por pose procedural e Preceptora por retarget, sem mocap. As placas de bandeja continuam procedurais sobre o peito. Um rastejador colado na Helena fica abaixo do limite da câmera de ombro (igual na 0.8): é preciso empurrar (Espaço) ou recuar. Medições em GPU de software.
+
+---
+
+# Histórico — QA 0.8.0
 
 ## 0.8.0 — Preceptora (B02)
 **Gates:** 208 testes em 11 arquivos (11 novos em `tests/preceptora.test.ts`: fases, escolha de golpe sem repetir 3×, avisos e alcance, puxão por lençol, descarga do gerador, grito de fase fechando as placas), lint, TypeScript e build. Mesmo ambiente da 0.7 (Chromium 158, SwiftShader).

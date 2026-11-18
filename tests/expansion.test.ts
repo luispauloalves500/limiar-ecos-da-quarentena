@@ -210,7 +210,7 @@ describe("pediatria 0.7", () => {
       )
         delete s.enemies[id];
     const r = parseSave(JSON.stringify(s));
-    expect(r.contentVersion).toBe(4);
+    expect(r.contentVersion).toBe(5);
     expect(r.enemies.rastejador01.kind).toBe("E05");
     expect(r.enemies.preceptora.kind).toBe("B02");
     expect(r.enemies.preceptora.boss).toBe(true);

@@ -582,7 +582,8 @@ export const rooms: Record<RoomId, Room> = {
       { id: "ber-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
       { id: "ber-bat", kind: "battery", label: "Bateria +35", x: -4, z: 5 },
     ],
-    enemies: [],
+    // 0.9: the crawler from the user's GLB lives among the cribs.
+    enemies: [{ id: "rastejador05", kind: "E05", x: 0, z: -4 }],
   },
   leitos: {
     id: "leitos",

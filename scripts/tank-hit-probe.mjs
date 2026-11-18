@@ -355,7 +355,7 @@ const report = {
 try {
   const raw = await readFile(savePath, "utf8");
   const parsed = JSON.parse(raw);
-  if (parsed.room !== "abrigo" || parsed.contentVersion !== 4) {
+  if (parsed.room !== "abrigo" || parsed.contentVersion < 4) {
     throw Error("save inesperado: " + savePath);
   }
   report.saveSnapshot = {

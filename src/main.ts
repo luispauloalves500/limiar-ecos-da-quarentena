@@ -5,6 +5,7 @@ import { transitionOpacity, transitionElapsed } from "./presentation";
 import { Vector3 } from "three";
 import { preloadPlayer, playerDiagnostics, disposePlayerCache } from "./player";
 import { preloadZombie, zombieDiagnostics } from "./zombie";
+import { smartAsset } from "./smartrig";
 import {
   collect,
   isCollected,
@@ -1645,6 +1646,7 @@ Object.defineProperty(window, "limiar", {
     aiming,
     version: VERSION,
     asset: zombieDiagnostics(),
+    chapter2: { ...smartAsset },
     playerAsset: playerDiagnostics(),
     playerAnimation: view.playerAnimation?.diagnostic(),
     environment: view.environment?.diagnostics(),

@@ -1,10 +1,17 @@
-# LIMIAR: Ecos da Quarentena — 0.8.0
+# LIMIAR: Ecos da Quarentena — 0.9.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.8.0 — a Preceptora refeita
+## Novo na 0.9.0 — rastejador e Preceptora com modelos novos
+
+- **Rastejador no berçário:** o modelo enviado (criança em ponte, de quatro) vira o E05 do berçário e de todos os rastejadores. 16,2 MB → 608 KB. Animações procedurais por osso: ociosa, rastejar, aviso de bote, bote, impacto, acuado e morte com colapso.
+- **Preceptora:** o segundo modelo enviado substitui a enfermeira procedural. 11,9 MB → 575 KB. Mesma luta da 0.8 (avisos, placas, gerador, grito de fase, morte em três tempos), agora retargetada para o esqueleto do GLB.
+- **Carregamento preguiçoso:** os modelos só baixam no Capítulo 2. Saves da 0.7/0.8 continuam valendo.
+- [Antes/depois do rastejador](docs/screenshots/v090/antes-depois-rastejador.jpg) · [antes/depois da Preceptora](docs/screenshots/v090/antes-depois-preceptora.jpg) · [capturas 0.9](docs/screenshots/v090/README.md)
+
+## 0.8.0 preservada — a Preceptora refeita
 
 - **Modelo novo:** enfermeira-chefe infectada, alta (~2,5 m) e magra, com uniforme rasgado, avental manchado, touca com cruz vermelha, máscara cirúrgica, olhos acesos, bisturi longo fundido na mão, seringa crescida no antebraço, prancheta e crachá. Placas de bandeja de esterilização cobrem um núcleo incandescente; o gerador auxiliar as faz saltar abertas. Rig procedural mesclado por articulação e material, sem GLB novo.
 - **Legível no escuro:** rim de Fresnel e preenchimento pelo light probe da sala; o rim muda de cor no aviso de golpe e pisca no impacto. Luzes de emergência assadas na enfermaria circular (sem custo em tempo de execução).
