@@ -2,8 +2,18 @@
 // Everything here is plain numbers so it can be unit-tested; crawler.ts turns
 // it into bone rotations. Model space: +Z forward, +Y up, X to the side.
 
-/** Limb order: front-left, front-right, hind-left, hind-right. */
-export const LIMB_OFFSETS = [0, Math.PI, Math.PI, 0] as const;
+/** Limb order: front-left, front-right, hind-left, hind-right. 0.10: a
+ * four-beat lateral sequence (hind-L → front-L → hind-R → front-R, a quarter
+ * cycle apart) like a crawling infant, instead of the 0.9 diagonal trot. */
+export const LIMB_OFFSETS = [
+  Math.PI / 2,
+  (3 * Math.PI) / 2,
+  0,
+  Math.PI,
+] as const;
+/** Fraction of the cycle a limb spends in the air. */
+export const SWING_DUTY = 0.3;
+const LIMB_SIDE = [-1, 1, -1, 1];
 export const CRAWLER_STRIDE = 0.48; // metres travelled per full gait cycle
 export const CRAWLER_TIMING = {
   windup: 0.55, // matches E05 windup in logic.ts
@@ -66,12 +76,25 @@ export function advancePhase(phase: number, distance: number) {
   return (phase + (distance / CRAWLER_STRIDE) * Math.PI * 2) % (Math.PI * 2);
 }
 
-/** One limb of the spider-walk gait: swing forward while lifted, push back
- * while planted. Diagonal pairs share a phase. */
+/** One limb of the gait: a short lifted swing forward (SWING_DUTY of the
+ * cycle, eased), then a long planted push back at constant speed, so the
+ * planted hand/foot moves with the ground instead of skating. */
 export function gaitLimb(phase: number, offset: number): LimbPose {
-  const p = phase + offset,
-    s = Math.sin(p);
-  return { swing: -Math.cos(p), lift: Math.max(0, s), curl: 0 };
+  const tau = Math.PI * 2,
+    u = ((((phase + offset) % tau) + tau) % tau) / tau;
+  if (u < SWING_DUTY) {
+    const k = u / SWING_DUTY;
+    return {
+      swing: -Math.cos(k * Math.PI),
+      lift: Math.sin(k * Math.PI),
+      curl: 0,
+    };
+  }
+  return {
+    swing: 1 - (2 * (u - SWING_DUTY)) / (1 - SWING_DUTY),
+    lift: 0,
+    curl: 0,
+  };
 }
 
 export function crawlerPose(i: CrawlerInput): CrawlerPose {
@@ -111,11 +134,18 @@ export function crawlerPose(i: CrawlerInput): CrawlerPose {
   }
   if (i.state === "crawl") {
     pose.limbs = LIMB_OFFSETS.map((o) => gaitLimb(i.phase, o));
-    pose.roll = Math.sin(i.phase) * 0.07;
-    pose.twist = Math.sin(i.phase) * 0.1;
-    pose.bob = Math.abs(Math.sin(i.phase)) * 0.03;
-    pose.headYaw = Math.sin(i.phase + 0.6) * 0.16;
-    pose.headPitch = Math.sin(i.phase * 2) * 0.05;
+    // Weight shifts away from the lifted limb; the spine twists with the
+    // front reach and the head follows a beat later (secondary motion).
+    pose.roll = pose.limbs.reduce(
+      (r, l, n) => r - l.lift * LIMB_SIDE[n] * 0.06,
+      0,
+    );
+    const reach = pose.limbs[0].swing - pose.limbs[1].swing;
+    pose.twist = reach * 0.06;
+    pose.bob = pose.limbs.reduce((b, l) => b + l.lift, 0) * 0.014;
+    pose.pitch = (pose.limbs[0].lift + pose.limbs[1].lift) * -0.03;
+    pose.headYaw = Math.sin(i.phase - 0.9) * 0.14;
+    pose.headPitch = Math.sin(i.phase * 2 - 0.5) * 0.05;
   } else if (i.state === "idle") {
     const breath = Math.sin(i.clock * 2.1 + i.seed * 3);
     pose.bob = breath * 0.012;
@@ -183,4 +213,33 @@ export function crawlerState(
   if (e.state === "recover") return "recover";
   if (e.state === "stun") return "stun";
   return speed > 0.05 ? "crawl" : "idle";
+}
+
+/** 0.10: ease every channel toward the new target (no snapping when the
+ * state changes crawl → windup → strike → recover). `rate` per second. */
+export function blendPose(
+  from: CrawlerPose | undefined,
+  to: CrawlerPose,
+  dt: number,
+  rate = 14,
+): CrawlerPose {
+  if (!from) return to;
+  const k = 1 - Math.exp(-dt * rate),
+    mix = (a: number, b: number) => a + (b - a) * k;
+  return {
+    limbs: to.limbs.map((l, n) => ({
+      swing: mix(from.limbs[n].swing, l.swing),
+      lift: mix(from.limbs[n].lift, l.lift),
+      curl: mix(from.limbs[n].curl, l.curl),
+    })),
+    pitch: mix(from.pitch, to.pitch),
+    roll: mix(from.roll, to.roll),
+    twist: mix(from.twist, to.twist),
+    bob: mix(from.bob, to.bob),
+    lunge: mix(from.lunge, to.lunge),
+    headPitch: mix(from.headPitch, to.headPitch),
+    headYaw: mix(from.headYaw, to.headYaw),
+    headRoll: mix(from.headRoll, to.headRoll),
+    death: to.death,
+  };
 }

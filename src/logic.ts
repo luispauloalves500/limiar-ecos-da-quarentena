@@ -392,8 +392,16 @@ export function turnValve(s: GameState, n: number) {
   if (stage === 2) s.flags.pressao = true;
   return true;
 }
+/** E05 bite reach, matched to the smaller 0.10 crawler (hands and head end
+ * ~0.6 m ahead of its centre, plus the lunge). Legless zombies keep 0.9. */
+export const CRAWLER_REACH = 0.8;
 export function enemyPattern(e: Enemy, d: number) {
-  if (e.crawl) return { charge: false, feint: false, range: 0.9 };
+  if (e.crawl)
+    return {
+      charge: false,
+      feint: false,
+      range: e.kind === "E05" ? CRAWLER_REACH : 0.9,
+    };
   return {
     charge: e.kind === "E04" && d > 1.3,
     feint: e.kind === "E02",

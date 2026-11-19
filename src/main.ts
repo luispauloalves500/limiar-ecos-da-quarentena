@@ -1,5 +1,5 @@
 import { themes } from "./environment-logic";
-import { ramp } from "./locomotion";
+import { ramp, turnToward } from "./locomotion";
 import { shove } from "./gameplay";
 import { transitionOpacity, transitionElapsed } from "./presentation";
 import { Vector3 } from "three";
@@ -15,6 +15,7 @@ import {
   markBed,
   enemyStats,
   enemyPattern,
+  CRAWLER_REACH,
 } from "./logic";
 import "./style.css";
 import {
@@ -295,14 +296,7 @@ function menu() {
     },
     new: () => {
       s = newGame();
-      shoveCooldown = 0;
-      grappleLock = 0;
-      shotCooldown = 0;
-      reloadTime = 0;
-      invulnerable = 1.5;
-      moving = false;
-      velocity.x = velocity.z = 0;
-      aiming = false;
+      resetTransient();
       view.load(s.room, s);
       fadeUntil = performance.now() + 350;
       audio.start();
@@ -313,6 +307,23 @@ function menu() {
     load: loadGame,
   });
 }
+/** 0.10: one reset for new game, load and death restart. Before, loading
+ * or restarting kept Helena's old velocity (she slid on arrival with the
+ * longer stop ramp) and a held aim, and the restart kept cooldowns. */
+function resetTransient() {
+  shoveCooldown = 0;
+  grappleLock = 0;
+  shotCooldown = 0;
+  reloadTime = 0;
+  trapCooldown = 0;
+  auxCooldown = 0;
+  invulnerable = 1.5;
+  moving = false;
+  velocity.x = velocity.z = 0;
+  aiming = false;
+  mouseAim = false;
+  targetId = "";
+}
 function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -322,16 +333,9 @@ function loadGame() {
     }
     const loaded = parseSave(raw);
     s = loaded;
-    shoveCooldown = 0;
-    grappleLock = 0;
+    resetTransient();
     view.load(s.room, s);
     audio.start();
-    invulnerable = 1.5;
-    reloadTime = 0;
-    shotCooldown = 0;
-    trapCooldown = 0;
-    auxCooldown = 0;
-    targetId = "";
     close();
     announce("Gravação restaurada.");
   } catch {
@@ -815,6 +819,7 @@ function fire() {
   view.environment?.shot(s, origin, direction, impact, !e);
   view.shotFx(s, impact, !!e);
   if (e) {
+    const crawled = e.crawl;
     const result = damage(e, hitRegion, Math.random, e.exposure >= 25);
     audio.play(hitRegion === "head" ? "head" : "flesh", e);
     if (e.boss && e.vulnerable <= 0 && !e.dead) audio.play("clank", e);
@@ -829,7 +834,7 @@ function fire() {
             : e.kind === "B02"
               ? "Placas fechadas. Ligue o gerador auxiliar para abri-las."
               : "Armadura fechada. Use a trava elétrica."
-          : e.crawl
+          : e.crawl && !crawled
             ? "Perna inutilizada. Ele ainda se move."
             : hitRegion === "head"
               ? "Impacto na cabeça."
@@ -932,8 +937,8 @@ function hitPlayer(amount: number, grapple = false, attacker?: Enemy) {
       load: loadGame,
       restart: () => {
         s = newGame();
+        resetTransient();
         view.load(s.room, s);
-        invulnerable = 1.5;
         close();
       },
     });
@@ -956,7 +961,8 @@ function moveBody(
         (e) =>
           e.room !== s.room ||
           e.dead ||
-          dist(e, q) > (e.crawl ? 0.42 : e.boss ? 0.8 : 0.6),
+          dist(e, q) >
+            (e.kind === "E05" ? 0.36 : e.crawl ? 0.42 : e.boss ? 0.8 : 0.6),
       ));
   slideMove(p, dx, dz, ok);
 }
@@ -1147,7 +1153,14 @@ function tickEnemy(e: Enemy, dt: number) {
         if (hit && dist(e, s.player) < 2) hitPlayer(24);
       } else {
         if (
-          d < (e.boss ? 2.8 : e.crawl ? 1.1 : 1.6) &&
+          d <
+            (e.boss
+              ? 2.8
+              : e.kind === "E05"
+                ? CRAWLER_REACH + 0.2
+                : e.crawl
+                  ? 1.1
+                  : 1.6) &&
           lineClear(e, s.player, rooms[s.room].obstacles)
         )
           hitPlayer(
@@ -1253,8 +1266,13 @@ function tick(dt: number) {
   const tx = v.x * speed,
     tz = v.z * speed;
   if (grappleLock > 0) velocity.x = velocity.z = 0;
-  velocity.x = ramp(velocity.x, tx, dt, 0.1 / Math.max(1, speed));
-  velocity.z = ramp(velocity.z, tz, dt, 0.1 / Math.max(1, speed));
+  // 0.10: ~0.26 s to reach walking/running pace and ~0.16 s to stop (was
+  // ~0.05 s both ways): the first steps and the halt now read in the legs
+  // instead of the body sliding off at full speed.
+  const speeding = Math.hypot(tx, tz) >= Math.hypot(velocity.x, velocity.z),
+    rampTime = (speeding ? 0.26 : 0.16) / Math.max(1, speed);
+  velocity.x = ramp(velocity.x, tx, dt, rampTime);
+  velocity.z = ramp(velocity.z, tz, dt, rampTime);
   moving = Math.hypot(velocity.x, velocity.z) > 0.12;
   if (moving) {
     moveBody(s.player, velocity.x * dt, velocity.z * dt, 0.3, true);
@@ -1262,16 +1280,23 @@ function tick(dt: number) {
       const desired = Math.atan2(v.x, v.z);
       s.player.yaw = wrapAngle(
         s.player.yaw +
-          wrapAngle(desired - s.player.yaw) * (1 - Math.exp(-dt * 15)),
+          wrapAngle(desired - s.player.yaw) * (1 - Math.exp(-dt * 10)),
       );
     }
     stepTime -= dt;
     if (stepTime <= 0) {
       audio.step(s.room, s.player);
-      stepTime = keys.has("ShiftLeft") ? 0.25 : 0.43;
+      // 0.10: cadence follows the real pace (right Shift ran with the walk
+      // cadence before; aiming/cautious steps were as fast as walking).
+      stepTime = Math.min(
+        0.7,
+        (2.2 * 0.43) / Math.max(0.6, Math.hypot(velocity.x, velocity.z)),
+      );
     }
   }
-  if (aiming && prefs.mode === "shoulder") s.player.yaw = view.yaw;
+  // Raising the gun turns Helena to the reticle in ~0.1 s, not in one frame.
+  if (aiming && prefs.mode === "shoulder")
+    s.player.yaw = turnToward(s.player.yaw, view.yaw, 16, dt);
   else if (aiming && prefs.mode === "tank" && !x) {
     const e = getTarget();
     if (e) s.player.yaw = Math.atan2(e.x - s.player.x, e.z - s.player.z);

@@ -4,6 +4,7 @@ import {
   crawlerPose,
   crawlerState,
   gaitLimb,
+  blendPose,
   CRAWLER_STRIDE,
   LIMB_OFFSETS,
   type CrawlerInput,
@@ -55,18 +56,33 @@ describe("rastejador do berçário (0.9)", () => {
     expect(advancePhase(0, 0)).toBe(0);
     expect(advancePhase(1, CRAWLER_STRIDE)).toBeCloseTo(1);
   });
-  it("pares diagonais alternam: um levanta enquanto o outro apoia", () => {
-    expect(LIMB_OFFSETS[0]).toBe(LIMB_OFFSETS[3]);
-    expect(LIMB_OFFSETS[1]).toBe(LIMB_OFFSETS[2]);
-    for (let p = 0; p < Math.PI * 2; p += 0.3) {
-      const a = gaitLimb(p, LIMB_OFFSETS[0]),
-        b = gaitLimb(p, LIMB_OFFSETS[1]);
-      expect(Math.min(a.lift, b.lift)).toBe(0);
+  it("quatro tempos: cada membro fica 30% do ciclo no ar, um quarto de ciclo após o anterior", () => {
+    const lifted = [0, 0, 0, 0];
+    let maxUp = 0;
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      const p = (i / N) * Math.PI * 2;
+      const up = LIMB_OFFSETS.map((o) => gaitLimb(p, o).lift > 0.01);
+      up.forEach((u, n) => (lifted[n] += u ? 1 : 0));
+      maxUp = Math.max(maxUp, up.filter(Boolean).length);
     }
-    // Swing forward only while lifted: forward motion at mid-swing.
-    const mid = gaitLimb(Math.PI / 2, 0);
+    for (const n of lifted) expect(n / N).toBeCloseTo(0.3, 1);
+    expect(maxUp).toBeLessThanOrEqual(2);
+    // Swing forward while lifted, planted push back at constant speed.
+    const mid = gaitLimb(0.3 * Math.PI, 0);
     expect(mid.lift).toBeCloseTo(1);
-    expect(gaitLimb(Math.PI, 0).swing).toBeGreaterThan(0.9);
+    const a = gaitLimb(Math.PI, 0).swing,
+      b = gaitLimb(Math.PI + 0.2, 0).swing,
+      c = gaitLimb(Math.PI + 0.4, 0).swing;
+    expect(a - b).toBeCloseTo(b - c, 5);
+  });
+  it("transição de estado é suavizada (sem estalo)", () => {
+    const crawl = crawlerPose({ ...base, state: "crawl" }),
+      windup = crawlerPose({ ...base, state: "windup", age: 0.55 }),
+      step = blendPose(crawl, windup, 1 / 60, 12);
+    expect(Math.abs(step.pitch - crawl.pitch)).toBeLessThan(
+      Math.abs(windup.pitch - crawl.pitch) * 0.25,
+    );
   });
   it("aviso ergue a frente; o golpe joga o corpo para frente", () => {
     const w = crawlerPose({ ...base, state: "windup", age: 0.55 });

@@ -8,8 +8,11 @@ import type { Enemy, Region } from "./logic";
 import type { Quality } from "./controls";
 import type { ZombieAnimator } from "./zombie";
 import { SmartSkin, smartMaterial, smartReady } from "./smartrig";
+import { CRAWLER_REACH } from "./logic";
 import {
   advancePhase,
+  blendPose,
+  type CrawlerPose,
   crawlerPose,
   crawlerState,
   type CrawlerInput,
@@ -21,8 +24,11 @@ const crawlerMaterial = (q: Quality) =>
     m.color.multiplyScalar(0.8);
     m.userData.probeGain = 0.6;
   });
-/** Model is authored ~1.32 m tall at the arch; a child-sized crawler. */
-export const CRAWLER_SCALE = 0.74;
+/** Model is authored ~1.32 m tall at the arch. 0.10 (user request): 0.74 →
+ * 0.58, so the arch sits at ~0.77 m, about Helena's hip, and the body is
+ * ~0.6 m long: a child, not a crouching adult. Hitboxes, ground contact,
+ * lunge and bob live under `body` and scale with it. */
+export const CRAWLER_SCALE = 0.58;
 const X = new T.Vector3(1, 0, 0),
   Y = new T.Vector3(0, 1, 0),
   Z = new T.Vector3(0, 0, 1);
@@ -60,6 +66,7 @@ export class Crawler {
   updated = 0;
   ownMaterial?: T.MeshStandardMaterial;
   seed: number;
+  last?: CrawlerPose;
   constructor(public enemy: Enemy) {
     this.seed = seedOf(enemy.id);
     this.skin = new SmartSkin("rastejador", crawlerMaterial("medium"));
@@ -88,7 +95,7 @@ export class Crawler {
     hit("Bone_010", "legL", [0.24, 0.7, 0.26], [-0.62, 1.02, -0.64]);
     hit("Bone_015", "legR", [0.24, 0.7, 0.26], [0.53, 1.02, -0.63]);
     const ring = new T.Mesh(
-      new T.RingGeometry(0.9, 0.94, 32),
+      new T.RingGeometry(CRAWLER_REACH, CRAWLER_REACH + 0.04, 32),
       new T.MeshBasicMaterial({
         color: 0xd4a16b,
         transparent: true,
@@ -126,8 +133,9 @@ export class Crawler {
       this.throttle < 1 / (quality === "low" ? 12 : 20)
     )
       return;
+    const step = Math.min(0.25, this.throttle);
     this.throttle = 0;
-    this.pose(e, speed, dt);
+    this.pose(e, speed, step);
     this.updated++;
   }
   pose(e: Enemy, speed: number, _dt: number) {
@@ -161,7 +169,16 @@ export class Crawler {
       clock: this.clock,
       seed: this.seed,
     };
-    const p = crawlerPose(input);
+    // Gait channels already move continuously with distance; blend fast
+    // there and slower across state changes so nothing snaps.
+    const target = crawlerPose(input),
+      changed = this.clock - this.stateAt < 0.3;
+    const p = (this.last = blendPose(
+      this.last,
+      target,
+      _dt,
+      state === "crawl" && !changed ? 30 : 12,
+    ));
     this.stateName =
       state === "dead"
         ? "Death"

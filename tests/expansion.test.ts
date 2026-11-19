@@ -185,7 +185,7 @@ describe("pediatria 0.7", () => {
     expect(e.crawl).toBe(true);
     expect(enemyStats("E05").hp).toBe(48);
     expect(enemyPattern(e, 4).charge).toBe(false);
-    expect(enemyPattern(e, 4).range).toBe(0.9);
+    expect(enemyPattern(e, 4).range).toBe(0.8);
   });
   it("P03 confirma três leitos, isca dá dica e não softlocka", () => {
     let s = newGame();

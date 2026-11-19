@@ -782,11 +782,18 @@ export class Preceptora {
     this.pose = { ...this.target };
     this.apply();
   }
+  sway = { x: 0, z: 0, vx: 0, vz: 0, f: 0, s: 0 };
+  swayPos = new T.Vector3();
+  swayLast = new T.Vector3(NaN, 0, 0);
+  swayAt = 0;
   attachSkin() {
     const base = smartMaterial("preceptora", "medium");
     const m = base.clone();
     m.userData.zombieShared = false;
-    m.userData.albedo = new T.Color(0xb8b4ac);
+    // 0.10: she read as a dark void (black hair, grey gown); a brighter fill
+    // (probe × albedo plus a floor) lifts her without a new light.
+    m.userData.albedo = new T.Color(0xe2dccf);
+    m.userData.fill = 0.14;
     m.name = "preceptora-glb";
     const rim = this.rim;
     m.onBeforeCompile = (shader) => {
@@ -798,10 +805,12 @@ export class Preceptora {
         )
         .replace(
           "#include <emissivemap_fragment>",
-          "#include <emissivemap_fragment>\nfloat rimF = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.6);\ntotalEmissiveRadiance += rimColor * rimF;",
+          "#include <emissivemap_fragment>\nfloat rimF = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.6);\ntotalEmissiveRadiance += (rimColor + vec3(0.16, 0.17, 0.19)) * rimF;",
         );
     };
-    m.customProgramCacheKey = () => "preceptora-glb-rim";
+    // 0.10: a constant cool rim (on top of the telegraph rim) outlines the
+    // black hair and gown edges against the dark ward.
+    m.customProgramCacheKey = () => "preceptora-glb-rim2";
     this.cloth.push(m);
     this.materials.push(m);
     const skin = new SmartSkin("preceptora", m);
@@ -876,6 +885,44 @@ export class Preceptora {
       t.copy(rel(r.part())).multiply(r.fix).multiply(skin.restModel.get(bone)!);
       skin.setModel(r.bone, t);
     }
+    // 0.10 secondary motion: the long hair and gown lag the body. A damped
+    // spring on the actor's own acceleration (local frame) tips the spine
+    // and neck back when she lunges and sideways when she turns, then settles.
+    this.root.getWorldPosition(this.swayPos);
+    const now = this.t,
+      dt = Math.min(0.1, now - this.swayAt);
+    this.swayAt = now;
+    if (dt > 0) {
+      const yaw = this.root.parent?.rotation.y ?? 0,
+        dx = this.swayPos.x - this.swayLast.x,
+        dz = this.swayPos.z - this.swayLast.z,
+        fwd = (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / dt,
+        side = (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / dt,
+        teleport = !(Math.hypot(dx, dz) <= 1);
+      const sw = this.sway;
+      if (!teleport) {
+        const ax = (fwd - sw.f) / dt,
+          as = (side - sw.s) / dt;
+        for (const [key, a] of [
+          ["x", ax],
+          ["z", as],
+        ] as const) {
+          const vk = key === "x" ? "vx" : "vz";
+          const target = T.MathUtils.clamp(-a * 0.02, -0.22, 0.22);
+          sw[vk] += ((target - sw[key]) * 60 - sw[vk] * 9) * dt;
+          sw[key] += sw[vk] * dt;
+        }
+      }
+      sw.f = teleport ? 0 : fwd;
+      sw.s = teleport ? 0 : side;
+    }
+    this.swayLast.copy(this.swayPos);
+    const X = new T.Vector3(1, 0, 0),
+      Z = new T.Vector3(0, 0, 1);
+    skin.turn("Bone_004", X, -this.sway.x * 0.35);
+    skin.turn("Bone_018", X, -this.sway.x * 0.45);
+    skin.turn("Bone_004", Z, this.sway.z * 0.3);
+    skin.turn("Bone_018", Z, this.sway.z * 0.4);
     // Hips: procedural hips position delta (rest y 1.2) → GLB root bone.
     const hp = new T.Vector3();
     let n: T.Object3D | null = this.j.hips;
@@ -929,7 +976,7 @@ export class Preceptora {
       const base = m.userData.albedo as T.Color;
       m.emissive
         .copy(probe)
-        .addScalar(0.06)
+        .addScalar((m.userData.fill as number | undefined) ?? 0.06)
         .multiply(base)
         .multiplyScalar(0.85);
       if (m.map) m.emissiveMap = m.map;

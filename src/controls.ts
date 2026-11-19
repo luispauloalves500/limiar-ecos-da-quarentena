@@ -1,6 +1,6 @@
 import { level } from "./presentation";
 import type { Vec } from "./world";
-export const VERSION = "0.9.0";
+export const VERSION = "0.10.0";
 export type CameraMode = "shoulder" | "tank";
 export type Quality = "low" | "medium" | "high";
 export type Preferences = {
@@ -73,6 +73,11 @@ export function savePreferences(
 export function wrapAngle(a: number) {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
+/** 0.10: the boom shortens and drops as the view tilts down, so the reticle
+ * can reach a crawler at Helena's feet (0.9 stopped at −1.05 rad, about 1 m
+ * ahead of her). */
+export const PITCH_MIN = -1.3,
+  PITCH_MAX = 0.7;
 export function lookInput(
   yaw: number,
   pitch: number,
@@ -83,8 +88,11 @@ export function lookInput(
   return {
     yaw: wrapAngle(yaw - dx * 0.0022 * p.sensitivity),
     pitch: Math.max(
-      -1.05,
-      Math.min(0.7, pitch - dy * 0.0022 * p.sensitivity * (p.invertY ? -1 : 1)),
+      PITCH_MIN,
+      Math.min(
+        PITCH_MAX,
+        pitch - dy * 0.0022 * p.sensitivity * (p.invertY ? -1 : 1),
+      ),
     ),
   };
 }
@@ -116,6 +124,21 @@ export const profiles = {
 
 export function shoulderOffset(aiming: boolean, side: number) {
   return (aiming ? 0.67 : 0.72) * side;
+}
+/** Shoulder boom for a view pitch and an aim blend (0 hip → 1 aimed):
+ * distance behind the pivot, lift and field of view. Looking down shortens
+ * the boom (up to 45%) instead of swinging the camera into the ceiling. */
+export function shoulderBoom(pitch: number, aim: number) {
+  const down = Math.min(1, Math.max(0, (-pitch - 0.35) / 0.95)),
+    ease = down * down * (3 - 2 * down);
+  return {
+    back: (2.75 + (1.95 - 2.75) * aim) * (1 - 0.45 * ease),
+    lift: 0.15 * (1 - ease),
+    // Step out wider over the shoulder so Helena's body does not cover
+    // what is at her feet.
+    side: 1 + 0.45 * ease,
+    fov: 60 + (50 - 60) * aim,
+  };
 }
 
 export const quickTurnRequested = (code: string, mode: CameraMode) =>

@@ -30,7 +30,13 @@ const PROBE_GAIN = 0.55;
 import * as T from "three";
 import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
 import type { Enemy, GameState } from "./logic";
-import { defaults, profiles, lookInput, type Preferences } from "./controls";
+import {
+  defaults,
+  profiles,
+  lookInput,
+  shoulderBoom,
+  type Preferences,
+} from "./controls";
 import {
   raycastShot,
   cameraCollision,
@@ -121,6 +127,13 @@ export class View {
   fxVel: number[] = [];
   lastShadow = 0;
   cameraReady = false;
+  // 0.10 camera state: damped pivot, boom that snaps in on collision and
+  // eases back out, blended aim and shoulder side, tracked tank look-at.
+  camPivot = new T.Vector3();
+  camBoom = 2.75;
+  camAim = 0;
+  camSide = 1;
+  tankLook = new T.Vector3(0, 0.5, -1);
   tile = proceduralTexture("tile");
   wallTex = proceduralTexture("wall");
   rust = proceduralTexture("rust");
@@ -981,51 +994,75 @@ export class View {
     };
   }
   updateCamera(s: GameState, dt: number, aiming: boolean) {
+    const p = s.player;
     if (this.prefs.mode === "tank") {
-      const z = s.player.z < -0.8 ? 1 : s.player.z > 1.2 ? 0 : this.zone;
+      const z = p.z < -0.8 ? 1 : p.z > 1.2 ? 0 : this.zone;
       if (z !== this.zone && this.elapsed - this.lastCut > 0.6) {
         this.setCamera(z);
         this.lastCut = this.elapsed;
+        this.tankLook.set(
+          T.MathUtils.lerp(0, p.x, 0.3),
+          0.7,
+          T.MathUtils.lerp(-1, p.z, 0.3),
+        );
       }
+      // Fixed cameras, but the frame drifts a third of the way toward
+      // Helena so she never sits on the edge of a wide shot.
+      const k = 1 - Math.exp(-dt * 2.5);
+      this.tankLook.x += (T.MathUtils.lerp(0, p.x, 0.3) - this.tankLook.x) * k;
+      this.tankLook.z += (T.MathUtils.lerp(-1, p.z, 0.3) - this.tankLook.z) * k;
+      this.camera.lookAt(this.tankLook);
       return;
     }
-    const p = s.player,
+    const ease = (rate: number) => 1 - Math.exp(-dt * rate);
+    this.camAim += ((aiming ? 1 : 0) - this.camAim) * ease(12);
+    this.camSide += (this.prefs.shoulder - this.camSide) * ease(9);
+    const boom = shoulderBoom(this.pitch, this.camAim),
       dir = new T.Vector3(
         Math.sin(this.yaw) * Math.cos(this.pitch),
         Math.sin(this.pitch),
         Math.cos(this.yaw) * Math.cos(this.pitch),
       ),
       right = new T.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
-    const pivot = new T.Vector3(p.x, 1.52, p.z);
+    const target = new T.Vector3(p.x, 1.52, p.z);
+    if (!this.cameraReady) this.camPivot.copy(target);
+    else this.camPivot.lerp(target, ease(18));
+    const pivot = this.camPivot;
+    const side =
+      T.MathUtils.lerp(
+        shoulderOffset(false, 1),
+        shoulderOffset(true, 1),
+        this.camAim,
+      ) *
+      this.camSide *
+      boom.side;
     const desired = pivot
       .clone()
-      .addScaledVector(dir, aiming ? -1.95 : -2.75)
-      .addScaledVector(right, shoulderOffset(aiming, this.prefs.shoulder))
-      .add(new T.Vector3(0, 0.15, 0));
+      .addScaledVector(dir, -boom.back)
+      .addScaledVector(right, side)
+      .add(new T.Vector3(0, boom.lift, 0));
     this.scene.updateMatrixWorld();
-    const safe = roomCameraClearance(
-      cameraCollision(pivot, desired, this.obstacles),
-    );
-    if (!this.cameraReady) {
-      this.camera.position.copy(safe);
-      this.cameraReady = true;
-    } else {
-      this.camera.position.lerp(safe, 1 - Math.exp(-dt * 14));
-      this.camera.position.copy(
-        roomCameraClearance(
-          cameraCollision(pivot, this.camera.position, this.obstacles),
-        ),
+    const hit = cameraCollision(pivot, desired, this.obstacles),
+      full = desired.distanceTo(pivot),
+      allowed = hit.distanceTo(pivot);
+    // Snap in when something is in the way (no clipping), ease back out
+    // when it clears (no pop).
+    if (!this.cameraReady || allowed < this.camBoom) this.camBoom = allowed;
+    else this.camBoom += (allowed - this.camBoom) * ease(4);
+    const pos = pivot
+      .clone()
+      .addScaledVector(
+        desired.clone().sub(pivot).normalize(),
+        Math.min(this.camBoom, full),
       );
-    }
+    const safe = roomCameraClearance(pos);
+    safe.y = Math.min(safe.y, 3.45); // below the ceiling pipes (3.68)
+    this.camera.position.copy(safe);
+    this.cameraReady = true;
     this.camera.lookAt(this.camera.position.clone().addScaledVector(dir, 10));
-    const fov = aiming ? 52 : 62;
-    this.camera.fov = T.MathUtils.lerp(
-      this.camera.fov,
-      fov,
-      1 - Math.exp(-dt * 13),
-    );
+    this.camera.fov = T.MathUtils.lerp(this.camera.fov, boom.fov, ease(13));
     this.camera.updateProjectionMatrix();
-    const hide = this.camera.position.distanceTo(pivot) < 0.85;
+    const hide = this.camera.position.distanceTo(target) < 0.85;
     this.player.root.visible = !hide;
   }
   update(

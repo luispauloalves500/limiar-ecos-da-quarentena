@@ -12,6 +12,8 @@ import {
   tankMovement,
   wrapAngle,
   profiles,
+  PITCH_MIN,
+  shoulderBoom,
 } from "../src/controls";
 import { raycastShot, cameraCollision, roomCameraClearance } from "../src/aim";
 import { slideMove } from "../src/world";
@@ -76,7 +78,8 @@ describe("olhar e movimento", () => {
     expect(b.yaw).toBeCloseTo(-0.44);
   });
   it("pitch tem limites e inversão Y funcional", () => {
-    expect(lookInput(0, 0, 0, 1e5, defaults).pitch).toBe(-1.05);
+    expect(lookInput(0, 0, 0, 1e5, defaults).pitch).toBe(PITCH_MIN);
+    expect(PITCH_MIN).toBeLessThan(-1.25);
     expect(
       lookInput(0, 0, 0, 100, { ...defaults, invertY: true }).pitch,
     ).toBeGreaterThan(0);
@@ -303,4 +306,27 @@ it("folga da sala impede que a parede lateral encha o quadro", () => {
   expect(framed.x).toBeGreaterThanOrEqual(-6.54 + 1.2 - 1e-9);
   expect(framed.x).toBeLessThan(-4.8);
   expect(framed.z).toBeLessThanOrEqual(8.74 - 1.2 + 1e-9);
+});
+
+describe("câmera de ombro 0.10", () => {
+  it("olhar para baixo encurta o braço em vez de subir até o teto", () => {
+    const level = shoulderBoom(0, 0),
+      down = shoulderBoom(PITCH_MIN, 0);
+    expect(level.back).toBeCloseTo(2.75);
+    expect(down.back).toBeLessThan(level.back * 0.6);
+    // pivô 1,52 m: a câmera fica abaixo dos canos do teto (3,68 m)
+    const y = 1.52 + Math.sin(-PITCH_MIN) * down.back + down.lift;
+    expect(y).toBeLessThan(3.45);
+  });
+  it("no limite de pitch o retículo alcança o chão a menos de 0,7 m da Helena", () => {
+    const b = shoulderBoom(PITCH_MIN, 1),
+      camBack = Math.cos(PITCH_MIN) * b.back,
+      camY = 1.52 + Math.sin(-PITCH_MIN) * b.back + b.lift,
+      floorAhead = camY / Math.tan(-PITCH_MIN) - camBack;
+    expect(floorAhead).toBeLessThan(0.7);
+  });
+  it("mira encurta o braço e fecha o FOV de forma contínua", () => {
+    expect(shoulderBoom(0, 1).back).toBeCloseTo(1.95);
+    expect(shoulderBoom(0, 0.5).fov).toBeCloseTo(55);
+  });
 });

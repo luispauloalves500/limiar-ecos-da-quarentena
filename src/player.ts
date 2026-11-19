@@ -207,6 +207,7 @@ export class PlayerAnimator {
   state = "PlayerIdle";
   aimPoint = new T.Vector3();
   poseRestore: PoseRestore;
+  turnUntil = -1;
   gunBind = new T.Quaternion();
   quality: Quality = "medium";
   // 0.6 procedural layers (all additive on top of the mixer, no extra mixer).
@@ -353,20 +354,27 @@ export class PlayerAnimator {
       if (this.event === "Grabbed") this.trigger("BreakFree");
       else this.event = "";
     }
+    // 0.10 turn in place: a standing yaw change (raising the gun, a mouse
+    // flick) shuffles the feet for a moment instead of pivoting on them.
+    if (!f.moving && f.hp > 0 && Math.abs(f.yawRate ?? 0) > 1.4)
+      this.turnUntil = this.time + 0.3;
+    const turning = !f.moving && this.time < this.turnUntil;
     let base =
       f.hp <= 0
         ? "PlayerDeath"
         : this.event === "QuickTurn"
           ? "QuickTurn"
-          : f.moving
-            ? f.hp <= 30
-              ? "InjuredWalk"
-              : f.cautious
-                ? "Sneaky_Walk_inplace"
-                : f.running && !f.aiming
-                  ? "Running"
-                  : "Walking"
-            : "PlayerIdle";
+          : turning && !this.event
+            ? "Walking"
+            : f.moving
+              ? f.hp <= 30
+                ? "InjuredWalk"
+                : f.cautious
+                  ? "Sneaky_Walk_inplace"
+                  : f.running && !f.aiming
+                    ? "Running"
+                    : "Walking"
+              : "PlayerIdle";
     let upper =
       f.hp <= 0
         ? "PlayerDeath"
@@ -423,7 +431,9 @@ export class PlayerAnimator {
           .reset()
           .setEffectiveWeight(1)
           .play();
-        if (channel.action) a.crossFadeFrom(channel.action, 0.18, false);
+        // Legs blend a little longer than the arms (idle ↔ walk ↔ run).
+        if (channel.action)
+          a.crossFadeFrom(channel.action, index === 0 ? 0.26 : 0.18, false);
         channel.action = a;
         channel.name = name;
       }
@@ -441,8 +451,9 @@ export class PlayerAnimator {
               ? 1.12
               : 1
         : 1;
-      const target =
-        f.moving && native && f.localZ !== undefined && !this.preview
+      const target = turning
+        ? 0.55
+        : f.moving && native && f.localZ !== undefined && !this.preview
           ? strideScale(this.speed, native) * (mb.reverse ? -1 : 1)
           : legacy;
       this.timeScale = approach(this.timeScale, target, dt, 14);

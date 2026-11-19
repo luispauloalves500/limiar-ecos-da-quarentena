@@ -13,6 +13,7 @@ import type { Actor } from "./actors";
 import type { Enemy, Region } from "./logic";
 import type { Quality } from "./controls";
 import { measureStrides } from "./stride";
+import { PoseRestore } from "./player-clips";
 import {
   gaitVariation,
   groundLift,
@@ -195,6 +196,12 @@ class Rig {
   hitSide = 1;
   noticedAt = -9;
   lastState = "";
+  // 0.10: the additive layers premultiply bone quaternions. three's
+  // PropertyMixer skips writing a binding whose mixed value did not change,
+  // so on constant channels (Idle spine, clamped hit/attack poses) the layer
+  // was applied on top of last frame's layer and the torso wound up and spun.
+  // Restore the clip pose before each mixer update, as Helena already does.
+  poseRestore: PoseRestore;
   constructor(
     public index: number,
     public enemy: Enemy,
@@ -275,6 +282,11 @@ class Rig {
       const spine = this.boneMap.get("Spine2");
       if (spine) spine.add(sash);
     }
+    this.poseRestore = new PoseRestore(
+      ["Hips", "Spine", "Spine1", "Spine2", "Neck"]
+        .map((n) => bones.get(n))
+        .filter((b): b is T.Bone => !!b),
+    );
     this.tremor = this.mixer.clipAction(
       t.clips.find((c) => c.name === "Tremor")!,
     );
@@ -403,6 +415,7 @@ class Rig {
           telegraphScale(this.current.time / clip.duration),
         );
     }
+    this.poseRestore.restore();
     this.mixer.update(dt);
     this.updated++;
     if (e.dead && this.current) {
@@ -416,6 +429,7 @@ class Rig {
       );
       this.mixer.update(0);
     }
+    this.poseRestore.capture();
     this.layers(e, name);
     const scale = templates[this.index].bones.find(
       (b) => b.short === "Head",

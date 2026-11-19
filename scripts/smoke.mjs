@@ -402,8 +402,9 @@ async function aimAtEnemy(id, region) {
       await page.waitForTimeout(180);
     }
     if (s.enemies[id].dead) return;
-    // A crawler under the shoulder camera sits below the pitch limit: shove
-    // it off and step back, as a player would, instead of staring at it.
+    // A crawler glued to Helena is hard to frame even with the 0.10 pitch
+    // limit (−1.3): every few tries, shove it off and step back, as a player
+    // would.
     const near = Math.hypot(
       s.enemies[id].x - s.player.x,
       s.enemies[id].z - s.player.z,

@@ -1,4 +1,46 @@
-# QA — LIMIAR 0.9.0
+# QA — LIMIAR 0.10.0
+
+## 0.10.0 — câmera, animações e tronco dos zumbis
+**Gates:** 223 testes em 13 arquivos (novos: `tests/pose-restore.test.ts` prova o acúmulo sem restauração e a pose estável com ela; 3 testes de `shoulderBoom`: câmera abaixo de 3,45 m na inclinação máxima, retículo no chão a <0,7 m, braço/FOV na mira; passada de quatro tempos e mistura de pose do rastejador; alcance 0,8 do E05), lint, TypeScript, Prettier em src/tests/scripts, build e `npm audit --omit=dev` (0 vulnerabilidades). JS de render 868,8 → 871,6 KB, main 46,8 → 47,0 KB. Chromium, SwiftShader.
+
+**Tronco dos zumbis:** sonda na galeria `qa-zombies.html` mediu o ângulo quadril→peito quadro a quadro na build 0.9.0 e na 0.10.0 (ociosa, depois de impactos, depois do bote, andando e virando). 0.9.0: até ~3,13 rad em ociosa/impacto/bote; 0.10.0: ≤0,29 rad. Andando e virando, iguais. Filme de 12 s em [zumbi-tronco-antes-depois.jpg](screenshots/v0100/zumbi-tronco-antes-depois.jpg) e gráfico em [torso-angulo-antes-depois.png](screenshots/v0100/torso-angulo-antes-depois.png).
+
+**Câmera de ombro (antes → depois):**
+
+| | 0.9.0 | 0.10.0 |
+|---|---|---|
+| Inclinação mínima | −1,05 rad | −1,3 rad |
+| Altura da câmera na inclinação mínima | ~4,06 m (teto 4,0, canos 3,68–3,75) | ≤3,45 m |
+| Retículo toca o chão a | ~0,96 m | <0,7 m (−1,3 rad) |
+| Braço (livre / mira) | 2,75 / 1,95 m, troca seca | 2,75 / 1,95 m em transição (taxa 12), encurta até 45% olhando para baixo |
+| Lado do ombro | fixo | abre até 1,45× olhando para baixo; troca suave |
+| FOV livre / mira | 62 / 52 | 60 / 50 |
+| Colisão | posição recalculada a cada quadro | encurta na hora, volta com amortecimento (sem saltos) |
+| Pivô | preso à Helena | amortecido (taxa 18) |
+| Tank | olhar fixo por zona | olhar acompanha 30% da Helena, reinicia no corte |
+
+**Helena (jogo real, gravação do abrigo, Baixa, segurando D):** velocidade nos primeiros 0,1 s 2,31 m/s na 0.9.0 (cheia no primeiro quadro) e 0,33 m/s na 0.10.0, chegando a ~1,8–2,2 m/s em 0,2–0,3 s. [helena-arranque-parada-antes-depois.jpg](screenshots/v0100/helena-arranque-parada-antes-depois.jpg).
+
+**Rastejador:** escala 0,74 → 0,58 ao lado da Helena ([rastejador-tamanho-antes-depois.jpg](screenshots/v0100/rastejador-tamanho-antes-depois.jpg)); passada em quatro tempos ([rastejador-passada-antes-depois.jpg](screenshots/v0100/rastejador-passada-antes-depois.jpg)). **Preceptora:** brilho PIL 38,8 → 42,8 (perto), 33,0 → 37,2 (média).
+
+**Benchmark** (`scripts/room-bench.mjs` da árvore 0.10, base = build exata 0.9.0, dev = 0.10.0, ABBA, uma repetição, rastejadores 01/02/05 e Preceptora vivos, `docs/benchmark-v0100.json`). Reduzido às salas que mudam e a Baixa/Média.
+
+| Sala (quadro de trabalho mediano, ms) | Baixa 0.9 → 0.10 | Média 0.9 → 0.10 | Draws (baixa/média) |
+|---|---|---|---|
+| Berçário (rastejador05) | 62,0 → 59,1 | 235,3 → 213,8 | 67 / 91 iguais |
+| Brinquedoteca (rastejador01) | 70,0 → 71,2 | 222,7 → 213,4 | 65 / 91 iguais |
+| Leitos (rastejador02) | 73,2 → 72,1 | 241,5 → 240,9 | 57 / 81 iguais |
+| Circular (Preceptora) | 77,1 → 80,8 (+4,8%) | 223,0 → 225,5 (+1,1%) | 77 / 106 iguais |
+
+Dentro do ruído de uma repetição, exceto a circular na Baixa (+4,8%), coerente com a mola do cabelo/vestido e a mistura de pose; triângulos iguais.
+
+**Campanha real (build 0.10.0 exata, gravações do abrigo da 0.8 r6, comandos de teclado/mouse):**
+- Ombro, abrigo → leitos (`SMOKE_UNTIL=leitos`): passou. Rastejador05 morto no berçário, P03 resolvido, Helena com 88. [Captura do berçário](screenshots/v0100/bercario-rastejador-ombro.jpg).
+- Uma tentativa de chefe por modo (paralelas): ombro, rastejadores e P03 ok, **Preceptora 700 → 190 HP**, Helena morreu durante uma fuga; tank, **700 → 532 HP**, Helena morreu indo ao gerador sem kits. **A chefe não foi derrotada pela automação nesta build, e o final no visor não foi verificado.** As rodadas pararam aqui para não gastar horas na luta, cuja lógica não mudou desde a 0.8.
+
+**Limitações:** sem mocap; rastejador e Preceptora continuam procedurais/retargetados. A câmera a −1,3 rad fica quase de cima; um rastejador colado aparece inteiro, mas o jogador ainda precisa virar para pôr o retículo nele. O ganho de naturalidade foi verificado em capturas e medidas, não com jogadores. Medições em GPU de software.
+
+---
 
 ## 0.9.0 — rastejador e Preceptora com os modelos do usuário
 **Gates:** 217 testes em 12 arquivos (9 novos em `tests/crawler.test.ts`: fases da passada, aviso/bote/recuperação, morte, migração de save v4 → v5 com o `rastejador05`), lint, TypeScript, Prettier em src/tests/scripts, build e `npm audit --omit=dev` (0 vulnerabilidades). Chromium 158, SwiftShader.

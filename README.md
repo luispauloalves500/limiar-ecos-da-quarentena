@@ -1,10 +1,20 @@
-# LIMIAR: Ecos da Quarentena — 0.9.0
+# LIMIAR: Ecos da Quarentena — 0.10.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.9.0 — rastejador e Preceptora com modelos novos
+## Novo na 0.10.0 — câmera, animações e tronco dos zumbis
+
+- **Tronco dos zumbis não gira mais.** Parados, depois de um golpe ou de um tiro, o peito dos zumbis Mixamo torcia e chegava a dar meia-volta sobre o quadril. Causa: as camadas de postura somavam rotação ao osso a cada quadro e o mixer do three.js não regravava os canais constantes. Agora a pose é restaurada antes do mixer, como já acontecia com a Helena.
+- **Câmera de ombro nova:** segue com amortecimento e ao colidir encurta na hora e volta devagar, sem saltos. Dá para inclinar mais para baixo (−1,3 rad, era −1,05) e mirar um rastejador colado; ao olhar para baixo o braço da câmera encurta e abre para o lado, e ela não atravessa o teto. A mira entra e sai em transição suave (FOV 60 → 50). No modo tank, a câmera fixa acompanha a Helena com o olhar.
+- **Helena anda de forma mais natural:** acelera em ~0,26 s e para em ~0,16 s (era instantâneo), vira o corpo mais devagar, gira no lugar com passos curtos e ergue a arma girando para a mira em vez de estalar.
+- **Rastejador 22% menor**, para ler como criança ao lado da Helena; hitboxes, alcance da mordida (0,8 m), raio do corpo e anel de aviso acompanham. Passada em quatro tempos com transferência de peso, torção, cabeça atrasada e mistura suave entre estados.
+- **Preceptora mais clara** (preenchimento maior e rim frio), com cabelo e vestido que balançam com atraso quando ela acelera.
+- **Bugs corrigidos:** carregar ou recomeçar mantinha a velocidade, a mira e as recargas anteriores; todo tiro em rastejador dizia “Perna inutilizada”; o Shift direito não mudava o ritmo dos passos.
+- [Capturas antes/depois](docs/screenshots/v0100/README.md) · [QA e medições](docs/QA.md)
+
+## 0.9.0 preservada — rastejador e Preceptora com modelos novos
 
 - **Rastejador no berçário:** o modelo enviado (criança em ponte, de quatro) vira o E05 do berçário e de todos os rastejadores. 16,2 MB → 608 KB. Animações procedurais por osso: ociosa, rastejar, aviso de bote, bote, impacto, acuado e morte com colapso.
 - **Preceptora:** o segundo modelo enviado substitui a enfermeira procedural. 11,9 MB → 575 KB. Mesma luta da 0.8 (avisos, placas, gerador, grito de fase, morte em três tempos), agora retargetada para o esqueleto do GLB.

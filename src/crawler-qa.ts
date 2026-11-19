@@ -3,6 +3,7 @@ import { View } from "./render";
 import { newGame, killEnemy, type GameState } from "./logic";
 import { defaults } from "./controls";
 import { preloadChapter2 } from "./smartrig";
+import { preloadPlayer } from "./player";
 const view = new View(document.getElementById("scene")!),
   params = new URLSearchParams(location.search);
 const input = (id: string) => document.getElementById(id) as HTMLSelectElement;
@@ -43,7 +44,7 @@ function setup() {
       ? { x: 2.3, z: -3.0, hp: 100, yaw: -Math.PI / 2 }
       : {
           x: 0.3,
-          z: -3.2 + (cam === "close" ? 1.9 : 3.2),
+          z: -3.2 + Number(params.get("dist") ?? (cam === "close" ? 1.9 : 3.2)),
           hp: 100,
           yaw: Math.PI,
         };
@@ -51,6 +52,12 @@ function setup() {
   view.setPreferences({ ...defaults, mode: "shoulder", quality: "medium" });
   view.load(s.room, s);
   if (input("pose").value === "Death") killEnemy(b, Date.now() - deathMs);
+  // ?orbit=rad swings the shoulder camera around Helena (size comparison);
+  // ?scale= overrides the body scale (0.74 = the 0.9 crawler) for before/after.
+  view.yaw += Number(params.get("orbit") ?? 0);
+  if (params.get("pitch")) view.pitch = Number(params.get("pitch"));
+  const scale = params.get("scale");
+  if (scale) view.enemyMeshes.get(ID)?.body.scale.setScalar(Number(scale));
   t0 = last = performance.now();
   frames = 0;
 }
@@ -91,6 +98,10 @@ function drive(time: number) {
 }
 for (const id of ["pose", "cam", "model"])
   input(id).addEventListener("change", setup);
+if (params.get("helena") === "1") {
+  await preloadPlayer();
+  view.installPlayer();
+}
 await preloadChapter2();
 setup();
 function frame(now: number) {
