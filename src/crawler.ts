@@ -19,11 +19,21 @@ import {
 } from "./crawler-pose";
 
 // The white nightgown blows out under the room probe: tone it down.
-const crawlerMaterial = (q: Quality) =>
-  smartMaterial("rastejador", q, (m) => {
-    m.color.multiplyScalar(0.8);
-    m.userData.probeGain = 0.6;
-  });
+const crawlerMaterial = (q: Quality, kind = "E05") =>
+  smartMaterial(
+    "rastejador",
+    q,
+    (m) => {
+      m.color.multiplyScalar(0.8);
+      m.userData.probeGain = 0.6;
+      // 0.12: E09 Sanguessuga de dreno — drowned, leech-dark skin.
+      if (kind === "E09") {
+        m.color.multiply(new T.Color(0x5f7466));
+        m.userData.probeGain = 0.5;
+      }
+    },
+    kind === "E09" ? "e09" : "",
+  );
 /** Model is authored ~1.32 m tall at the arch. 0.10 (user request): 0.74 →
  * 0.58, so the arch sits at ~0.77 m, about Helena's hip, and the body is
  * ~0.6 m long: a child, not a crouching adult. Hitboxes, ground contact,
@@ -69,10 +79,13 @@ export class Crawler {
   last?: CrawlerPose;
   constructor(public enemy: Enemy) {
     this.seed = seedOf(enemy.id);
-    this.skin = new SmartSkin("rastejador", crawlerMaterial("medium"));
+    this.skin = new SmartSkin(
+      "rastejador",
+      crawlerMaterial("medium", enemy.kind),
+    );
     this.root.add(this.body, this.warning);
     this.body.add(this.skin.scene);
-    this.body.scale.setScalar(CRAWLER_SCALE);
+    this.body.scale.setScalar(CRAWLER_SCALE * (enemy.kind === "E09" ? 0.8 : 1));
     this.head = this.skin.bone("Bone_017");
     const hit = (
       bone: string,
@@ -120,7 +133,7 @@ export class Crawler {
   ) {
     if (quality !== this.quality && !this.ownMaterial) {
       this.quality = quality;
-      this.skin.mesh.material = crawlerMaterial(quality);
+      this.skin.mesh.material = crawlerMaterial(quality, e.kind);
     }
     this.skin.mesh.castShadow = quality === "high" && distance < 7;
     this.clock += dt;
@@ -257,7 +270,8 @@ export class Crawler {
 
 /** Actor for E05 when the chapter-2 GLB is loaded; undefined otherwise. */
 export function crawlerActor(e: Enemy): Actor | undefined {
-  if (e.kind !== "E05" || !smartReady("rastejador")) return undefined;
+  if ((e.kind !== "E05" && e.kind !== "E09") || !smartReady("rastejador"))
+    return undefined;
   const c = new Crawler(e);
   c.root.userData.glb = true;
   const animation: ZombieAnimator = {

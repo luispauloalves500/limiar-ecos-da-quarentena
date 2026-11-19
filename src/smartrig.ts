@@ -186,8 +186,9 @@ export function smartMaterial(
   name: SmartName,
   quality: "low" | "medium" | "high",
   setup?: (m: T.MeshStandardMaterial) => void,
+  variant = "",
 ) {
-  const key = name + quality;
+  const key = name + quality + variant;
   const hit = matCache.get(key);
   if (hit) return hit;
   let base: T.MeshStandardMaterial | undefined;

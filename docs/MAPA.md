@@ -1,4 +1,4 @@
-# Mapa de progressão — 0.7.0
+# Mapa de progressão — 0.12.0
 
 Todas as linhas representam portas **bidirecionais**; travas exigem a flag persistente também no retorno. `M` mostra a lista/mapa dentro do jogo, nos dois modos de câmera.
 
@@ -22,7 +22,14 @@ flowchart TD
  Y <-->|D16| N[Berçário · NOVO]
  N <-->|D17| T[Leitos infantis · E05 / P03 · NOVO]
  T <-->|D18 · três prontuários| Q[Enfermaria circular · B02 Preceptora · NOVO]
- Q <-->|D19 · Preceptora vencida| V[Ante-sala cirúrgica · final / gancho · NOVO]
+ Q <-->|D19 · Preceptora vencida| V[Ante-sala cirúrgica · visor / crachá]
+ V <-->|D20 · crachá registrado| LV[Lavabo cirúrgico · E06 · 0.12]
+ LV <-->|D21| OP[Sala de operações 2 · E06 + E01 / chave das bombas · 0.12]
+ LV <-->|D22| ES[Esterilização · SEGURO / SAVE · 0.12]
+ LV <-->|D23 · chave das bombas| CB[Casa de bombas · E14 / P04 manômetros · 0.12]
+ CB <-->|D24 · linhas em 4 bar| GD[Galeria de drenos · E09 ×2 + E14 · 0.12]
+ GD <-->|D25| RS[Reservatório · B03 Mergulhador / válvulas · 0.12]
+ RS <-->|D26 · Mergulhador vencido| EL[Elevador de serviço · engrenagem / fim do cap. 3 · 0.12]
 ```
 
 ## Orientação sem diagrama
@@ -37,3 +44,11 @@ flowchart TD
 8. A Preceptora (B02) reage ao gerador auxiliar no fundo à direita: 15 s de claridade e vulnerabilidade, 20 s de recarga. As camas são ilhas; circule pelo anel das paredes. Há um kit médico ao lado do gerador e munição na entrada norte. Na segunda fase as luzes baixam e até dois rastejadores saem das camas. O crachá abre o visor da ante-sala. O registro no visor é o final desta versão; o documento aponta o centro cirúrgico e o Mergulhador, ainda não construídos.
 
 Saves da 0.6 (contentVersion 3) migram com os inimigos e salas novos; documentos já lidos não reaparecem; mortos e recursos coletados permanecem. Saque ainda não recolhido não é apagado.
+
+## Capítulo 3 (0.12.0)
+
+1. No visor, registre o crachá; a porta à direita abre o centro cirúrgico.
+2. Na sala de operações 2, a chave da casa de bombas está atrás da mesa.
+3. Na casa de bombas, deixe as três linhas em 4 bar (pressão inicial A 4, B 3, C 1; uma solução: C, C, A, B).
+4. No reservatório, abra as válvulas vermelhas dos cantos do fundo para baixar a água e expor o Mergulhador; atire no peito.
+5. Instale a engrenagem no guincho do elevador de serviço.

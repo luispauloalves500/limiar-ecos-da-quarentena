@@ -56,6 +56,12 @@ for (const id of Object.keys(world.rooms)) {
   s.flags = { energia: true, boss: true, chave: true, fusivel: true };
   if (alive.length && alive[0]) s.flags.prontuarios = true;
   logic.parseSave(JSON.stringify(s));
+  // BENCH_CONTENT=5: a save older builds (0.11) also accept — chapter-3
+  // enemies removed, content version 5 (0.12 migrates it back on load).
+  if (process.env.BENCH_CONTENT === "5") {
+    s.contentVersion = 5;
+    for (const e of logic.ADDED_V6) delete s.enemies[e];
+  }
   saves[id] = JSON.stringify(s);
 }
 const browser = await chromium.launch({

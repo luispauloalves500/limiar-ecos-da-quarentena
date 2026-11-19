@@ -28,6 +28,8 @@ export type Enemy = Vec & {
   lastHit?: Region;
   hitSerial?: number;
   lightStunned?: boolean;
+  /** 0.12: E09 ambush under water / B03 dive — untargetable while true. */
+  hidden?: boolean;
   state: "chase" | "windup" | "recover" | "stun" | "charge";
   timer: number;
   exposure: number;
@@ -39,7 +41,9 @@ export type Enemy = Vec & {
 };
 export type GameState = {
   version: 1;
-  contentVersion?: 3 | 4 | 5;
+  contentVersion?: 3 | 4 | 5 | 6;
+  /** 0.12: P04 line pressures (bar), chapter 3. */
+  pressure?: number[];
   room: RoomId;
   player: Vec & { hp: number; yaw: number };
   ammo: number;
@@ -69,7 +73,8 @@ export function newGame(): GameState {
         boss: !!e.boss,
         left: 42,
         right: 42,
-        crawl: (e.kind || "") === "E05",
+        crawl: e.kind === "E05" || e.kind === "E09",
+        hidden: e.kind === "E09" ? true : undefined,
         dead: false,
         headGone: false,
         state: "chase",
@@ -83,7 +88,7 @@ export function newGame(): GameState {
       };
   return {
     version: 1,
-    contentVersion: 5,
+    contentVersion: 6,
     room: "recepcao",
     player: { x: 0, z: 5, hp: 100, yaw: Math.PI },
     ammo: 12,
@@ -106,7 +111,7 @@ export function damage(
   rng = () => Math.random(),
   lightBonus = false,
 ) {
-  if (e.dead) return { damage: 0, critical: false };
+  if (e.dead || e.hidden) return { damage: 0, critical: false };
   e.lightStunned = false;
   e.lastHit = region;
   e.hitSerial = (e.hitSerial || 0) + 1;
@@ -210,7 +215,8 @@ export function parseSave(raw: string): GameState {
     (s.contentVersion !== undefined &&
       s.contentVersion !== 3 &&
       s.contentVersion !== 4 &&
-      s.contentVersion !== 5) ||
+      s.contentVersion !== 5 &&
+      s.contentVersion !== 6) ||
     !Object.hasOwn(rooms, s.room) ||
     !s.player ||
     !finite(s.player.hp, 1, 100) ||
@@ -234,12 +240,15 @@ export function parseSave(raw: string): GameState {
     !s.enemies
   )
     throw Error("Save inválido ou versão incompatível");
-  const legacy = s.contentVersion !== 4 && s.contentVersion !== 5;
+  const legacy =
+    s.contentVersion !== 4 && s.contentVersion !== 5 && s.contentVersion !== 6;
   for (const [id, base] of Object.entries(initial.enemies)) {
     // Saves before 0.9 (content 4) receive enemies added since (berçário).
     if (
       !s.enemies[id] &&
-      (legacy || (s.contentVersion === 4 && ADDED_V5.has(id)))
+      (legacy ||
+        (s.contentVersion === 4 && (ADDED_V5.has(id) || ADDED_V6.has(id))) ||
+        (s.contentVersion === 5 && ADDED_V6.has(id)))
     )
       s.enemies[id] = { ...base };
     const raw = s.enemies[id];
@@ -262,6 +271,7 @@ export function parseSave(raw: string): GameState {
       (e.lastHit !== undefined &&
         !["head", "body", "legL", "legR"].includes(e.lastHit)) ||
       (e.lightStunned !== undefined && typeof e.lightStunned !== "boolean") ||
+      (e.hidden !== undefined && typeof e.hidden !== "boolean") ||
       !finite(e.deathAt, 0, 1e15) ||
       typeof e.removed !== "boolean" ||
       (!e.dead && e.removed) ||
@@ -286,14 +296,34 @@ export function parseSave(raw: string): GameState {
     )
       throw Error("Estado de inimigo inválido");
   }
+  if (
+    s.pressure !== undefined &&
+    (!Array.isArray(s.pressure) ||
+      s.pressure.length !== 3 ||
+      !s.pressure.every((n) => Number.isInteger(n) && finite(n, 0, 8)))
+  )
+    throw Error("Save inválido ou versão incompatível");
   s.ambience = validateAmbientSave(s.ambience);
-  s.contentVersion = 5;
+  s.contentVersion = 6;
   s.items = [...new Set([...s.items, ...s.docs])];
   updateCorpses(s);
   return s;
 }
 /** Enemies introduced with content version 5 (0.9). */
 export const ADDED_V5 = new Set(["rastejador05"]);
+/** Enemies introduced with content version 6 (0.12, chapter 3). */
+export const ADDED_V6 = new Set([
+  "costurado01",
+  "costurado02",
+  "cirurgico01",
+  "sibilante01",
+  "sibilante02",
+  "sanguessuga01",
+  "sanguessuga02",
+  "sanguessuga03",
+  "sanguessuga04",
+  "mergulhador",
+]);
 export function writeSave(
   s: GameState,
   storage: Pick<Storage, "getItem" | "setItem">,
@@ -339,6 +369,11 @@ export function enemyStats(kind: EnemyKind) {
     E05: { hp: 48, speed: 0.86, damage: 12, windup: 0.55, recover: 1.0 },
     B01: { hp: 560, speed: 1.2, damage: 20, windup: 1.2, recover: 1.6 },
     B02: { hp: 700, speed: 1.15, damage: 18, windup: 1.0, recover: 1.5 },
+    // 0.12, chapter 3 (GDD §9–10).
+    E06: { hp: 145, speed: 0.9, damage: 23, windup: 0.95, recover: 1.6 },
+    E09: { hp: 40, speed: 1.0, damage: 8, windup: 0.45, recover: 0.9 },
+    E14: { hp: 95, speed: 0.8, damage: 17, windup: 0.9, recover: 1.7 },
+    B03: { hp: 1050, speed: 1.1, damage: 20, windup: 1.3, recover: 2.0 },
   }[kind];
 }
 export function killEnemy(e: Enemy, now = Date.now()) {
@@ -360,7 +395,9 @@ export function corpseOpacity(e: Enemy, now = Date.now()) {
 /** 0.8: the Preceptora stays on the floor long enough to read her death. */
 export const BOSS_CORPSE_LIFETIME_MS = 12000;
 export function corpseLifetime(e: Pick<Enemy, "kind">) {
-  return e.kind === "B02" ? BOSS_CORPSE_LIFETIME_MS : CORPSE_LIFETIME_MS;
+  return e.kind === "B02" || e.kind === "B03"
+    ? BOSS_CORPSE_LIFETIME_MS
+    : CORPSE_LIFETIME_MS;
 }
 export function updateCorpses(s: GameState, now = Date.now()) {
   for (const e of Object.values(s.enemies))
@@ -402,11 +439,39 @@ export function enemyPattern(e: Enemy, d: number) {
       feint: false,
       range: e.kind === "E05" ? CRAWLER_REACH : 0.9,
     };
+  if (e.kind === "E14")
+    return { charge: false, feint: false, range: d > 2.2 ? 7 : 1.3 };
   return {
     charge: e.kind === "E04" && d > 1.3,
     feint: e.kind === "E02",
-    range: e.kind === "E04" ? 5 : e.kind === "E02" ? 1.8 : 1.25,
+    range:
+      e.kind === "E04"
+        ? 5
+        : e.kind === "E02"
+          ? 1.8
+          : e.kind === "E06"
+            ? 2.3
+            : 1.25,
   };
+}
+
+/** P04 (0.12): each valve adds +2 bar to its own line and bleeds −1 from the
+ * next. All three at 4 bar opens the drain gallery. Over 7 or under 0 trips
+ * the relief valve and restores the initial pressures — never a softlock. */
+export const PRESSURE_START = [4, 3, 1];
+export const PRESSURE_TARGET = 4;
+export function turnPressure(s: GameState, valve: number) {
+  if (s.flags.equalizado) return { ok: true, relief: false, done: true };
+  const p = [...(s.pressure ?? PRESSURE_START)];
+  p[valve] += 2;
+  p[(valve + 1) % 3] -= 1;
+  if (p.some((n) => n < 0 || n > 7)) {
+    s.pressure = [...PRESSURE_START];
+    return { ok: false, relief: true, done: false };
+  }
+  s.pressure = p;
+  if (p.every((n) => n === PRESSURE_TARGET)) s.flags.equalizado = true;
+  return { ok: true, relief: false, done: !!s.flags.equalizado };
 }
 
 export const BED_MARKS = ["baleia", "passaro", "arvore"] as const;

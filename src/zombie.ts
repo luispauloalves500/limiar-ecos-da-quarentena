@@ -150,6 +150,9 @@ function sharedMaterial(index: number, kind: string, quality: Quality) {
   if (kind === "E04") m.color.multiply(new T.Color(0xc8aaa0));
   if (kind === "E05") m.color.multiply(new T.Color(0x7a6a52));
   if (kind === "B02") m.color.multiply(new T.Color(0xe4d8cc));
+  // 0.12: E06 Costurado (pale, sutured) and E14 Sibilante (bile-green).
+  if (kind === "E06") m.color.multiply(new T.Color(0xd9b4a8));
+  if (kind === "E14") m.color.multiply(new T.Color(0x9cc08a));
   if (quality === "low") {
     m.normalMap = null;
     m.roughnessMap = null;
@@ -545,6 +548,9 @@ export function zombieActor(e: Enemy): Actor | undefined {
   root.add(body, warning);
   const rigs = templates.map((_, i) => new Rig(i, e));
   rigs.forEach((r) => body.add(r.root));
+  // 0.12: the Costurado is a head taller and broader; the Sibilante hunches.
+  if (e.kind === "E06") body.scale.set(1.14, 1.12, 1.14);
+  if (e.kind === "E14") body.scale.set(0.96, 0.92, 0.96);
   const ring = new T.Mesh(
     new T.RingGeometry(0.9, 0.94, 32),
     new T.MeshBasicMaterial({

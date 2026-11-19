@@ -83,9 +83,9 @@ describe("coletáveis: uma origem de verdade", () => {
   });
 });
 describe("expansão e migração", () => {
-  it("19 salas, três seguras, todas as portas com spawns válidos", () => {
-    expect(Object.keys(rooms)).toHaveLength(19);
-    expect(Object.values(rooms).filter((r) => r.safe)).toHaveLength(3);
+  it("26 salas, quatro seguras, todas as portas com spawns válidos", () => {
+    expect(Object.keys(rooms)).toHaveLength(26);
+    expect(Object.values(rooms).filter((r) => r.safe)).toHaveLength(4);
     expect(validateGraph()).toBe(true);
   });
   it("inimigos nascem no corredor, fora dos obstáculos", () => {
@@ -115,7 +115,7 @@ describe("expansão e migração", () => {
           seen.add(d.a);
           seen.add(d.b);
         }
-    expect(seen.size).toBe(19);
+    expect(seen.size).toBe(26);
   });
   it("atravessa todas as portas nos dois sentidos preservando coleta/mortos", async () => {
     const s = newGame(),
@@ -129,6 +129,10 @@ describe("expansão e migração", () => {
       final: true,
       prontuarios: true,
       preceptora: true,
+      cirurgia: true,
+      "chave-bombas": true,
+      equalizado: true,
+      mergulhador: true,
     };
     collect(s, rooms.recepcao.items[0]);
     killEnemy(s.enemies.errante01, 1);
@@ -210,7 +214,7 @@ describe("pediatria 0.7", () => {
       )
         delete s.enemies[id];
     const r = parseSave(JSON.stringify(s));
-    expect(r.contentVersion).toBe(5);
+    expect(r.contentVersion).toBe(6);
     expect(r.enemies.rastejador01.kind).toBe("E05");
     expect(r.enemies.preceptora.kind).toBe("B02");
     expect(r.enemies.preceptora.boss).toBe(true);

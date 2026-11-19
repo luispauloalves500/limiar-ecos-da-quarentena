@@ -73,6 +73,8 @@ Os dois só carregam quando a Helena entra no Capítulo 2 (espera em diante) ou 
 
 Redução de **95,3%** em bytes, mesmo comando do rastejador. Rig SmartRig (74 juntas), sem clips. Começa a baixar na primeira sala do Capítulo 1 (`preloadPorteiro`) e enquanto o B01 existir; se ainda não tiver chegado no átrio, o ator procedural da 0.10 fica no lugar e é trocado quando chega.
 
+**0.12.0:** malha simplificada com `scripts/simplify-skinned.mjs` (meshoptimizer `simplifyWithAttributes`, modo permissivo, alvo 50%, vértices presos aos ossos do crânio Bone_020–022 travados para o rosto não deformar), depois `gltf-transform resize/optimize --simplify false`: **5.106 triângulos, 10.730 vértices, 498.708 bytes**. Material de face única (malha fechada). O B03 Mergulhador do Capítulo 3 usa o mesmo GLB (pele de sedimento, escala 1,15, mangueiras presas aos ossos) e o E09 usa o GLB do rastejador (escala 0,8, pele escura): nenhum arquivo novo.
+
 **Porteiro (`src/porteiro.ts`, `src/porteiro-pose.ts`):** escala 1,5 (≈2,55 m, a altura do B01 da 0.10). Animação procedural por osso: ociosa (respiração, troca de peso, tique do crânio), andar (passada com apoio linear e fase pela distância percorrida, sem patinar), aviso do golpe (braços sobre a cabeça), aviso da investida (agacha), golpe, recuperação, choque da armadilha (convulsão), reação a tiro e morte em três tempos (cambaleia, cai de joelhos, tomba para a frente). Hitboxes presas aos ossos (crânio, tronco/braços, coxas), núcleo brilhante preso ao peito no lugar do ponto fraco, anel/faixa de aviso como na 0.10. Material com o light probe da sala (ganho 0,85) e rim frio para a silhueta.
 
 ## Cache, LOD, culling e descarte

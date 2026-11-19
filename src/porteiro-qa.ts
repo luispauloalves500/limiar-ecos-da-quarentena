@@ -122,6 +122,7 @@ function frame(now: number) {
   document.getElementById("status")!.textContent =
     `${view.renderer.info.render.calls} draws · ${view.renderer.info.render.triangles} tris`;
 }
+(window as unknown as { __view: unknown }).__view = view;
 Object.defineProperty(window, "porteiroQA", {
   get: () => {
     const a = view.enemyMeshes.get(ID);

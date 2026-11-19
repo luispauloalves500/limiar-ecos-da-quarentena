@@ -247,6 +247,10 @@ export class PlayerAnimator {
   // 0.6 procedural layers (all additive on top of the mixer, no extra mixer).
   lean = 0;
   hipsYaw = 0;
+  tmpFoot = new T.Vector3();
+  planted = [false, false];
+  plantW = [0, 0];
+  lockX = [0, 0];
   speed = 0;
   hitAngle = 0;
   hitAt = -9;
@@ -731,6 +735,31 @@ export class PlayerAnimator {
       this.gait =
         (a.time / Math.max(0.01, a.getClip().duration)) * Math.PI * 2 + offset;
     const w = walkStyle(this.gait, this.style);
+    // 0.12: lateral foot lock. Remember where the clip puts each foot
+    // sideways; after the pelvis layers, the thighs are rolled so each foot
+    // lands there plus a constant inward offset (crossing step), which
+    // cannot skate because it does not change during the stance.
+    const actor = this.root.parent || this.root;
+    actor.updateMatrixWorld(true);
+    const footAt = (n: string) => {
+      const b = this.bones.get(n);
+      return b
+        ? actor.worldToLocal(b.getWorldPosition(this.tmpFoot))
+        : this.tmpFoot.set(0, 0, 0);
+    };
+    const clipFeet = ["LeftFoot", "RightFoot"].map((n) => {
+      const v = footAt(n);
+      return { x: v.x, y: v.y };
+    });
+    // Planted = the lower foot. Its sideways position is held from
+    // touchdown (blended in/out), so the stance foot cannot skate sideways.
+    for (let i = 0; i < 2; i++) {
+      const planted = clipFeet[i].y <= clipFeet[1 - i].y + 0.005;
+      if (planted && !this.planted[i])
+        this.lockX[i] = clipFeet[i].x + (i ? 1 : -1) * w.adduct * 0.86 * 0.75;
+      this.planted[i] = planted;
+      this.plantW[i] = approach(this.plantW[i], planted ? 1 : 0, dt, 14);
+    }
     // Idle: weight drifts onto one leg (contrapposto), fades in when still.
     this.idleWeight = approach(
       this.idleWeight,
@@ -739,8 +768,8 @@ export class PlayerAnimator {
       2.5,
     );
     const lean = weightShift(this.time) * this.idleWeight,
-      roll = w.hipsRoll + lean * 0.05,
-      shift = w.shift + lean * 0.022;
+      roll = w.hipsRoll + lean * 0.07,
+      shift = w.shift + lean * 0.03;
     this.rotate("Hips", 0, w.hipsYaw, roll);
     this.rotate("Spine", 0, -w.hipsYaw * 0.5, w.spineRoll - lean * 0.035);
     this.rotate("Spine1", 0, -w.hipsYaw * 0.5 + w.chestYaw * 0.5, w.chestRoll);
@@ -755,7 +784,6 @@ export class PlayerAnimator {
     // the planted feet stay where they are; thighs also turn inward.
     const hips = this.bones.get("Hips");
     if (hips && shift) {
-      const actor = this.root.parent || this.root;
       actor.updateMatrixWorld(true);
       const world = hips.getWorldPosition(new T.Vector3()),
         dir = new T.Vector3(1, 0, 0).applyQuaternion(
@@ -768,8 +796,24 @@ export class PlayerAnimator {
     const legLen = 0.86,
       keep = -shift / legLen;
     // Legs counter the pelvic roll/turn so planted feet do not skate.
-    this.rotate("LeftUpLeg", 0, -w.hipsYaw, keep - w.adduct - roll);
-    this.rotate("RightUpLeg", 0, -w.hipsYaw, keep + w.adduct - roll);
+    this.rotate("LeftUpLeg", 0, -w.hipsYaw, keep - roll);
+    this.rotate("RightUpLeg", 0, -w.hipsYaw, keep - roll);
+    if (this.style > 0.01) {
+      const inward = w.adduct * legLen * 0.75;
+      for (let pass = 0; pass < 2; pass++) {
+        actor.updateMatrixWorld(true);
+        const goal = (i: number) => {
+          const free = clipFeet[i].x + (i ? inward : -inward);
+          return free + (this.lockX[i] - free) * this.plantW[i];
+        };
+        const l = footAt("LeftFoot").x - goal(0),
+          r = footAt("RightFoot").x - goal(1);
+        const ang = (d: number) =>
+          -Math.asin(Math.max(-0.5, Math.min(0.5, d / legLen)));
+        this.rotate("LeftUpLeg", 0, 0, ang(l));
+        this.rotate("RightUpLeg", 0, 0, ang(r));
+      }
+    }
     // Relaxed knee on the unweighted leg in idle.
     this.rotate("LeftLeg", 0.1 * Math.max(0, -lean), 0, 0);
     this.rotate("RightLeg", 0.1 * Math.max(0, lean), 0, 0);

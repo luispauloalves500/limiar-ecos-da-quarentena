@@ -3,6 +3,7 @@ import {
   aimSettle,
   gaitOffset,
   walkStyle,
+  WALK_STYLE,
   weightShift,
 } from "../src/locomotion";
 
@@ -12,9 +13,9 @@ describe("0.11 walk style", () => {
     for (const v of Object.values(z)) expect(Math.abs(v)).toBeLessThan(1e-12);
     for (let p = 0; p < 7; p += 0.2) {
       const s = walkStyle(p, 5); // clamped to 1
-      expect(Math.abs(s.hipsRoll)).toBeLessThanOrEqual(0.075 + 1e-9);
-      expect(Math.abs(s.hipsYaw)).toBeLessThanOrEqual(0.09 + 1e-9);
-      expect(Math.abs(s.shift)).toBeLessThanOrEqual(0.014 + 1e-9);
+      expect(Math.abs(s.hipsRoll)).toBeLessThanOrEqual(WALK_STYLE.roll + 1e-9);
+      expect(Math.abs(s.hipsYaw)).toBeLessThanOrEqual(WALK_STYLE.yaw + 1e-9);
+      expect(Math.abs(s.shift)).toBeLessThanOrEqual(WALK_STYLE.shift + 1e-9);
     }
   });
   it("lifts the stance hip and counters it with the shoulders", () => {

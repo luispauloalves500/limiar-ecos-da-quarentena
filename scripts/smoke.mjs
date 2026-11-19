@@ -131,6 +131,39 @@ Object.assign(obstacles, {
     [-3, -2, 1.6, 3],
     [3, -2, 1.6, 3],
   ],
+  // 0.12: chapter 3.
+  lavabo: [
+    [-3, -1.2, 3.6, 0.9],
+    [3, -1.2, 3.6, 0.9],
+  ],
+  cirurgia: [
+    [0, -2, 1.4, 2.6],
+    [-4.2, -5.6, 1.2, 0.8],
+    [4.2, -5.6, 1.2, 0.8],
+  ],
+  esterilizacao: [
+    [3.2, -5.6, 2.6, 1.4],
+    [-3.4, -6.2, 2.2, 1.2],
+  ],
+  bombas: [
+    [3, -0.5, 2.2, 3],
+    [-3, -4, 2.2, 2],
+  ],
+  drenos: [
+    [-3, -2, 1, 1],
+    [3, -5, 1, 1],
+    [-2.6, 3.2, 1.4, 0.8],
+  ],
+  reservatorio: [
+    [-3.6, 1.6, 1.2, 1.2],
+    [3.6, 1.6, 1.2, 1.2],
+    [-3.6, -3.6, 1.2, 1.2],
+    [3.6, -3.6, 1.2, 1.2],
+  ],
+  elevador: [
+    [-3.6, -6.4, 2, 1.6],
+    [4.2, 0, 1.4, 3.2],
+  ],
 });
 const clear = (p, room) =>
   Math.abs(p.x) < 5.8 &&
@@ -569,6 +602,188 @@ async function shoot(id, region = "1", count = 2) {
   await note("shoot " + id);
 }
 
+// 0.12: chapter 3 with real input (keys, the real P04 buttons, aim/fire).
+async function pick(x, z) {
+  await moveTo(x, z, 0.7);
+  await tap("e");
+  if ((await state()).mode === "document") await tap("Escape");
+}
+/** Shoot every listed enemy; submerged leeches are lured first. */
+async function clearEnemies(ids, region = "1", per = 6) {
+  for (let pass = 0; pass < 3; pass++)
+    for (const id of ids) {
+      let s = await state(),
+        e = s.enemies[id];
+      if (!e || e.dead) continue;
+      if (e.hidden) {
+        const d = Math.hypot(e.x - s.player.x, e.z - s.player.z) || 1;
+        await moveTo(
+          e.x + ((s.player.x - e.x) / d) * 1.9,
+          e.z + ((s.player.z - e.z) / d) * 1.9,
+          0.6,
+        ).catch(() => {});
+        await page.waitForTimeout(300);
+        s = await state();
+        e = s.enemies[id];
+        if (e.hidden) continue;
+      }
+      // Out of the 11 m assist range (the Sibilante keeps its distance):
+      // close in to ~5.5 m first, as a player would.
+      const far = Math.hypot(e.x - s.player.x, e.z - s.player.z),
+        near = gameMode === "tank" ? 3.4 : 5.5;
+      if (far > near + 1.5) {
+        const k = near / far;
+        await moveTo(
+          e.x + (s.player.x - e.x) * k,
+          e.z + (s.player.z - e.z) * k,
+          0.8,
+        ).catch(() => {});
+      }
+      if ((await state()).ammo === 0) {
+        await tap("r");
+        await page.waitForFunction(() => !window.limiar.reloading);
+      }
+      await shoot(id, e.kind === "E09" ? "2" : region, per);
+    }
+  for (const id of ids)
+    assert.ok((await state()).enemies[id].dead, id + " ainda vivo");
+}
+async function fightMergulhador() {
+  const valves = [
+      [-5.3, -7.1],
+      [5.3, -7.1],
+    ],
+    used = [0, 0];
+  for (let round = 0; round < 60; round++) {
+    let s = await state();
+    const b = s.enemies.mergulhador;
+    if (!b || b.dead) return;
+    if (s.mode !== "play") throw Error("Not playing: " + s.mode);
+    if (s.hp < 60 && s.kits > 0) await tap("h");
+    if (s.ammo < 5 && s.reserve > 0 && !s.reloading) {
+      await tap("r");
+      await page
+        .waitForFunction(() => !window.limiar.reloading, null, {
+          timeout: 4000,
+        })
+        .catch(() => {});
+    }
+    if (b.vulnerable > 1.2) {
+      await shoot("mergulhador", "2", 4);
+      continue;
+    }
+    const ready = [0, 1]
+      .filter((k) => Date.now() - used[k] > 19000)
+      .sort(
+        (a, c) =>
+          Math.hypot(valves[c][0] - b.x, valves[c][1] - b.z) -
+          Math.hypot(valves[a][0] - b.x, valves[a][1] - b.z),
+      );
+    if (ready.length) {
+      const k = ready[0];
+      await moveTo(valves[k][0], valves[k][1], 0.7);
+      await tap("e");
+      used[k] = Date.now();
+      await page.waitForTimeout(150);
+      s = await state();
+      if (s.enemies.mergulhador.dead) return;
+      await shoot("mergulhador", "2", 5);
+      continue;
+    }
+    // Both valves re-arming: keep pillars between us and shoot when clear.
+    const far = [
+      [-5, 6],
+      [5, 6],
+      [-5, -1],
+      [5, -1],
+      [0, 6.5],
+    ].sort(
+      (a, c) =>
+        Math.hypot(c[0] - b.x, c[1] - b.z) - Math.hypot(a[0] - b.x, a[1] - b.z),
+    )[0];
+    await moveTo(far[0], far[1], 0.9).catch(() => {});
+    if (!(await state()).enemies.mergulhador.hidden)
+      await shoot("mergulhador", "2", 1);
+  }
+  assert.ok((await state()).enemies.mergulhador.dead, "Mergulhador vivo");
+}
+async function chapter3(from) {
+  if (from === "visor") {
+    await travel(5.3, 4, "lavabo");
+    await page.screenshot({ path: out + "/21-lavabo.png" });
+    await clearEnemies(["costurado01"], "1", 8);
+    await pick(-4, 5.5);
+    await pick(4, 5.5);
+    await travel(-5.3, 4, "cirurgia");
+    await clearEnemies(["cirurgico01", "costurado02"], "1", 8);
+    await pick(0, -4.1);
+    assert.ok((await state()).flags["chave-bombas"]);
+    await pick(-2.6, 0.5);
+    await pick(-4.5, 2);
+    await pick(4.5, 2);
+    await page.screenshot({ path: out + "/22-cirurgia.png" });
+    await travel(5.3, 4, "lavabo");
+    await travel(5.3, 4, "esterilizacao");
+    for (const [x, z] of [
+      [3.5, 1],
+      [3.5, 3],
+      [-3.5, 0],
+      [-2, 6],
+      [1, 6],
+    ])
+      await pick(x, z);
+    if ((await state()).hp < 80) await tap("h");
+    await moveTo(0, -2);
+    await tap("e");
+    await page.waitForTimeout(150);
+    await dumpGameSave("esterilizacao");
+    await page.screenshot({ path: out + "/23-esterilizacao.png" });
+  }
+  if (from === "reservatorio") return chapter3End();
+  await travel(-5.3, 4, "lavabo");
+  await travel(0, -7.4, "bombas");
+  await clearEnemies(["sibilante01"], "1", 8);
+  await pick(-4.5, 6);
+  await pick(4.5, 5.5);
+  await pick(-1, 5.5);
+  await moveTo(4, -6.6);
+  await tap("e");
+  assert.equal((await state()).mode, "puzzle");
+  // Overpressure first (relief valve), then the real solution C, C, A, B.
+  await page.locator("#pv-0").click();
+  await page.locator("#pv-0").click();
+  assert.ok(!(await state()).flags.equalizado);
+  for (const k of [2, 2, 0, 1]) await page.locator("#pv-" + k).click();
+  assert.ok((await state()).flags.equalizado);
+  await page.screenshot({ path: out + "/24-bombas.png" });
+  await travel(-5.3, 4, "drenos");
+  await clearEnemies(["sibilante02", "sanguessuga02", "sanguessuga01"], "1", 6);
+  await pick(4.5, -1);
+  await pick(-4.5, -6);
+  await page.screenshot({ path: out + "/25-drenos.png" });
+  await travel(0, -7.4, "reservatorio");
+  await pick(-5, 6.5);
+  await pick(5, 6.5);
+  await fightMergulhador();
+  await page.screenshot({ path: out + "/26-mergulhador.png" });
+  await chapter3End();
+}
+async function chapter3End() {
+  for (const id of ["sanguessuga03", "sanguessuga04"]) {
+    const e = (await state()).enemies[id];
+    assert.ok(!e || e.dead || e.hidden, id);
+  }
+  assert.ok((await state()).flags.mergulhador);
+  await travel(5.3, 4, "elevador");
+  await moveTo(-1.6, -5.6);
+  await tap("e");
+  assert.equal((await state()).mode, "win");
+  assert.ok((await state()).flags.elevador);
+  await page.screenshot({ path: out + "/27-elevador.png" });
+  await note("chapter3-complete");
+  await page.locator("#explore").click();
+}
+
 async function readGameSaveFile(path) {
   const raw = await readFile(path, "utf8");
   const data = JSON.parse(raw);
@@ -651,9 +866,38 @@ try {
     if (
       resumeRoom !== "segura" &&
       resumeRoom !== "posto" &&
-      resumeRoom !== "abrigo"
+      resumeRoom !== "abrigo" &&
+      resumeRoom !== "visor" &&
+      resumeRoom !== "esterilizacao" &&
+      resumeRoom !== "reservatorio"
     )
       throw Error("gravação inesperada para retomar: " + resumeRoom);
+  }
+  const ch3Resume =
+    resumeRoom === "visor" ||
+    resumeRoom === "esterilizacao" ||
+    resumeRoom === "reservatorio";
+  if (ch3Resume) {
+    await chapter3(resumeRoom);
+    await page.reload();
+    await page.waitForFunction(
+      () => window.limiar?.asset.status === "ready",
+      null,
+      { timeout: 60000 },
+    );
+    await page.locator("#load").click();
+    await page.waitForFunction(
+      () => window.limiar.mode === "play" && !window.limiar.transition,
+      null,
+      { timeout: 30000 },
+    );
+    assert.equal(
+      (await state()).room,
+      resumeRoom === "reservatorio" ? "reservatorio" : "esterilizacao",
+    );
+    assert.deepEqual(errors, []);
+    assert.deepEqual(responses, []);
+    console.log("SMOKE PASS CHAPTER 3");
   }
   if (!resumeRoom) {
     await page.screenshot({ path: out + "/01-menu.png" });
@@ -903,7 +1147,7 @@ try {
     assert.ok((await state()).enemies.enfermeiro01.removed);
     assert.ok(!(await state()).worldObjects.items.includes("posto-doc"));
   }
-  if (resumeRoom !== "abrigo") {
+  if (resumeRoom !== "abrigo" && !ch3Resume) {
     await travel(5, 4, "internacao");
     await travel(0, -7, "lavanderia");
     await moveTo(0, 5.5);
@@ -981,7 +1225,7 @@ try {
       console.log("SMOKE PASS SEGMENT 1");
     }
   } // resumeRoom !== "abrigo"
-  if (until !== "abrigo") {
+  if (until !== "abrigo" && !ch3Resume) {
     await travel(5, 4, "espera");
     await travel(5, 4, "recreio");
     await moveTo(0, 5);
@@ -1204,6 +1448,8 @@ try {
       await page.screenshot({ path: out + "/20-final.png" });
       await note("complete");
       await page.locator("#explore").click();
+      // 0.12: the visor door now leads into chapter 3.
+      if (until !== "visor") await chapter3("visor");
       await page.keyboard.press("v");
       assert.notEqual((await state()).preferences.mode, gameMode);
       await page.keyboard.press("v");
@@ -1216,7 +1462,10 @@ try {
       );
       assert.equal((await state()).preferences.mode, gameMode);
       await page.locator("#load").click();
-      assert.equal((await state()).room, "abrigo");
+      assert.equal(
+        (await state()).room,
+        until === "visor" ? "abrigo" : "esterilizacao",
+      );
       assert.ok((await state()).flags.final);
       assert.equal((await state()).preferences.mode, gameMode);
       assert.deepEqual(errors, []);

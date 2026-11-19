@@ -43,7 +43,7 @@ describe("rastejador do berçário (0.9)", () => {
     s.contentVersion = 4;
     for (const id of ADDED_V5) delete s.enemies[id];
     const r = parseSave(JSON.stringify(s));
-    expect(r.contentVersion).toBe(5);
+    expect(r.contentVersion).toBe(6);
     expect(r.enemies.rastejador05.room).toBe("bercario");
   });
   it("save 0.9 sem o rastejador continua inválido (sem remendo silencioso)", () => {

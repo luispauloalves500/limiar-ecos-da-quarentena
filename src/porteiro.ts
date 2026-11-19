@@ -21,21 +21,43 @@ import {
 } from "./porteiro-pose";
 import { enemyStats } from "./logic";
 
+/** x = probe fill gain, y = rim gain. 0.12: the high tank cameras see the
+ * Porteiro from far away, so tank mode lifts both (one shared uniform, no
+ * extra light or shader variant). */
+const porteiroFill = { value: new T.Vector2(1, 1) };
+export function setPorteiroTank(tank: boolean) {
+  porteiroFill.value.set(tank ? 1.55 : 1, tank ? 2.6 : 1);
+}
 // Dark bone-and-leather body: lift it under the room probe so the átrio
 // reads it, plus a faint cool rim in the shader for the silhouette.
-const porteiroMaterial = (q: Quality) =>
-  smartMaterial("porteiro", q, (m) => {
-    m.userData.probeGain = 0.85;
-    m.onBeforeCompile = (sh) => {
-      sh.fragmentShader = sh.fragmentShader.replace(
-        "#include <emissivemap_fragment>",
-        `#include <emissivemap_fragment>
+const porteiroMaterial = (q: Quality, kind = "B01") =>
+  smartMaterial(
+    "porteiro",
+    q,
+    (m) => {
+      m.userData.probeGain = kind === "B03" ? 0.95 : 0.85;
+      // 0.12: B03 Mergulhador reuses the skeleton under a sediment-green skin.
+      if (kind === "B03") m.color.multiply(new T.Color(0x86a89c));
+      // 0.12: closed mesh, back faces never show; single-sided halves the
+      // rasterised triangles (SwiftShader/low-end GPUs pay per triangle).
+      m.side = T.FrontSide;
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.porteiroFill = porteiroFill;
+        sh.fragmentShader =
+          "uniform vec2 porteiroFill;\n" +
+          sh.fragmentShader.replace(
+            "#include <emissivemap_fragment>",
+            `#include <emissivemap_fragment>
         float rimP = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.5);
-        totalEmissiveRadiance += vec3(0.13, 0.14, 0.16) * rimP;`,
-      );
-    };
-    m.customProgramCacheKey = () => "porteiro-glb-rim";
-  });
+        totalEmissiveRadiance = totalEmissiveRadiance * porteiroFill.x + vec3(0.13, 0.14, 0.16) * rimP * porteiroFill.y;`,
+          );
+      };
+      m.customProgramCacheKey = () => "porteiro-glb-rim";
+    },
+    kind === "B03" ? "b03" : "",
+  );
+/** 0.12: B03 is the same rig ~15 % larger, with breathing tubes. */
+export const MERGULHADOR_SCALE = 1.15;
 const X = new T.Vector3(1, 0, 0),
   Y = new T.Vector3(0, 1, 0),
   Z = new T.Vector3(0, 0, 1);
@@ -81,15 +103,44 @@ export class Porteiro {
   throttle = 0;
   updated = 0;
   dash = false;
+  sink = 0;
   ownMaterial?: T.MeshStandardMaterial;
   seed: number;
   last?: PorteiroPose;
   constructor(public enemy: Enemy) {
     this.seed = seedOf(enemy.id);
-    this.skin = new SmartSkin("porteiro", porteiroMaterial("medium"));
+    this.skin = new SmartSkin(
+      "porteiro",
+      porteiroMaterial("medium", enemy.kind),
+    );
     this.root.add(this.body, this.warning);
     this.body.add(this.skin.scene);
-    this.body.scale.setScalar(PORTEIRO_SCALE);
+    this.body.scale.setScalar(
+      PORTEIRO_SCALE * (enemy.kind === "B03" ? MERGULHADOR_SCALE : 1),
+    );
+    if (enemy.kind === "B03") {
+      // Breathing hoses from a back canister to the jaw, pinned to bones.
+      const hose = new T.MeshStandardMaterial({
+        color: 0x1d2a26,
+        roughness: 0.5,
+        metalness: 0.2,
+      });
+      const tank = new T.Mesh(
+        new T.CylinderGeometry(0.11, 0.11, 0.42, 10),
+        hose,
+      );
+      this.skin.pin("Bone_002", tank, new T.Vector3(0.02, 1.22, -0.25));
+      for (const [bone, at, len, rz] of [
+        ["Bone_002", [0.12, 1.38, -0.12], 0.36, 0.5],
+        ["Bone_002", [-0.08, 1.38, -0.12], 0.36, -0.5],
+        ["Bone_027", [0.33, 1.1, -0.04], 0.4, 0.2],
+        ["Bone_032", [-0.22, 1.08, -0.2], 0.4, -0.2],
+      ] as [string, [number, number, number], number, number][]) {
+        const t = new T.Mesh(new T.CapsuleGeometry(0.03, len, 3, 6), hose);
+        t.rotation.z = rz;
+        this.skin.pin(bone, t, new T.Vector3(...at));
+      }
+    }
     this.head = this.skin.bone("Bone_022");
     const hit = (
       bone: string,
@@ -155,10 +206,15 @@ export class Porteiro {
   ) {
     if (quality !== this.quality && !this.ownMaterial) {
       this.quality = quality;
-      this.skin.mesh.material = porteiroMaterial(quality);
+      this.skin.mesh.material = porteiroMaterial(quality, e.kind);
     }
     this.skin.mesh.castShadow = quality === "high" && distance < 9;
     this.clock += dt;
+    // 0.12: B03 dives — sink below the water line and stay hidden.
+    this.sink +=
+      ((e.hidden && !e.dead ? 1 : 0) - this.sink) * (1 - Math.exp(-dt * 5));
+    this.body.position.y = -2.6 * this.sink;
+    this.skin.scene.visible = this.sink < 0.92;
     // The dash teleports ~2.8 m in one tick: never feed that to the gait.
     const walk = e.state === "chase" ? Math.min(speed, 2.2) : 0;
     this.gait +=
@@ -299,6 +355,39 @@ export class Porteiro {
     }
     s.scene.position.y = -low + 0.025 + p.lift;
     s.scene.updateMatrixWorld(true);
+    // 0.12: once it has fallen, tilt the body about its hips until the
+    // feet rest on the floor too (they hung ~0.5 m up in 0.11).
+    if (p.death > 0.5) {
+      for (let k = 0; k < 4; k++) {
+        let foot = Infinity,
+          rest = Infinity,
+          fz = 0,
+          rz = 0;
+        for (const n of FEET) {
+          w.setFromMatrixPosition(s.bone(n).matrixWorld);
+          this.body.worldToLocal(w);
+          if (w.y < foot) [foot, fz] = [w.y, w.z];
+        }
+        for (const n of LYING) {
+          w.setFromMatrixPosition(s.bone(n).matrixWorld);
+          this.body.worldToLocal(w);
+          if (w.y < rest) [rest, rz] = [w.y, w.z];
+        }
+        const lift = foot - rest;
+        if (lift < 0.03) break;
+        const span = Math.max(0.3, Math.abs(rz - fz));
+        s.scene.rotation.x -= Math.atan2(lift, span) * (p.death - 0.5) * 2;
+        s.scene.updateMatrixWorld(true);
+        low = Infinity;
+        for (const n of [...FEET, ...LYING]) {
+          w.setFromMatrixPosition(s.bone(n).matrixWorld);
+          this.body.worldToLocal(w);
+          low = Math.min(low, w.y);
+        }
+        s.scene.position.y += -low + 0.025;
+        s.scene.updateMatrixWorld(true);
+      }
+    }
   }
   fade(alpha: number) {
     if (alpha >= 1) return;
@@ -330,7 +419,8 @@ export class Porteiro {
 
 /** Actor for B01 once its GLB is loaded; undefined otherwise. */
 export function porteiroActor(e: Enemy): Actor | undefined {
-  if (e.kind !== "B01" || !smartReady("porteiro")) return undefined;
+  if ((e.kind !== "B01" && e.kind !== "B03") || !smartReady("porteiro"))
+    return undefined;
   const c = new Porteiro(e);
   c.root.userData.glb = true;
   const animation: ZombieAnimator = {

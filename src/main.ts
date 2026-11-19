@@ -16,6 +16,8 @@ import {
   enemyStats,
   enemyPattern,
   CRAWLER_REACH,
+  turnPressure,
+  PRESSURE_START,
 } from "./logic";
 import "./style.css";
 import {
@@ -127,6 +129,20 @@ let fpsFrames = 0,
   fpsTime = 0,
   fps = 0;
 let stepTime = 0;
+// 0.12: chapter-3 transient combat state (never saved; reset on load).
+type Spit = {
+  x: number;
+  z: number;
+  y: number;
+  dx: number;
+  dz: number;
+  t: number;
+};
+let spits: Spit[] = [];
+let bleed = 0,
+  poolTick = 0,
+  b03Dive = 8;
+const valveCooldown = [0, 0];
 const frameSamples: number[] = [];
 function announce(text: string) {
   el("notice").textContent = text;
@@ -323,6 +339,16 @@ function resetTransient() {
   aiming = false;
   mouseAim = false;
   targetId = "";
+  spits = [];
+  bleed = 0;
+  poolTick = 0;
+  b03Dive = 8;
+  valveCooldown[0] = valveCooldown[1] = 0;
+  if (view) {
+    view.ch3State.spit = [];
+    view.ch3State.pools = [];
+    view.ch3State.drained = 0;
+  }
 }
 function loadGame() {
   try {
@@ -422,11 +448,11 @@ function map() {
     )
       .map(
         (r) =>
-          `<div class="maproom ${s.room === r.id ? "here" : ""}"><b>${s.room === r.id ? "● " : ""}${r.name}</b><span>${r.safe ? "Sala segura" : r.id === "gerador" && !s.flags.chave ? "Exige chave" : r.id === "atrio" && !s.flags.energia ? "Exige energia" : r.id === "escadaria" && !s.flags.boss ? "Exige Porteiro neutralizado" : r.id === "lavanderia" && !s.flags.pulseira ? "Exige pulseira 203" : r.id === "isolamento" && !s.flags.pressao ? "Exige purga de pressão" : r.id === "espera" && !s.flags.final ? "Exige transmissão da Porta 13" : r.id === "circulo" && !s.flags.prontuarios ? "Exige os três prontuários" : r.id === "visor" && !s.flags.preceptora ? "Exige a Preceptora neutralizada" : "Acessível pela rota"}</span></div>`,
+          `<div class="maproom ${s.room === r.id ? "here" : ""}"><b>${s.room === r.id ? "● " : ""}${r.name}</b><span>${r.safe ? "Sala segura" : r.id === "gerador" && !s.flags.chave ? "Exige chave" : r.id === "atrio" && !s.flags.energia ? "Exige energia" : r.id === "escadaria" && !s.flags.boss ? "Exige Porteiro neutralizado" : r.id === "lavanderia" && !s.flags.pulseira ? "Exige pulseira 203" : r.id === "isolamento" && !s.flags.pressao ? "Exige purga de pressão" : r.id === "espera" && !s.flags.final ? "Exige transmissão da Porta 13" : r.id === "circulo" && !s.flags.prontuarios ? "Exige os três prontuários" : r.id === "visor" && !s.flags.preceptora ? "Exige a Preceptora neutralizada" : r.id === "lavabo" && !s.flags.cirurgia ? "Exige crachá registrado no visor" : r.id === "bombas" && !s.flags["chave-bombas"] ? "Exige chave da casa de bombas" : r.id === "drenos" && !s.flags.equalizado ? "Exige manômetros equalizados" : r.id === "elevador" && !s.flags.mergulhador ? "Exige o Mergulhador neutralizado" : "Acessível pela rota"}</span></div>`,
       )
       .join(
         "",
-      )}</div><p>Encontre o bilhete → relógio <b>03:15</b> → fusível → Porteiro → pulseira 203 → válvulas 3–1–2 → Porta 13 → três prontuários da pediatria → Preceptora (gerador auxiliar) → visor / crachá.</p><button id="back" class="primary">FECHAR MAPA [M / ESC]</button>`,
+      )}</div><p>Encontre o bilhete → relógio <b>03:15</b> → fusível → Porteiro → pulseira 203 → válvulas 3–1–2 → Porta 13 → três prontuários da pediatria → Preceptora (gerador auxiliar) → visor / crachá → chave na sala 2 → manômetros em 4 bar → Mergulhador (válvulas laterais) → engrenagem no elevador.</p><button id="back" class="primary">FECHAR MAPA [M / ESC]</button>`,
   );
   buttons({ back: close });
 }
@@ -504,7 +530,15 @@ function interactions(): Interaction[] {
                       ? "A enfermaria circular pede os três prontuários marcados."
                       : d.key === "preceptora"
                         ? "O visor só abre com o crachá da Preceptora."
-                        : "O Porteiro bloqueia este acesso.",
+                        : d.key === "cirurgia"
+                          ? "Porta do centro cirúrgico travada. Registre o crachá no visor."
+                          : d.key === "chave-bombas"
+                            ? "Casa de bombas trancada. A chave ficou na mesa 2, na sala de operações."
+                            : d.key === "equalizado"
+                              ? "A galeria volta a inundar com as linhas desiguais. Iguale os três manômetros."
+                              : d.key === "mergulhador"
+                                ? "O poço do elevador está alagado e algo grande guarda a passagem."
+                                : "O Porteiro bloqueia este acesso.",
         );
         audio.tone(80, 0.18);
         return;
@@ -673,7 +707,121 @@ function interactions(): Interaction[] {
         pediatricWin();
       },
     });
+  // 0.12: chapter 3 interactions.
+  if (s.room === "bombas")
+    list.push({
+      label: s.flags.equalizado
+        ? "Manômetros equalizados"
+        : "Painel de válvulas (P04)",
+      position: { x: 4, z: -7.4 },
+      run: () =>
+        s.flags.equalizado
+          ? announce("As três linhas estão em 4 bar. A galeria está liberada.")
+          : manometerPuzzle(),
+    });
+  if (s.room === "reservatorio")
+    for (const [k, x] of [-5.4, 5.4].entries())
+      list.push({
+        label:
+          valveCooldown[k] > 0
+            ? `Válvula lateral rearmando (${Math.ceil(valveCooldown[k])}s)`
+            : "Abrir válvula lateral de drenagem",
+        position: { x, z: -7.6 },
+        run: () => openDrain(k),
+      });
+  if (s.room === "elevador")
+    list.push({
+      label: s.flags.elevador
+        ? "Elevador consertado"
+        : "Instalar a engrenagem no guincho",
+      position: { x: -1.9, z: -6.2 },
+      run: () => {
+        if (s.flags.elevador) return chapter3Win();
+        if (!s.flags.mergulhador)
+          return announce("Falta a engrenagem principal do guincho.");
+        s.flags.elevador = true;
+        audio.tone(120, 1.2);
+        chapter3Win();
+      },
+    });
   return list;
+}
+function manometerPuzzle() {
+  mode = "puzzle";
+  const p = s.pressure ?? PRESSURE_START;
+  const gauge = (n: number, k: number) =>
+    `<div style="margin:6px 0"><b>Linha ${"ABC"[k]}</b> · ${n} bar <span style="display:inline-block;width:160px;height:10px;background:#2a3432;vertical-align:middle;position:relative"><span style="position:absolute;left:${(n / 8) * 100}%;top:-3px;width:3px;height:16px;background:${n === 4 ? "#9fd28a" : "#d8a070"}"></span><span style="position:absolute;left:50%;width:12.5%;height:10px;background:#3f6a3a;opacity:.7"></span></span></div>`;
+  panel(
+    `<div class="eyebrow">P04 / CASA DE BOMBAS</div><h2>Equalizar a linha 3</h2><p>Cada válvula soma +2 bar na própria linha e tira 1 bar da seguinte (A→B→C→A). Deixe as três em <b>4 bar</b> (faixa verde). Acima de 7 ou abaixo de 0 a válvula de alívio restaura a pressão inicial.</p>${p.map(gauge).join("")}<div class="actions"><button id="pv-0">VÁLVULA A</button><button id="pv-1">VÁLVULA B</button><button id="pv-2">VÁLVULA C</button></div><button id="back">VOLTAR</button>`,
+  );
+  buttons({ back: close });
+  for (const k of [0, 1, 2])
+    buttons({
+      ["pv-" + k]: () => {
+        const r = turnPressure(s, k);
+        audio.tone(r.relief ? 90 : 300 + k * 60, 0.2);
+        if (r.done) {
+          close();
+          audio.tone(200, 0.9);
+          announce(
+            "Linhas equalizadas. A água recua da galeria de drenos — passagem à esquerda.",
+          );
+        } else {
+          manometerPuzzle();
+          if (r.relief)
+            announce("Válvula de alívio disparou. Pressões restauradas.");
+        }
+      },
+    });
+}
+function openDrain(k: number) {
+  const b = s.enemies.mergulhador;
+  if (valveCooldown[k] > 0)
+    return announce("A válvula ainda rearma. Use a do outro lado.");
+  valveCooldown[k] = 18;
+  view.ch3State.drained = 12;
+  audio.tone(70, 1.2, 0.3, "sawtooth");
+  if (!b || b.dead)
+    return announce("O nível baixa. Não há mais nada no tanque.");
+  // Fixed damage + forced surfacing: the drain can never softlock the fight.
+  b.hidden = false;
+  b.state = "stun";
+  b.timer = 3;
+  b.attack = 0;
+  b.vulnerable = 9;
+  b.hp = Math.max(0, b.hp - 80);
+  b.hitSerial = (b.hitSerial || 0) + 1;
+  if (b.hp === 0) {
+    killEnemy(b);
+    mergulhadorWin();
+    return;
+  }
+  audio.play("scream", b);
+  announce(
+    "O nível despenca! O Mergulhador fica exposto — atire no peito por alguns segundos.",
+  );
+}
+function mergulhadorWin() {
+  if (s.flags.mergulhador) return;
+  s.flags.mergulhador = true;
+  s.flags.engrenagem = true;
+  view.ch3State.drained = 14;
+  for (const id of ["sanguessuga03", "sanguessuga04"]) {
+    const h = s.enemies[id];
+    if (h && !h.dead && h.room === s.room) killEnemy(h);
+  }
+  audio.tone(240, 1);
+  announce(
+    "Mergulhador neutralizado. A engrenagem do elevador estava presa no peito dele. Passagem à direita.",
+  );
+}
+function chapter3Win() {
+  mode = "win";
+  audio.tone(240, 1);
+  panel(
+    `<div class="eyebrow">CAPÍTULO 3 / ELEVADOR DE SERVIÇO</div><h2>O hospital desce.</h2><blockquote>“Ele vive no fundo do tanque. Quando o nível cai, ele respira como a gente.” — Caio, fita do reservatório</blockquote><p>A engrenagem encaixa no guincho e o elevador de serviço volta a gemer. Valença operava doadores na sala 2 e mandava o resto para a água; Caio desceu antes de você. O painel mostra só dois destinos: <b>ESTUFAS</b> e <b>SUBSOLO</b>.</p><p>Conclusão do centro cirúrgico e da estação hídrica. O capítulo 4 ainda não foi construído.</p><p>Derrotas nesta sessão: ${deaths} · Documentos: ${s.docs.length} · Tempo: ${Math.floor(s.time / 60)} min</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
+  );
+  buttons({ explore: close, menu });
 }
 function nearest() {
   return interactions()
@@ -729,6 +877,23 @@ async function changeRoom(id: string) {
           "A Preceptora ergue a cabeça. O gerador auxiliar está no fundo, à direita.",
         );
         audio.tone(90, 0.8);
+      } else if (
+        s.room === "reservatorio" &&
+        s.enemies.mergulhador &&
+        !s.enemies.mergulhador.dead
+      ) {
+        const b = s.enemies.mergulhador;
+        b.state = "stun";
+        b.timer = 4;
+        announce(
+          "O tanque ondula. As válvulas vermelhas nos cantos do fundo baixam o nível.",
+        );
+        audio.tone(60, 1.2);
+      } else if (s.room === "drenos" && !s.flags["ch3-drenos"]) {
+        s.flags["ch3-drenos"] = true;
+        announce(
+          "Galeria de drenos. Ondulações na água denunciam o que espera embaixo.",
+        );
       } else announce(rooms[s.room].name);
       audio.tone(80, 0.25);
     }
@@ -758,6 +923,7 @@ function candidates() {
         screen.z < 1 &&
         e.room === s.room &&
         !e.dead &&
+        !e.hidden &&
         d < 11 &&
         ((e.x - s.player.x) * dir.x + (e.z - s.player.z) * dir.z) /
           Math.max(d, 0.01) >
@@ -833,7 +999,9 @@ function fire() {
             ? "Núcleo atingido!"
             : e.kind === "B02"
               ? "Placas fechadas. Ligue o gerador auxiliar para abri-las."
-              : "Armadura fechada. Use a trava elétrica."
+              : e.kind === "B03"
+                ? "Couraça de sedimento. Abra uma válvula lateral para expor o peito."
+                : "Armadura fechada. Use a trava elétrica."
           : e.crawl && !crawled
             ? "Perna inutilizada. Ele ainda se move."
             : hitRegion === "head"
@@ -842,6 +1010,7 @@ function fire() {
     );
     if (e.boss && e.dead) {
       if (e.kind === "B02") preceptoraWin();
+      else if (e.kind === "B03") mergulhadorWin();
       else bossWin();
     }
   } else announce("Impacto no cenário. A munição foi consumida.");
@@ -899,7 +1068,7 @@ function pediatricWin() {
   mode = "win";
   audio.tone(240, 1);
   panel(
-    `<div class="eyebrow">CRACHÁ CIRÚRGICO / VISOR</div><h2>Água do outro lado.</h2><blockquote>“Se você chegou até aqui, não desça sem gravar o que viu. O Mergulhador não é uma metáfora.” — Caio</blockquote><p>O crachá da Preceptora abre o visor, não a porta de cirurgia. Do outro lado, a água chega ao tornozelo e uma válvula grande demais para este andar bate em ritmo lento. A Porta 13 era só o começo da lista.</p><p>Conclusão da ala de pediatria. O centro cirúrgico e a estação hídrica continuam à frente, ainda não construídos.</p><p>Derrotas nesta sessão: ${deaths} · Documentos: ${s.docs.length} · Tempo: ${Math.floor(s.time / 60)} min</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
+    `<div class="eyebrow">CRACHÁ CIRÚRGICO / VISOR</div><h2>Água do outro lado.</h2><blockquote>“Se você chegou até aqui, não desça sem gravar o que viu. O Mergulhador não é uma metáfora.” — Caio</blockquote><p>O crachá da Preceptora abre o visor, não a porta de cirurgia. Do outro lado, a água chega ao tornozelo e uma válvula grande demais para este andar bate em ritmo lento. A Porta 13 era só o começo da lista.</p><p>Conclusão da ala de pediatria. A porta do centro cirúrgico, à direita do visor, agora está destravada.</p><p>Derrotas nesta sessão: ${deaths} · Documentos: ${s.docs.length} · Tempo: ${Math.floor(s.time / 60)} min</p><div class="actions"><button id="explore" class="primary">CONTINUAR EXPLORANDO</button><button id="menu">MENU PRINCIPAL</button></div>`,
   );
   buttons({ explore: close, menu });
 }
@@ -1072,9 +1241,154 @@ function tickB02(e: Enemy, dt: number) {
     path: () => pathDirection(e, s.player),
   });
 }
+/** 0.12: pull the player toward an attacker (E06 arm hook). */
+function pullPlayer(e: Enemy, m: number) {
+  const d = dist(e, s.player);
+  if (d < 1.05) return;
+  for (let i = 0; i < 4; i++)
+    moveBody(
+      s.player,
+      (((e.x - s.player.x) / d) * m) / 4,
+      (((e.z - s.player.z) / d) * m) / 4,
+      0.3,
+      true,
+    );
+}
+const B03_SPEED = [1.05, 1.15, 1.5];
+/** B03 Mergulhador (GDD §10): harpoon lane / side wave (phase 1), dives
+ * between the drains and grabs from below (phase 2, + two leeches), furious
+ * charge and pipe burst (phase 3). The side valves force it up (main.ts
+ * openDrain), so the fight never depends on landing shots on a diver. */
+function tickB03(e: Enemy, dt: number) {
+  e.vulnerable = Math.max(0, e.vulnerable - dt);
+  if (e.timer > 0) e.timer -= dt;
+  const phase = bossPhase(e),
+    d = dist(e, s.player),
+    clear = lineClear(e, s.player, rooms[s.room].obstacles),
+    drained = view.ch3State.drained > 0;
+  b03Dive -= dt;
+  if (phase >= 2 && !s.flags["b03-fase2"]) {
+    s.flags["b03-fase2"] = true;
+    audio.play("scream", e);
+    announce(
+      "O Mergulhador afunda. Bolhas antes do bote — e as sanguessugas acordaram.",
+    );
+  }
+  if (phase >= 3 && !s.flags["b03-fase3"]) {
+    s.flags["b03-fase3"] = true;
+    audio.play("scream", e);
+    announce(
+      "Fúria: investidas e canos estourando. Mantenha os pilares entre vocês.",
+    );
+  }
+  if (e.state === "stun" || e.state === "recover") {
+    if (e.timer <= 0) e.state = "chase";
+    return;
+  }
+  if (e.state === "charge") {
+    // Underwater: invisible and untouchable, homing on the player.
+    const dir = { x: s.player.x - e.x, z: s.player.z - e.z },
+      len = Math.hypot(dir.x, dir.z);
+    if (len > 0.9)
+      moveBody(e, (dir.x / len) * 2.6 * dt, (dir.z / len) * 2.6 * dt, 0.6);
+    if (e.timer <= 0 || drained) {
+      e.state = "windup";
+      e.attack = 3;
+      e.timer = drained ? 0.2 : 0.85;
+      audio.play("grunt", e);
+    }
+    return;
+  }
+  if (e.state === "windup") {
+    if (e.timer > 0) return;
+    e.state = "recover";
+    e.timer = enemyStats("B03").recover;
+    if (e.attack === 3) {
+      e.hidden = false;
+      audio.play("scream", e);
+      if (d < 1.7) hitPlayer(28, true, e);
+      b03Dive = phase >= 3 ? 7 : 9;
+    } else if (e.attack === 1) {
+      if (phase >= 3) {
+        // Furious charge: 3.4 m dash along the telegraphed lane.
+        const hit =
+          clear && (s.player.x - e.x) * e.dx + (s.player.z - e.z) * e.dz > 0;
+        moveBody(e, e.dx * 3.4, e.dz * 3.4, 0.6, false, true);
+        if (hit && dist(e, s.player) < 2) hitPlayer(32, false, e);
+      } else {
+        // Harpoon: hits anything in a 0.75 m lane up to 7.5 m.
+        const px = s.player.x - e.x,
+          pz = s.player.z - e.z,
+          along = px * e.dx + pz * e.dz,
+          side = Math.abs(px * e.dz - pz * e.dx);
+        audio.play("sweep", e);
+        if (clear && along > 0 && along < 7.5 && side < 0.75)
+          hitPlayer(20, false, e);
+      }
+    } else {
+      // Side wave (15) / pipe burst (18, wider) around the body.
+      audio.play("sweep", e);
+      if (d < (phase >= 3 ? 3.6 : 3.1))
+        hitPlayer(phase >= 3 ? 18 : 15, false, e);
+    }
+    return;
+  }
+  if (phase >= 2 && !drained && b03Dive <= 0) {
+    e.state = "charge";
+    e.hidden = true;
+    e.timer = 1.8;
+    audio.play("grunt", e);
+    return;
+  }
+  if (d < 2.7 || (d < 7.5 && clear)) {
+    e.state = "windup";
+    e.attack = d < 2.7 ? 0 : 1;
+    e.timer = phase >= 3 ? 0.85 : enemyStats("B03").windup;
+    e.dx = (s.player.x - e.x) / Math.max(d, 0.01);
+    e.dz = (s.player.z - e.z) / Math.max(d, 0.01);
+    audio.play("grunt", e);
+    return;
+  }
+  const dir = pathDirection(e, s.player),
+    len = Math.hypot(dir.x, dir.z);
+  if (len > 0.1)
+    moveBody(
+      e,
+      (dir.x / len) * B03_SPEED[phase - 1] * dt,
+      (dir.z / len) * B03_SPEED[phase - 1] * dt,
+      0.6,
+      false,
+      true,
+    );
+}
 function tickEnemy(e: Enemy, dt: number) {
   if (e.dead) return;
   if (e.kind === "B02") return tickB02(e, dt);
+  if (e.kind === "B03") return tickB03(e, dt);
+  // B03 leeches stay asleep until phase 2.
+  if (
+    (e.id === "sanguessuga03" || e.id === "sanguessuga04") &&
+    s.enemies.mergulhador &&
+    !s.enemies.mergulhador.dead &&
+    bossPhase(s.enemies.mergulhador) === 1
+  )
+    return;
+  // E09 ambush: submerged until Helena is close, then a lunge.
+  if (e.kind === "E09" && e.hidden) {
+    if (dist(e, s.player) > 2.4) return;
+    e.hidden = false;
+    e.state = "windup";
+    e.attack = 0;
+    e.timer = 0.5;
+    e.dx = (s.player.x - e.x) / Math.max(dist(e, s.player), 0.01);
+    e.dz = (s.player.z - e.z) / Math.max(dist(e, s.player), 0.01);
+    audio.play("grunt", e);
+    if (!s.flags["dica-e09"]) {
+      s.flags["dica-e09"] = true;
+      announce("Sanguessuga! Ela sangra o ferimento — afaste-se e atire.");
+    }
+    return;
+  }
   // B02 helpers stay under the beds until phase 2.
   if (
     (e.id === "rastejador03" || e.id === "rastejador04") &&
@@ -1142,6 +1456,20 @@ function tickEnemy(e: Enemy, dt: number) {
           hitPlayer(stats.damage, e.kind === "E02" && !e.crawl, e);
         e.state = "recover";
         e.timer = stats.recover;
+      } else if (e.kind === "E14" && e.attack === 2) {
+        // Acid spit: a slow arcing glob to where Helena was; leaves a pool.
+        const dd = Math.max(0.01, dist(e, s.player));
+        spits.push({
+          x: e.x,
+          z: e.z,
+          y: 1.45,
+          dx: (s.player.x - e.x) / dd,
+          dz: (s.player.z - e.z) / dd,
+          t: dd / 6.5,
+        });
+        audio.play("sweep", e);
+        e.state = "recover";
+        e.timer = stats.recover;
       } else if (e.boss && e.attack === 1) {
         e.state = "recover";
         e.timer = 1.7;
@@ -1156,18 +1484,31 @@ function tickEnemy(e: Enemy, dt: number) {
           d <
             (e.boss
               ? 2.8
-              : e.kind === "E05"
+              : e.kind === "E05" || e.kind === "E09"
                 ? CRAWLER_REACH + 0.2
                 : e.crawl
                   ? 1.1
-                  : 1.6) &&
+                  : e.kind === "E06"
+                    ? 2.5
+                    : 1.6) &&
           lineClear(e, s.player, rooms[s.room].obstacles)
-        )
+        ) {
           hitPlayer(
             e.boss ? (bossPhase(e) >= 3 ? 28 : 20) : stats.damage,
             e.kind === "E02" && !e.crawl,
             e,
           );
+          if (e.kind === "E06" && !e.crawl) {
+            pullPlayer(e, 0.7);
+            if (!s.flags["dica-e06"]) {
+              s.flags["dica-e06"] = true;
+              announce(
+                "O braço costurado alcança longe e puxa. Fique fora do arco ou atire nas pernas.",
+              );
+            }
+          }
+          if (e.kind === "E09") bleed = 4;
+        }
         e.state = "recover";
         e.timer = stats.recover;
       }
@@ -1180,7 +1521,12 @@ function tickEnemy(e: Enemy, dt: number) {
   ) {
     e.state = "windup";
     e.timer = stats.windup;
-    e.attack = (e.boss && d > 2.6) || pattern.charge ? 1 : 0;
+    e.attack =
+      e.kind === "E14" && d > 2.2
+        ? 2
+        : (e.boss && d > 2.6) || pattern.charge
+          ? 1
+          : 0;
     e.dx = (s.player.x - e.x) / Math.max(d, 0.01);
     e.dz = (s.player.z - e.z) / Math.max(d, 0.01);
     if (pattern.feint)
@@ -1200,7 +1546,9 @@ function tickEnemy(e: Enemy, dt: number) {
         : e.crawl
           ? e.kind === "E05"
             ? 0.82
-            : 0.36
+            : e.kind === "E09"
+              ? 0.95
+              : 0.36
           : stats.speed) * (e.exposure >= 25 ? 0.8 : 1);
     moveBody(
       e,
@@ -1303,6 +1651,43 @@ function tick(dt: number) {
   } else targetId = "";
   for (const e of Object.values(s.enemies))
     if (e.room === s.room) tickEnemy(e, dt);
+  tickChapter3(dt);
+}
+function tickChapter3(dt: number) {
+  const fx = view.ch3State;
+  valveCooldown[0] = Math.max(0, valveCooldown[0] - dt);
+  valveCooldown[1] = Math.max(0, valveCooldown[1] - dt);
+  fx.drained = Math.max(0, fx.drained - dt);
+  if (bleed > 0) {
+    bleed = Math.max(0, bleed - dt);
+    s.player.hp = Math.max(1, s.player.hp - 1.5 * dt);
+  }
+  for (const b of spits) {
+    const step = Math.min(dt, b.t);
+    b.x += b.dx * 6.5 * step;
+    b.z += b.dz * 6.5 * step;
+    b.t -= step;
+    b.y = Math.max(0.2, b.y - 1.6 * step);
+    if (dist(b, s.player) < 0.55) {
+      hitPlayer(17);
+      b.t = 0;
+    } else if (!clearPoint(b, rooms[s.room].obstacles, 0.05)) b.t = 0;
+    if (b.t <= 0) fx.pools.push({ x: b.x, z: b.z, t: 4 });
+  }
+  spits = spits.filter((b) => b.t > 0);
+  fx.spit = spits;
+  for (const q of fx.pools) q.t -= dt;
+  fx.pools = fx.pools.filter((q) => q.t > 0);
+  poolTick = Math.max(0, poolTick - dt);
+  if (poolTick === 0 && fx.pools.some((q) => dist(q, s.player) < 0.9)) {
+    poolTick = 0.8;
+    s.player.hp = Math.max(1, s.player.hp - 4);
+    view.hurtTime = 0.2;
+    if (!s.flags["dica-e14"]) {
+      s.flags["dica-e14"] = true;
+      announce("Ácido no chão. Saia da poça verde.");
+    }
+  }
 }
 function hud() {
   el("location").innerHTML =
@@ -1316,25 +1701,33 @@ function hud() {
     `LUZ ${s.light ? "ON" : "OFF"}  ${Math.ceil(s.battery)}%  [${s.batteries}]`;
   el("region").textContent =
     `${reloadTime > 0 ? "RECARREGANDO…" : aiming ? (prefs.mode === "shoulder" ? "MIRA LIVRE / RETÍCULA" : "MIRA: " + (region === "head" ? "CABEÇA" : region === "body" ? "TRONCO" : "PERNA ESQUERDA")) : "R recarregar · H curar"}`;
-  el("objective").textContent = s.flags.cirurgia
-    ? "CRACHÁ REGISTRADO / O CENTRO CIRÚRGICO ESPERA"
-    : s.flags.preceptora
-      ? "Registre o crachá no visor da ante-sala"
-      : s.flags.prontuarios
-        ? "Enfrente a Preceptora · gerador auxiliar à direita"
-        : s.flags.final
-          ? "Pediatria: confirme os três leitos marcados"
-          : s.flags.pressao
-            ? "Transmita a fita e abra a Porta 13"
-            : s.flags.pulseira
-              ? "Lavanderia: purgue na ordem 3 → 1 → 2"
-              : s.flags.boss
-                ? "Acesso à internação → leito 203"
-                : s.flags.energia
-                  ? "Neutralize o Porteiro no átrio"
-                  : s.flags.chave
-                    ? "Instale o fusível no gerador"
-                    : "Encontre a chave no arquivo · 03:15";
+  el("objective").textContent = s.flags.elevador
+    ? "ELEVADOR CONSERTADO / ESTUFAS E SUBSOLO À FRENTE"
+    : s.flags.mergulhador
+      ? "Instale a engrenagem no elevador de serviço"
+      : s.flags.equalizado
+        ? "Reservatório: abra as válvulas laterais e enfrente o Mergulhador"
+        : s.flags["chave-bombas"]
+          ? "Casa de bombas: iguale os três manômetros em 4 bar"
+          : s.flags.cirurgia
+            ? "Centro cirúrgico: ache a chave da casa de bombas (sala 2)"
+            : s.flags.preceptora
+              ? "Registre o crachá no visor da ante-sala"
+              : s.flags.prontuarios
+                ? "Enfrente a Preceptora · gerador auxiliar à direita"
+                : s.flags.final
+                  ? "Pediatria: confirme os três leitos marcados"
+                  : s.flags.pressao
+                    ? "Transmita a fita e abra a Porta 13"
+                    : s.flags.pulseira
+                      ? "Lavanderia: purgue na ordem 3 → 1 → 2"
+                      : s.flags.boss
+                        ? "Acesso à internação → leito 203"
+                        : s.flags.energia
+                          ? "Neutralize o Porteiro no átrio"
+                          : s.flags.chave
+                            ? "Instale o fusível no gerador"
+                            : "Encontre a chave no arquivo · 03:15";
   const i = mode === "play" && !travel.active ? nearest() : undefined;
   el("prompt").textContent = i ? "[ E ] " + i.label : "";
   el("top").style.opacity = travel.active ? "0" : "1";
@@ -1662,6 +2055,8 @@ function frame(now: number) {
   }
 }
 // Read-only diagnostics for reproducible smoke tests; no gameplay shortcuts.
+if (import.meta.env.DEV)
+  (window as unknown as { __view: unknown }).__view = view;
 Object.defineProperty(window, "limiar", {
   get: () => ({
     fade: Number(el("fade").style.opacity || 0),

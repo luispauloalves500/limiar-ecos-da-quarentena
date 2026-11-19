@@ -1,3 +1,23 @@
+# QA — LIMIAR 0.12.0
+
+## 0.12.0 — Capítulo 3, desempenho, Porteiro e Helena
+**Gates:** testes (novo `tests/chapter3.test.ts`: salas e travas, estatísticas do GDD, sanguessuga submersa sem dano, P04 resolvível e alívio sem travar, migração de save 0.11 → conteúdo 6, pressão adulterada rejeitada), lint, TypeScript, Prettier, build e `npm audit --omit=dev`. Chromium, SwiftShader.
+
+**Benchmark** (`scripts/room-bench.mjs`, base = build 0.11.0 publicada (36e2077), dev = 0.12.0, ABBA, save compatível com as duas (`BENCH_CONTENT=5`), Porteiro vivo, câmera de ombro, `docs/benchmark-v0120.json`). Quadro de trabalho mediano (ms), média das repetições:
+
+| Sala | Baixa 0.11 → 0.12 | Média 0.11 → 0.12 | Triângulos (média) |
+|---|---|---|---|
+| Átrio (Porteiro vivo) | 61,2 → 56,4 (−7,8%) | 204,2 → 199,4 (−2,4%) | 32.600 → 28.741 |
+| Recepção | 50,7 → 48,9 | 185,1 → 184,7 | iguais |
+| Corredor | 50,3 → 51,7 | 185,5 → 181,4 | iguais |
+| Gerador | 53,3 → 53,1 | 186,7 → 190,2 | iguais |
+
+A rodada da 0.11 contra a 0.10 mediu o átrio +9,2% (Baixa) e +5,9% (Média); a 0.12 devolve −7,8% e −2,4% no átrio, e as outras salas ficam no ruído (±3%). Draws iguais. A segunda repetição parou por timeout do Chromium no átrio em Média (uma amostra da 0.11 nessa célula).
+
+**Capítulo 3** (só 0.12, inimigos vivos, Baixa / Média, ms): lavabo 53,7 / 186,6 · sala de operações 59,1 / 200,3 · esterilização 48,0 / 204,7 · casa de bombas 56,7 / 194,6 · galeria de drenos 64,9 / 225,9 · reservatório (B03 vivo) 65,5 / 254,4 · elevador 48,1 / 185,8. Draws 59–75 (Baixa) e 85–104 (Média), como as salas antigas. Drenos e reservatório custam ~15–30% mais em Média (água em tela cheia + chefe); tirar sombra da água foi medido (ABBA) e não mudou nada, então ficou.
+
+**Campanha com comandos reais (tank):** a partir de um *fixture* no visor (save real do abrigo da 0.11 + flags do fim do Capítulo 2, que a automação não vence), a Helena atravessou lavabo, sala de operações, esterilização (gravação real), casa de bombas (P04 resolvido nos botões, incluindo a válvula de alívio), galeria de drenos (sanguessugas e sibilante) e entrou no reservatório. Contra o B03, a melhor tentativa deixou o Mergulhador com 95/1.050 de vida antes de a Helena morrer (5 tentativas no total, as primeiras com falhas do script). O trecho final (elevador e tela de fim) passou com comandos reais a partir de um save do reservatório com o B03 marcado como vencido. Ombro não foi rodado no Capítulo 3.
+
 # QA — LIMIAR 0.11.0
 
 ## 0.11.0 — Porteiro novo e corpo da Helena

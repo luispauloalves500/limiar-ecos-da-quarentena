@@ -10,12 +10,19 @@ import { setZombieProbe, zombieActor } from "./zombie";
 import { preceptoraActor, setPreceptoraProbe } from "./preceptora";
 import { crawlerActor } from "./crawler";
 import {
+  CHAPTER3,
+  Chapter3Fx,
+  dressObstacle3,
+  dressRoom3,
+  type Ch3Transient,
+} from "./chapter3-art";
+import {
   CHAPTER2,
   preloadChapter2,
   preloadPorteiro,
   setSmartProbe,
 } from "./smartrig";
-import { porteiroActor } from "./porteiro";
+import { porteiroActor, setPorteiroTank } from "./porteiro";
 import { shoulderOffset } from "./controls";
 import { Environment } from "./environment";
 import { themes } from "./environment-logic";
@@ -106,6 +113,8 @@ export class View {
   knob = new T.Group();
   zone = 0;
   lastCut = 0;
+  /** 0.12: tank corner camera index while a boss is alive (-1 = none). */
+  bossCorner = -1;
   room: RoomId = "recepcao";
   elapsed = 0;
   walk = 0;
@@ -123,6 +132,9 @@ export class View {
   bakeStats = { merged: 0, sources: 0 };
   /** 1 = normal, <1 dims baked + hemisphere (B02 darkness). */
   dim = 1;
+  /** 0.12: chapter-3 dynamic layer and the transient state main.ts owns. */
+  ch3?: Chapter3Fx;
+  ch3State: Ch3Transient = { spit: [], pools: [], drained: 0 };
   flash = new T.PointLight(0xffc184, 0, 5);
   /** 0.6: baked lights of the room, reused as a light probe for actors. */
   probeLights: BakeLight[] = [];
@@ -260,6 +272,7 @@ export class View {
   }
   setCamera(zone: number) {
     this.zone = zone;
+    this.bossCorner = -1;
     if (this.prefs.mode !== "tank") return;
     const scale = this.camera.aspect < 1.3 ? 1.45 : 1;
     this.camera.position.set(
@@ -285,10 +298,73 @@ export class View {
         this.prefs.mode,
       ).ambient;
     this.ceiling.visible = !tank;
+    setPorteiroTank(tank);
+    const c = this.bossCorner;
     this.walls.forEach(
       (w, i) =>
-        (w.visible = !tank || i === 0 || (this.zone === 0 ? i === 2 : i === 3)),
+        (w.visible =
+          !tank ||
+          (c >= 0
+            ? // Boss corner camera: hide the two walls behind the lens.
+              i !== (c & 1 ? 1 : 0) && i !== (c & 2 ? 3 : 2)
+            : i === 0 || (this.zone === 0 ? i === 2 : i === 3))),
     );
+  }
+  /** 0.12: tank boss framing. Four high corner cameras inside the room;
+   * the one behind Helena (away from the boss) frames both of them, closer
+   * and lower than the wide room shot so the boss reads large. */
+  private bossCamera(s: GameState, dt: number) {
+    const p = s.player;
+    const boss = Object.values(s.enemies).find(
+      (e) => e.boss && e.room === s.room && !e.dead,
+    );
+    if (!boss) {
+      if (this.bossCorner >= 0) {
+        this.bossCorner = -1;
+        this.setCamera(this.zone);
+      }
+      return false;
+    }
+    const corners = [0, 1, 2, 3].map((c) => ({
+      c,
+      x: c & 2 ? 5.4 : -5.4,
+      z: c & 1 ? 7.6 : -7.6,
+    }));
+    const mx = (p.x + boss.x) / 2,
+      mz = (p.z + boss.z) / 2;
+    let dx = p.x - boss.x,
+      dz = p.z - boss.z;
+    const len = Math.hypot(dx, dz) || 1;
+    dx /= len;
+    dz /= len;
+    const score = (k: { x: number; z: number }) => {
+      const vx = k.x - mx,
+        vz = k.z - mz,
+        l = Math.hypot(vx, vz) || 1;
+      return (vx * dx + vz * dz) / l;
+    };
+    let best = corners[0];
+    for (const k of corners) if (score(k) > score(best)) best = k;
+    if (
+      this.bossCorner < 0 ||
+      (best.c !== this.bossCorner &&
+        score(best) > score(corners[this.bossCorner]) + 0.35 &&
+        this.elapsed - this.lastCut > 1.2)
+    ) {
+      this.bossCorner = best.c;
+      this.lastCut = this.elapsed;
+      this.camera.position.set(best.x, 5.6, best.z);
+      this.camera.fov = 54;
+      this.camera.updateProjectionMatrix();
+      this.tankLook.set(mx, 1.1, mz);
+      this.applyCutaway();
+    }
+    const k = 1 - Math.exp(-dt * 3);
+    this.tankLook.x += (mx - this.tankLook.x) * k;
+    this.tankLook.y += (1.1 - this.tankLook.y) * k;
+    this.tankLook.z += (mz - this.tankLook.z) * k;
+    this.camera.lookAt(this.tankLook);
+    return true;
   }
   syncCamera(player: GameState["player"]) {
     this.yaw = player.yaw;
@@ -306,12 +382,12 @@ export class View {
       (e.kind === "B02" && !this.legacyPreceptora
         ? preceptoraActor(e, this.preceptoraModel !== "procedural")
         : undefined) ||
-      (e.kind === "E05" &&
+      ((e.kind === "E05" || e.kind === "E09") &&
       !this.proceduralZombies &&
       this.crawlerModel === "glb"
         ? crawlerActor(e)
         : undefined) ||
-      (e.kind === "B01" && this.porteiroModel === "glb"
+      ((e.kind === "B01" || e.kind === "B03") && this.porteiroModel === "glb"
         ? porteiroActor(e)
         : undefined) ||
       (!e.boss && !this.proceduralZombies ? zombieActor(e) : undefined) ||
@@ -325,14 +401,19 @@ export class View {
     for (const e of Object.values(s.enemies)) {
       if (
         e.room !== this.room ||
-        (e.kind !== "E05" && e.kind !== "B02" && e.kind !== "B01")
+        !["E05", "E09", "B02", "B01", "B03"].includes(e.kind)
       )
         continue;
       const old = this.enemyMeshes.get(e.id);
       if (!old || old.root.userData.glb) continue;
-      if (e.kind === "E05" && this.crawlerModel !== "glb") continue;
+      if ((e.kind === "E05" || e.kind === "E09") && this.crawlerModel !== "glb")
+        continue;
       if (e.kind === "B02" && this.preceptoraModel !== "glb") continue;
-      if (e.kind === "B01" && this.porteiroModel !== "glb") continue;
+      if (
+        (e.kind === "B01" || e.kind === "B03") &&
+        this.porteiroModel !== "glb"
+      )
+        continue;
       old.animation?.dispose();
       this.disposeGroup(old.root);
       this.enemyMeshes.delete(e.id);
@@ -362,6 +443,7 @@ export class View {
     this.room = id;
     this.cameraReady = false;
     this.zone = 0;
+    this.bossCorner = -1;
     this.lastCut = this.elapsed;
     const r = rooms[id];
     const floor = mat(r.safe ? 0xaaa18b : 0x71847e, 0.55, 0.08, this.tile);
@@ -410,7 +492,14 @@ export class View {
       pipe.rotation.z = Math.PI / 2;
       this.ceiling.add(pipe);
     }
-    for (const o of r.obstacles) {
+    for (const [oi, o] of r.obstacles.entries()) {
+      if (CHAPTER3.has(id)) {
+        dressObstacle3(id, o, oi, (m) => this.addObstacle(m), this.group, {
+          rust: this.rust,
+          wall: this.wallTex,
+        });
+        continue;
+      }
       const metal = mat(0x56635b, 0.58, 0.5, this.rust),
         cloth = mat(0xb4b5a0, 0.95, 0, this.wallTex);
       if (
@@ -701,7 +790,11 @@ export class View {
     // long before the átrio; if it is still in flight there, it swaps in.
     if (
       !s.flags.boss ||
-      Object.values(s.enemies).some((e) => e.kind === "B01" && !e.removed)
+      Object.values(s.enemies).some(
+        (e) =>
+          (e.kind === "B01" || (e.kind === "B03" && e.room === id)) &&
+          !e.removed,
+      )
     ) {
       const room = id;
       void preloadPorteiro().then(() => {
@@ -709,7 +802,7 @@ export class View {
       });
     }
     // 0.9: chapter-2 GLBs load lazily; actors swap in when they arrive.
-    if (CHAPTER2.has(id) || s.flags.final) {
+    if (CHAPTER2.has(id) || CHAPTER3.has(id) || s.flags.final) {
       const room = id;
       void preloadChapter2().then(() => {
         if (this.room === room) this.refreshChapter2(s);
@@ -821,6 +914,13 @@ export class View {
     );
     this.group.add(this.dust);
     this.group.add(roomDetails(id));
+    this.ch3 = undefined;
+    if (CHAPTER3.has(id)) {
+      const tex = { rust: this.rust, wall: this.wallTex };
+      this.group.add(dressRoom3(id, tex));
+      this.ch3 = new Chapter3Fx(id);
+      this.group.add(this.ch3.root);
+    }
     this.environment = new Environment(id, s);
     this.group.add(this.environment.root);
     this.practical.forEach((l) => l.color.setHex(themes[id].color));
@@ -829,6 +929,7 @@ export class View {
     const dynamic = new Set<T.Object3D>([
       ...this.itemMeshes.values(),
       this.environment.root,
+      ...(this.ch3 ? [this.ch3.root] : []),
     ]);
     this.bakeRoom(id, dynamic);
     const freeze = (o: T.Object3D) => {
@@ -1022,6 +1123,7 @@ export class View {
   updateCamera(s: GameState, dt: number, aiming: boolean) {
     const p = s.player;
     if (this.prefs.mode === "tank") {
+      if (this.bossCamera(s, dt)) return;
       const z = p.z < -0.8 ? 1 : p.z > 1.2 ? 0 : this.zone;
       if (z !== this.zone && this.elapsed - this.lastCut > 0.6) {
         this.setCamera(z);
@@ -1252,6 +1354,8 @@ export class View {
           speed,
           this.prefs.quality,
         );
+        // 0.12: E09 waits under the water line; B03 sinks in its own class.
+        if (e.hidden && e.kind !== "B03") a.root.visible = false;
         if (e.dead) {
           const alpha = corpseOpacity(e);
           if (alpha <= 0) {
@@ -1290,6 +1394,7 @@ export class View {
           });
         continue;
       }
+      a.root.visible = !e.hidden;
       animate(a, e.state === "chase", this.elapsed * (e.crawl ? 5 : 4), false);
       a.body.rotation.x = e.crawl ? 1.3 : e.state === "stun" ? -0.16 : 0;
       a.root.position.y = e.crawl ? 0.08 : 0;
@@ -1342,6 +1447,19 @@ export class View {
       (o) => o instanceof T.HemisphereLight,
     ) as T.HemisphereLight | undefined;
     if (hemi) hemi.intensity = 0.48 * Math.max(0.28, this.dim);
+    if (this.ch3) {
+      this.ch3.update(s, this.ch3State, this.elapsed, dt);
+      const lurker = Object.values(s.enemies).find(
+        (e) =>
+          e.room === s.room &&
+          !e.dead &&
+          e.hidden &&
+          (e.kind === "B03"
+            ? e.state === "windup"
+            : Math.hypot(e.x - p.x, e.z - p.z) < 3.6),
+      );
+      this.ch3.ripple(lurker?.x ?? 0, lurker?.z ?? 0, !!lurker, this.elapsed);
+    }
     this.environment?.update(
       s,
       dt,
@@ -1444,7 +1562,7 @@ export class View {
   }
   getHitboxes(s: GameState) {
     return Object.values(s.enemies)
-      .filter((e) => e.room === s.room && !e.dead)
+      .filter((e) => e.room === s.room && !e.dead && !e.hidden)
       .flatMap((e) => this.enemyMeshes.get(e.id)?.hitboxes || []);
   }
   shot(s: GameState, assist = this.prefs.assist): ShotHit | undefined {

@@ -162,34 +162,44 @@ export function groundLift(lowestY: number, clearance = 0.03) {
  * the left foot is planted around phase π and the right around 0. `amount`
  * is 0..1 (clip style × speed). Angles in radians, shift in metres, all in
  * Helena's body frame (+X her left, +Z forward). */
+/** 0.12: ~1.5× the 0.11 amplitudes (more marked hip sway and crossing
+ * step, still counter-rotated and foot-compensated). */
+export const WALK_STYLE = {
+  roll: 0.115,
+  yaw: 0.135,
+  chest: 0.095,
+  shift: 0.026,
+  adduct: 0.065,
+  arm: 0.17,
+};
 export function walkStyle(phase: number, amount: number) {
   const s = Math.sin(phase),
     c = Math.cos(phase),
     k = Math.max(0, Math.min(1, amount));
   // Pelvic list: the swing-side hip drops (left stance → +X side up).
-  const hipsRoll = -c * 0.075 * k;
+  const hipsRoll = -c * WALK_STYLE.roll * k;
   // Pelvis turns with the forward leg; chest turns the other way.
-  const hipsYaw = -s * 0.09 * k;
-  const chestYaw = s * 0.065 * k;
+  const hipsYaw = -s * WALK_STYLE.yaw * k;
+  const chestYaw = s * WALK_STYLE.chest * k;
   return {
     hipsRoll,
     hipsYaw,
     chestYaw,
     /** Weight over the stance leg. */
-    shift: -c * 0.014 * k,
+    shift: -c * WALK_STYLE.shift * k,
     /** Shoulders counter the hips so the head rides level. */
-    spineRoll: -hipsRoll * 0.65,
-    chestRoll: -hipsRoll * 0.25,
+    spineRoll: -hipsRoll * 0.7,
+    chestRoll: -hipsRoll * 0.3,
     /** Both thighs turn inward so the feet land near the centre line. */
-    adduct: 0.04 * k,
+    adduct: WALK_STYLE.adduct * k,
     /** Extra arm swing (left arm forward with the right leg). */
-    armSwing: s * 0.13 * k,
+    armSwing: s * WALK_STYLE.arm * k,
   };
 }
 /** Idle contrapposto: weight drifts slowly onto one leg and holds there.
  * Returns -1..1 (+ = on the left leg). */
 export function weightShift(t: number) {
-  return Math.tanh(2.2 * Math.sin(t * 0.33 + 0.6));
+  return Math.tanh(2.2 * Math.sin(t * 0.55 + 0.6));
 }
 /** Small damped wobble after the gun comes up (aim settle). */
 export function aimSettle(age: number) {

@@ -182,6 +182,72 @@ export const looks: Record<RoomId, RoomLook> = {
     damp: 0.28,
     rail: true,
   },
+  // 0.12: chapter 3 — glazed theatre tile, then wet concrete and steel.
+  lavabo: {
+    ...base,
+    tint: 0xe6f2f2,
+    band: 0x2f5a5e,
+    trim: 0x86a2a2,
+    damp: 0.4,
+    tiles: true,
+    drains: true,
+  },
+  cirurgia: {
+    ...base,
+    tint: 0xe8f4f0,
+    band: 0x3b6b66,
+    trim: 0x92aaa4,
+    damp: 0.32,
+    tiles: true,
+    curtains: true,
+  },
+  esterilizacao: {
+    ...base,
+    tint: 0xfff1de,
+    band: 0x6b5a40,
+    trim: 0x9c8a68,
+    damp: 0.16,
+    tiles: true,
+  },
+  bombas: {
+    ...base,
+    tint: 0xd6e0dc,
+    band: 0x2c4a50,
+    trim: 0x6e8484,
+    damp: 0.62,
+    pilasters: true,
+    hazard: true,
+    drains: true,
+  },
+  drenos: {
+    ...base,
+    tint: 0xc8d4cf,
+    band: 0x253f44,
+    trim: 0x5e7676,
+    damp: 0.78,
+    pilasters: true,
+    drains: true,
+    rail: true,
+  },
+  reservatorio: {
+    ...base,
+    tint: 0xc0cfcc,
+    band: 0x20393f,
+    trim: 0x58706f,
+    damp: 0.82,
+    pilasters: true,
+    hazard: true,
+    drains: true,
+  },
+  elevador: {
+    ...base,
+    tint: 0xdfe4dc,
+    band: 0x4a5048,
+    trim: 0x7d857a,
+    damp: 0.36,
+    hazard: true,
+    stairs: true,
+  },
 };
 export const HALF_X = 6.54,
   HALF_Z = 8.74,
@@ -280,6 +346,42 @@ export function architecture(
         intensity: 1.5,
         range: 7.5,
       });
+  // 0.12: chapter-3 key lights, baked per vertex (zero runtime cost): the
+  // operating lamp, the cold pump-room sodium and the reservoir valves.
+  const extra: Partial<Record<RoomId, BakeLight[]>> = {
+    cirurgia: [
+      { x: 0, y: 3.2, z: -2, color: 0xe8f4ff, intensity: 2.6, range: 6.5 },
+    ],
+    lavabo: [
+      { x: -3, y: 2.2, z: -1.6, color: 0xbfe0e0, intensity: 1.1, range: 5 },
+      { x: 3, y: 2.2, z: -1.6, color: 0xbfe0e0, intensity: 1.1, range: 5 },
+    ],
+    esterilizacao: [
+      { x: 3.2, y: 1.6, z: -4.6, color: 0xffb070, intensity: 1.4, range: 6 },
+    ],
+    bombas: [
+      { x: 4.4, y: 2.2, z: -6.4, color: 0x9ae0a0, intensity: 1.8, range: 6 },
+      { x: -3, y: 2.8, z: -4, color: 0xd8a868, intensity: 1.8, range: 7 },
+      { x: 0, y: 3, z: 4, color: 0xa8d0d0, intensity: 1.4, range: 8 },
+    ],
+    drenos: [
+      { x: 0, y: 2.4, z: -6.8, color: 0x7fc8d0, intensity: 1.8, range: 7.5 },
+      { x: -4.8, y: 2.4, z: 1, color: 0xd09060, intensity: 1.5, range: 6.5 },
+      { x: 4.8, y: 2.6, z: -2, color: 0x8fc0c4, intensity: 1.3, range: 6.5 },
+    ],
+    reservatorio: [
+      { x: -5.2, y: 2.3, z: -6.6, color: 0xe08a5a, intensity: 2.2, range: 7.5 },
+      { x: 5.2, y: 2.3, z: -6.6, color: 0xe08a5a, intensity: 2.2, range: 7.5 },
+      { x: 0, y: 3.2, z: -1, color: 0x7ab8c4, intensity: 1.8, range: 10 },
+      { x: -5.4, y: 2.8, z: 4, color: 0x9ac4c8, intensity: 1.3, range: 7 },
+      { x: 5.4, y: 2.8, z: 4, color: 0x9ac4c8, intensity: 1.3, range: 7 },
+    ],
+    elevador: [
+      { x: -1.2, y: 2.8, z: -6, color: 0xffcf8a, intensity: 1.9, range: 7.5 },
+      { x: 3, y: 3, z: 4, color: 0xd8d0b0, intensity: 1.2, range: 8 },
+    ],
+  };
+  out.lights.push(...(extra[id] ?? []));
   const piece = (
     wall: number,
     u0: number,

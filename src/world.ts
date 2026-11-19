@@ -17,7 +17,15 @@ export type RoomId =
   | "leitos"
   | "abrigo"
   | "circulo"
-  | "visor";
+  | "visor"
+  // 0.12: chapter 3 — surgical centre and water station (GDD §8).
+  | "lavabo"
+  | "cirurgia"
+  | "esterilizacao"
+  | "bombas"
+  | "drenos"
+  | "reservatorio"
+  | "elevador";
 export type Vec = { x: number; z: number };
 export type Rect = Vec & { w: number; d: number };
 export type Door = {
@@ -35,7 +43,8 @@ export type Pickup = Vec & {
   label: string;
   text?: string;
 };
-export type EnemyKind = "E01" | "E02" | "E04" | "E05" | "B01" | "B02";
+export type EnemyKind =
+  "E01" | "E02" | "E04" | "E05" | "E06" | "E09" | "E14" | "B01" | "B02" | "B03";
 export type Room = {
   id: RoomId;
   name: string;
@@ -213,6 +222,68 @@ export const doors: Door[] = [
     pb: { x: 0, z: 8 },
     key: "preceptora",
     label: "Acesso ao centro cirúrgico",
+  },
+  // 0.12: chapter 3.
+  {
+    id: "D20",
+    a: "visor",
+    b: "lavabo",
+    // The visor glass fills the back wall: the surgical door is on the right.
+    pa: { x: 6, z: 4 },
+    pb: { x: 0, z: 8 },
+    key: "cirurgia",
+    label: "Centro cirúrgico",
+  },
+  {
+    id: "D21",
+    a: "lavabo",
+    b: "cirurgia",
+    pa: { x: -6, z: 4 },
+    pb: { x: 6, z: 4 },
+    label: "Sala de operações 2",
+  },
+  {
+    id: "D22",
+    a: "lavabo",
+    b: "esterilizacao",
+    pa: { x: 6, z: 4 },
+    pb: { x: -6, z: 4 },
+    label: "Esterilização",
+  },
+  {
+    id: "D23",
+    a: "lavabo",
+    b: "bombas",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    key: "chave-bombas",
+    label: "Casa de bombas",
+  },
+  {
+    id: "D24",
+    a: "bombas",
+    b: "drenos",
+    pa: { x: -6, z: 4 },
+    pb: { x: 6, z: 4 },
+    key: "equalizado",
+    label: "Galeria de drenos",
+  },
+  {
+    id: "D25",
+    a: "drenos",
+    b: "reservatorio",
+    pa: { x: 0, z: -8 },
+    pb: { x: 0, z: 8 },
+    label: "Reservatório",
+  },
+  {
+    id: "D26",
+    a: "reservatorio",
+    b: "elevador",
+    pa: { x: 6, z: 4 },
+    pb: { x: -6, z: 4 },
+    key: "mergulhador",
+    label: "Elevador de serviço",
   },
 ];
 export const rooms: Record<RoomId, Room> = {
@@ -646,9 +717,242 @@ export const rooms: Record<RoomId, Room> = {
         label: "Memorando do centro cirúrgico",
         x: 0,
         z: 4,
-        text: "O crachá da Preceptora abre o visor, não a porta de cirurgia. Do outro lado há água até o tornozelo e um ruído de válvula grande demais para este andar. Caio: se você chegou até aqui, não desça sem gravar o que viu. O Mergulhador não é uma metáfora.",
+        text: "O crachá da Preceptora abre o visor; registrado ali, ele destrava a porta do centro cirúrgico, à direita. Do outro lado há água até o tornozelo e um ruído de válvula grande demais para este andar. Caio: se você chegou até aqui, não desça sem gravar o que viu. O Mergulhador não é uma metáfora.",
       },
       { id: "vis-ammo", kind: "ammo", label: "12 cartuchos 9 mm", x: 4, z: 5 },
+    ],
+    enemies: [],
+  },
+  lavabo: {
+    id: "lavabo",
+    name: "Lavabo cirúrgico",
+    subtitle: "CENTRO CIRÚRGICO · ÁGUA NO RALO",
+    color: 0x5f8a8c,
+    obstacles: [
+      { x: -3, z: -1.2, w: 3.6, d: 0.9 },
+      { x: 3, z: -1.2, w: 3.6, d: 0.9 },
+    ],
+    items: [
+      {
+        id: "lav-doc",
+        kind: "document",
+        label: "Escala do centro cirúrgico",
+        x: -4,
+        z: 5.5,
+        text: "Plantão de 14/03. Sala 2: Dra. Elisa Valença, procedimento A-13/7, 'paciente doador'. Equipe dispensada às 02:50 por ordem dela. A casa de bombas foi trancada; a chave ficou na mesa 2, com o paciente. Quem lavou as mãos depois disso não lavou sangue. — Enf. chefe (ilegível)",
+      },
+      {
+        id: "lav-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: 4,
+        z: 5.5,
+      },
+    ],
+    enemies: [{ id: "costurado01", kind: "E06", x: 0, z: -4.5 }],
+  },
+  cirurgia: {
+    id: "cirurgia",
+    name: "Sala de operações 2",
+    subtitle: "MESA 2 · O FOCO AINDA ACESO",
+    color: 0x8aa6a2,
+    obstacles: [
+      { x: 0, z: -2, w: 1.4, d: 2.6 },
+      { x: -4.2, z: -5.6, w: 1.2, d: 0.8 },
+      { x: 4.2, z: -5.6, w: 1.2, d: 0.8 },
+    ],
+    items: [
+      {
+        id: "chave-bombas",
+        kind: "key",
+        label: "Chave da casa de bombas",
+        x: 0,
+        z: -4.2,
+      },
+      {
+        id: "cir2-doc",
+        kind: "document",
+        label: "Relatório de Valença",
+        x: -2.6,
+        z: 0.5,
+        text: "A-13 não mata o hospedeiro: reorganiza. Costura tecidos de doadores diferentes num mesmo corpo e procura água. O doador da sala 2 abriu os pontos sozinho. Reportar à diretoria só depois da drenagem; ninguém desce ao reservatório sem a válvula equalizada. — E. Valença",
+      },
+      { id: "cir2-kit", kind: "herb", label: "Kit médico", x: 4.5, z: 2 },
+      {
+        id: "cir2-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: -4.5,
+        z: 2,
+      },
+    ],
+    enemies: [
+      { id: "costurado02", kind: "E06", x: -2.4, z: -4.8 },
+      { id: "cirurgico01", kind: "E01", x: 3, z: -1 },
+    ],
+  },
+  esterilizacao: {
+    id: "esterilizacao",
+    name: "Esterilização",
+    subtitle: "ÁREA SEGURA · AUTOCLAVES MORNAS",
+    color: 0xb6a07c,
+    safe: true,
+    obstacles: [
+      { x: 3.2, z: -5.6, w: 2.6, d: 1.4 },
+      { x: -3.4, z: -6.2, w: 2.2, d: 1.2 },
+    ],
+    items: [
+      {
+        id: "est-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: 3.5,
+        z: 1,
+      },
+      {
+        id: "est-ammo2",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: 3.5,
+        z: 3,
+      },
+      { id: "est-kit", kind: "herb", label: "Kit médico", x: -3.5, z: 0 },
+      { id: "est-bat", kind: "battery", label: "Bateria +35", x: -2, z: 6 },
+      {
+        id: "est-doc",
+        kind: "document",
+        label: "Bilhete de Nilo",
+        x: 1,
+        z: 6,
+        text: "Helena, é o Nilo, da segurança. Deixei o que deu pra salvar aqui; as autoclaves ainda esquentam e a porta tranca por dentro. Na casa de bombas tem que igualar os três manômetros no verde antes de abrir a galeria, senão a água volta. O seu irmão desceu pelo reservatório com uma câmera. Tem uma coisa nadando lá.",
+      },
+    ],
+    enemies: [],
+  },
+  bombas: {
+    id: "bombas",
+    name: "Casa de bombas",
+    subtitle: "ESTAÇÃO HÍDRICA · P04 MANÔMETROS",
+    color: 0x4f7a86,
+    obstacles: [
+      { x: 3, z: -0.5, w: 2.2, d: 3 },
+      { x: -3, z: -4, w: 2.2, d: 2 },
+    ],
+    items: [
+      {
+        id: "bom-doc",
+        kind: "document",
+        label: "Manual de equalização",
+        x: -4.5,
+        z: 6,
+        text: "Equalização da linha 3. Três válvulas: A abre +2 bar na linha A e −1 na B; B abre +2 na B e −1 na C; C abre +2 na C e −1 na A. Meta: as três linhas em 4 bar (faixa verde). Pressão inicial após falha: A 4, B 3, C 1. Fechar a galeria com as linhas desiguais devolve a água ao corredor.",
+      },
+      {
+        id: "bom-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: 4.5,
+        z: 5.5,
+      },
+      { id: "bom-kit", kind: "herb", label: "Kit médico", x: -1, z: 5.5 },
+    ],
+    enemies: [{ id: "sibilante01", kind: "E14", x: 1.5, z: -6 }],
+  },
+  drenos: {
+    id: "drenos",
+    name: "Galeria de drenos",
+    subtitle: "ÁGUA ATÉ O TORNOZELO · NÃO PARE NA ÁGUA PARADA",
+    color: 0x3f6a6e,
+    obstacles: [
+      { x: -3, z: -2, w: 1, d: 1 },
+      { x: 3, z: -5, w: 1, d: 1 },
+      { x: -2.6, z: 3.2, w: 1.4, d: 0.8 },
+    ],
+    items: [
+      {
+        id: "dre-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: -4.5,
+        z: -6,
+      },
+      { id: "dre-kit", kind: "herb", label: "Kit médico", x: 4.5, z: -1 },
+      { id: "dre-bat", kind: "battery", label: "Bateria +35", x: -4.5, z: 6 },
+    ],
+    enemies: [
+      { id: "sanguessuga01", kind: "E09", x: -1, z: -0.5 },
+      { id: "sanguessuga02", kind: "E09", x: 2, z: -3 },
+      { id: "sibilante02", kind: "E14", x: 0, z: -6.4 },
+    ],
+  },
+  reservatorio: {
+    id: "reservatorio",
+    name: "Reservatório",
+    subtitle: "B03 · O MERGULHADOR",
+    color: 0x3a6470,
+    obstacles: [
+      { x: -3.6, z: 1.6, w: 1.2, d: 1.2 },
+      { x: 3.6, z: 1.6, w: 1.2, d: 1.2 },
+      { x: -3.6, z: -3.6, w: 1.2, d: 1.2 },
+      { x: 3.6, z: -3.6, w: 1.2, d: 1.2 },
+    ],
+    items: [
+      {
+        id: "res-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: -5,
+        z: 6.5,
+      },
+      {
+        id: "res-ammo2",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: 5,
+        z: 6.5,
+      },
+      { id: "res-kit", kind: "herb", label: "Kit médico", x: -5.2, z: -1 },
+      { id: "res-kit2", kind: "herb", label: "Kit médico", x: 5.2, z: -1 },
+      {
+        id: "res-doc",
+        kind: "document",
+        label: "Fita de Caio",
+        x: 0,
+        z: 6.2,
+        text: "(Transcrição da câmera de Caio) — Ele vive no fundo do tanque e sobe pelos drenos. Quando as duas válvulas laterais abrem, o nível cai e a bolsa no peito fica fora d'água. Bolhas antes do bote. Se a água recuar de repente, é a onda. A engrenagem do elevador está presa no corpo dele, eu vi brilhar. Helena, se você ouvir isto: o elevador de serviço desce até a estação. Eu fui.",
+      },
+    ],
+    enemies: [
+      { id: "mergulhador", kind: "B03", x: 0, z: -4, boss: true },
+      { id: "sanguessuga03", kind: "E09", x: -2.2, z: -6.4 },
+      { id: "sanguessuga04", kind: "E09", x: 2.2, z: -6.4 },
+    ],
+  },
+  elevador: {
+    id: "elevador",
+    name: "Elevador de serviço",
+    subtitle: "ENGRENAGEM · O HOSPITAL DESCE",
+    color: 0x7c8a82,
+    obstacles: [
+      { x: -3.6, z: -6.4, w: 2, d: 1.6 },
+      { x: 4.2, z: 0, w: 1.4, d: 3.2 },
+    ],
+    items: [
+      {
+        id: "ele-doc",
+        kind: "document",
+        label: "Rádio: A Voz",
+        x: -4,
+        z: 2,
+        text: "...canal 9. Se alguém estiver ouvindo: o Santa Avelina não foi evacuado, foi lacrado. A amostra A-13 desce pela água. Quem consertar o elevador de serviço tem acesso às estufas e ao subsolo. Não confie nas listas. Não confie em mim. — (transmissão sem identificação)",
+      },
+      {
+        id: "ele-ammo",
+        kind: "ammo",
+        label: "12 cartuchos 9 mm",
+        x: 4.6,
+        z: 5,
+      },
     ],
     enemies: [],
   },

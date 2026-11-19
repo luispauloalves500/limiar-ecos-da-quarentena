@@ -1,10 +1,18 @@
-# LIMIAR: Ecos da Quarentena — 0.11.0
+# LIMIAR: Ecos da Quarentena — 0.12.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.11.0 — Porteiro novo e corpo da Helena
+## Novo na 0.12.0 — Capítulo 3, jogo mais leve
+
+- **Capítulo 3: centro cirúrgico e estação hídrica.** Depois do visor, sete salas novas: lavabo, sala de operações, esterilização (sala segura), casa de bombas com o quebra-cabeça dos manômetros, galeria de drenos alagada, reservatório e elevador de serviço. Três inimigos novos (Costurado, Sanguessuga de dreno, Sibilante) e o chefe **B03 Mergulhador**, que mergulha e ataca por baixo d'água; as válvulas vermelhas drenam o tanque e expõem o peito dele. Termina no elevador consertado.
+- **Mais leve:** o Porteiro tem 43% menos triângulos sem mudar o rosto; o átrio com ele vivo deixou de pesar mais que as outras salas. Água e cenários novos usam luz assada.
+- **Porteiro no modo tank** aparece grande e iluminado (câmera no canto atrás da Helena); **na morte** os pés ficam no chão.
+- **Helena com mais rebolado**, sem o pé patinar.
+- [Capturas](docs/screenshots/v0120/README.md) · [QA e medições](docs/QA.md)
+
+## 0.11.0 preservada — Porteiro novo e corpo da Helena
 
 - **O Porteiro (B01) usa o modelo enviado:** uma criatura esquelética alta, curvada, de garras longas. 13,5 MB → 643 KB. Animado por osso: ociosa, andar, aviso do golpe com os braços para cima, investida agachada, choque da armadilha, reação a tiro e morte em três tempos. A luta é a mesma (560 de vida, avisos, armadilha elétrica), com áreas de acerto presas ao corpo novo e o ponto fraco brilhando no peito.
 - **Helena anda com mais balanço:** quadril sobe e gira a cada passo, ombros em contrapeso, passos perto da linha central, braço balançando e rabo de cavalo atrasado. Parada, ela passa o peso de uma perna para a outra. O coice do tiro passa pelo peito e pelo ombro, a mira assenta ao erguer a arma e a recarga mexe o tronco.

@@ -285,7 +285,7 @@ export function porteiroPose(i: PorteiroInput): PorteiroPose {
     // knees open a little, so it ends slumped on its knees with the shins
     // flat on the floor instead of sticking up behind it.
     p.thighL += -1.2 * knees - 0.2 * fall;
-    p.thighR += -1.1 * knees - 0.3 * fall;
+    p.thighR += -1.1 * knees - 0.1 * fall;
     p.kneeL += 1.9 * knees - 0.35 * fall;
     p.kneeR += 1.8 * knees - 0.25 * fall;
     p.footL += 0.6 * knees;
