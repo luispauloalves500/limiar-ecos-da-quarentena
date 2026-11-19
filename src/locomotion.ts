@@ -156,3 +156,55 @@ export function gaitVariation(id: string) {
 export function groundLift(lowestY: number, clearance = 0.03) {
   return lowestY < clearance ? clearance - lowestY : 0;
 }
+
+/** 0.11 feminine walk layer (additive on the Mixamo cycles). `phase` is the
+ * gait phase with sin(phase) = +1 when the left foot is furthest forward, so
+ * the left foot is planted around phase π and the right around 0. `amount`
+ * is 0..1 (clip style × speed). Angles in radians, shift in metres, all in
+ * Helena's body frame (+X her left, +Z forward). */
+export function walkStyle(phase: number, amount: number) {
+  const s = Math.sin(phase),
+    c = Math.cos(phase),
+    k = Math.max(0, Math.min(1, amount));
+  // Pelvic list: the swing-side hip drops (left stance → +X side up).
+  const hipsRoll = -c * 0.075 * k;
+  // Pelvis turns with the forward leg; chest turns the other way.
+  const hipsYaw = -s * 0.09 * k;
+  const chestYaw = s * 0.065 * k;
+  return {
+    hipsRoll,
+    hipsYaw,
+    chestYaw,
+    /** Weight over the stance leg. */
+    shift: -c * 0.014 * k,
+    /** Shoulders counter the hips so the head rides level. */
+    spineRoll: -hipsRoll * 0.65,
+    chestRoll: -hipsRoll * 0.25,
+    /** Both thighs turn inward so the feet land near the centre line. */
+    adduct: 0.04 * k,
+    /** Extra arm swing (left arm forward with the right leg). */
+    armSwing: s * 0.13 * k,
+  };
+}
+/** Idle contrapposto: weight drifts slowly onto one leg and holds there.
+ * Returns -1..1 (+ = on the left leg). */
+export function weightShift(t: number) {
+  return Math.tanh(2.2 * Math.sin(t * 0.33 + 0.6));
+}
+/** Small damped wobble after the gun comes up (aim settle). */
+export function aimSettle(age: number) {
+  if (age < 0 || age > 0.7) return 0;
+  return Math.exp(-age * 7) * Math.sin(age * 17);
+}
+/** Gait phase offset of a cycle from foot samples (DFT fundamental of the
+ * left-minus-right forward distance over one loop). sin(2πu + offset) then
+ * follows the left foot forward. */
+export function gaitOffset(u: number[], forward: number[]) {
+  let sx = 0,
+    cx = 0;
+  u.forEach((v, i) => {
+    sx += forward[i] * Math.sin(2 * Math.PI * v);
+    cx += forward[i] * Math.cos(2 * Math.PI * v);
+  });
+  return Math.atan2(cx, sx);
+}

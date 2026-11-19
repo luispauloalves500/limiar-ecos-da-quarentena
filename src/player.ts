@@ -14,6 +14,7 @@ import {
 import type { Actor } from "./actors";
 import { measureStrides } from "./stride";
 import {
+  aimSettle,
   approach,
   breath,
   groundLift,
@@ -22,6 +23,8 @@ import {
   moveBlend,
   recoilKick,
   strideScale,
+  walkStyle,
+  weightShift,
   wrap,
 } from "./locomotion";
 import type { Quality } from "./controls";
@@ -30,6 +33,15 @@ let gltf: GLTF | undefined,
 const bones: BonePose[] = [];
 /** Measured planted-foot speed (m/s at timeScale 1) of each locomotion clip. */
 export const strideSpeeds: Record<string, number> = {};
+/** 0.11: loop-time offset where each locomotion clip's left foot leads. */
+export const gaitPhases: Record<string, number> = {};
+/** Style weight of the feminine walk layer per base clip. */
+const STYLE: Record<string, number> = {
+  Walking: 1,
+  Running: 0.5,
+  Sneaky_Walk_inplace: 0.45,
+  InjuredWalk: 0.15,
+};
 let ankleHeight = 0.08;
 const probe = new T.Color(0, 0, 0);
 export function setPlayerProbe(c: T.Color) {
@@ -111,6 +123,7 @@ export function preloadPlayer(progress?: (n: number) => void) {
       clips = compactRigClips([...source, ...authored], g.scene);
       const measured = measureStrides(g.scene, clips, LOCOMOTION);
       Object.assign(strideSpeeds, measured.speeds);
+      Object.assign(gaitPhases, measured.phases);
       ankleHeight = measured.ankle;
       playerAsset.status = "ready";
       playerAsset.progress = 100;
@@ -123,6 +136,16 @@ export function preloadPlayer(progress?: (n: number) => void) {
     });
   return pending;
 }
+/** 0.11: ponytail sway (mesh units, body frame), written by the animator. */
+export const hairSway = { value: new T.Vector3() };
+/** Bind-space mask of the ponytail (behind and below the crown; the GLB has
+ * no hair bones), so the vertex shader can swing it before skinning. */
+export const HAIR_MASK = `
+  float hairY = smoothstep(0.88, 0.8, position.y) * smoothstep(0.5, 0.6, position.y);
+  float hairZ = smoothstep(-0.1, -0.135, position.z);
+  float hairX = 1.0 - smoothstep(0.07, 0.12, abs(position.x));
+  float hairW = hairY * hairZ * hairX * clamp((0.84 - position.y) * 3.5, 0.0, 1.0);
+`;
 function material(quality: Quality) {
   if (materials.has(quality)) return materials.get(quality)!;
   const m = original.clone();
@@ -157,6 +180,17 @@ function material(quality: Quality) {
   m.emissiveMap = m.map;
   m.emissive.copy(probe);
   m.emissiveIntensity = 1;
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.hairSway = hairSway;
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform vec3 hairSway;")
+      .replace(
+        "#include <skinning_vertex>",
+        HAIR_MASK +
+          "transformed += hairSway * hairW;\n#include <skinning_vertex>",
+      );
+  };
+  m.customProgramCacheKey = () => "helena-hair";
   materials.set(quality, m);
   return m;
 }
@@ -220,6 +254,20 @@ export class PlayerAnimator {
   lift = 0;
   timeScale = 1;
   blend = "idle";
+  // 0.11 body layers: walk style, idle weight, aim settle, reload, hair.
+  style = 0;
+  idleWeight = 0;
+  reloadBody = 0;
+  aimAt = -9;
+  wasAiming = false;
+  hipsPos = new T.Vector3();
+  /** QA: turn the 0.11 body layers off for before/after sheets. */
+  styleOff = false;
+  hipsCaptured = false;
+  gait = 0;
+  hair = new T.Vector3();
+  hairV = new T.Vector3();
+  lastLocal = new T.Vector2();
   constructor(public root: T.Group) {
     let mesh: T.SkinnedMesh | undefined;
     root.traverse((o) => {
@@ -245,7 +293,13 @@ export class PlayerAnimator {
         "RightUpLeg",
         "LeftLeg",
         "RightLeg",
-      ].map((n) => this.bones.get(n)!),
+        "Neck",
+        "Head",
+        "LeftShoulder",
+        "RightShoulder",
+      ]
+        .map((n) => this.bones.get(n)!)
+        .filter(Boolean),
     );
     this.mesh = mesh!;
     for (const b of bones) {
@@ -348,6 +402,8 @@ export class PlayerAnimator {
   }
   update(dt: number, f: PlayerFrame, quality: Quality) {
     this.poseRestore.restore();
+    const hips = this.bones.get("Hips");
+    if (hips && this.hipsCaptured) hips.position.copy(this.hipsPos);
     this.gun.quaternion.copy(this.gunBind);
     this.time += dt;
     if (this.event && this.time >= this.until) {
@@ -467,6 +523,11 @@ export class PlayerAnimator {
       this.mixer.update(0);
     }
     this.poseRestore.capture();
+    if (hips) {
+      this.hipsPos.copy(hips.position);
+      this.hipsCaptured = true;
+    }
+    if (f.hp > 0) this.bodyLayers(dt, f, base, upper);
     if (f.hp > 0 && !this.preview) {
       // Lean into turns, hips twist for aimed sidesteps, counter-rotated spine.
       this.lean = approach(
@@ -537,7 +598,8 @@ export class PlayerAnimator {
           -0.19,
           1.43 +
             Math.sin(f.pitch) * 0.35 +
-            recoilKick(this.time - this.fireAt) * 0.045,
+            recoilKick(this.time - this.fireAt) * 0.045 +
+            aimSettle(this.time - this.aimAt) * 0.03,
           0.44 - recoilKick(this.time - this.fireAt) * 0.06,
         ),
       );
@@ -585,7 +647,9 @@ export class PlayerAnimator {
         new T.Vector3(
           -0.23,
           0.98 + (f.moving ? Math.sin(this.time * 7) * 0.025 : 0),
-          0.16,
+          // Low-ready gun hand swings with the stride (right arm forward
+          // with the left leg).
+          0.16 + Math.sin(this.gait) * 0.06 * this.style,
         ),
       );
       supportGrip(
@@ -644,6 +708,121 @@ export class PlayerAnimator {
     }
     this.root.updateMatrixWorld(true);
   }
+  /** 0.11: the body moving with the walk. Feminine pelvic list and turn,
+   * counter-rotating shoulders, weight shift over the stance leg (feet
+   * compensated so they do not skate), thighs drawn toward the centre line,
+   * stronger arm swing, idle contrapposto, shot recoil through the spine,
+   * aim settle and a reload lean. Ponytail spring drives the hair shader. */
+  bodyLayers(dt: number, f: PlayerFrame, base: string, upper: string) {
+    if (this.styleOff) return;
+    const a = this.channels[0].action,
+      clip = this.channels[0].name,
+      offset = gaitPhases[clip];
+    const moving = f.moving && offset !== undefined && a;
+    const weight =
+      moving && STYLE[clip] !== undefined
+        ? STYLE[clip] *
+          Math.min(1, this.speed / 1.6) *
+          (f.aiming ? 0.35 : 1) *
+          (this.blend === "forward" || this.blend === "idle" ? 1 : 0.4)
+        : 0;
+    this.style = approach(this.style, weight, dt, 6);
+    if (a && offset !== undefined)
+      this.gait =
+        (a.time / Math.max(0.01, a.getClip().duration)) * Math.PI * 2 + offset;
+    const w = walkStyle(this.gait, this.style);
+    // Idle: weight drifts onto one leg (contrapposto), fades in when still.
+    this.idleWeight = approach(
+      this.idleWeight,
+      !f.moving && !f.aiming && base === "PlayerIdle" ? 1 : 0,
+      dt,
+      2.5,
+    );
+    const lean = weightShift(this.time) * this.idleWeight,
+      roll = w.hipsRoll + lean * 0.05,
+      shift = w.shift + lean * 0.022;
+    this.rotate("Hips", 0, w.hipsYaw, roll);
+    this.rotate("Spine", 0, -w.hipsYaw * 0.5, w.spineRoll - lean * 0.035);
+    this.rotate("Spine1", 0, -w.hipsYaw * 0.5 + w.chestYaw * 0.5, w.chestRoll);
+    this.rotate("Spine2", 0, w.chestYaw * 0.5, 0);
+    this.rotate(
+      "Neck",
+      0,
+      -w.chestYaw * 0.8,
+      -(roll + w.spineRoll + w.chestRoll) * 0.5,
+    );
+    // Weight over the stance leg: move the pelvis, swing the thighs back so
+    // the planted feet stay where they are; thighs also turn inward.
+    const hips = this.bones.get("Hips");
+    if (hips && shift) {
+      const actor = this.root.parent || this.root;
+      actor.updateMatrixWorld(true);
+      const world = hips.getWorldPosition(new T.Vector3()),
+        dir = new T.Vector3(1, 0, 0).applyQuaternion(
+          actor.getWorldQuaternion(new T.Quaternion()),
+        );
+      hips.position.copy(
+        hips.parent!.worldToLocal(world.addScaledVector(dir, shift)),
+      );
+    }
+    const legLen = 0.86,
+      keep = -shift / legLen;
+    // Legs counter the pelvic roll/turn so planted feet do not skate.
+    this.rotate("LeftUpLeg", 0, -w.hipsYaw, keep - w.adduct - roll);
+    this.rotate("RightUpLeg", 0, -w.hipsYaw, keep + w.adduct - roll);
+    // Relaxed knee on the unweighted leg in idle.
+    this.rotate("LeftLeg", 0.1 * Math.max(0, -lean), 0, 0);
+    this.rotate("RightLeg", 0.1 * Math.max(0, lean), 0, 0);
+    if (!f.aiming && !f.light && upper !== "Reload")
+      this.rotate("LeftArm", w.armSwing, 0, 0);
+    // Shot recoil travels through chest, shoulders and neck.
+    const kick = recoilKick(this.time - this.fireAt);
+    if (kick) {
+      this.rotate("Spine1", -0.03 * kick, 0, 0);
+      this.rotate("Spine2", -0.07 * kick, 0.02 * kick, 0);
+      this.rotate("RightShoulder", 0, 0, -0.06 * kick);
+      this.rotate("Neck", 0.04 * kick, 0, 0);
+    }
+    // Aim settle: the gun comes up, overshoots a little and steadies.
+    if (f.aiming && !this.wasAiming) this.aimAt = this.time;
+    this.wasAiming = f.aiming;
+    const settle = aimSettle(this.time - this.aimAt);
+    if (settle) this.rotate("Spine2", 0.02 * settle, 0.015 * settle, 0);
+    // Reload: lean over the gun, eyes down to the magazine well.
+    this.reloadBody = approach(
+      this.reloadBody,
+      upper === "Reload" ? 1 : 0,
+      dt,
+      8,
+    );
+    if (this.reloadBody > 0.01) {
+      const r = this.reloadBody;
+      this.rotate("Spine1", 0.06 * r, -0.05 * r, 0);
+      this.rotate("Neck", 0.12 * r, 0, 0);
+      this.rotate("Head", 0.1 * r, 0, 0);
+    }
+    // Ponytail: damped spring pushed by the body's acceleration and by the
+    // hips swinging under it (body-local, mesh units ≈ 0.92 m).
+    const lx = f.localX ?? 0,
+      lz = f.localZ ?? 0,
+      ax = (lx - this.lastLocal.x) / Math.max(dt, 1e-3),
+      az = (lz - this.lastLocal.y) / Math.max(dt, 1e-3);
+    this.lastLocal.set(lx, lz);
+    const target = new T.Vector3(
+      -shift * 2.2 - (f.yawRate ?? 0) * 0.01,
+      0,
+      -Math.min(0.05, Math.abs(lz) * 0.012),
+    );
+    const force = target
+      .sub(this.hair)
+      .multiplyScalar(90)
+      .addScaledVector(this.hairV, -9)
+      .add(new T.Vector3(-ax * 0.004, 0, -az * 0.004));
+    this.hairV.addScaledVector(force, Math.min(dt, 0.05));
+    this.hair.addScaledVector(this.hairV, Math.min(dt, 0.05));
+    this.hair.clampLength(0, 0.07);
+    hairSway.value.copy(this.hair);
+  }
   /** Flat-floor foot IK: a foot that the additive layers pushed below the
    * floor is pulled back to ankle height with a 2-bone CCD (UpLeg/Leg).
    * When dead, lift the whole body so the corpse never sinks. */
@@ -699,6 +878,13 @@ export class PlayerAnimator {
       timeScale: this.timeScale,
       lean: this.lean,
       hipsYaw: this.hipsYaw,
+      style: this.style,
+      gait: this.gait,
+      feet: ["LeftFoot", "RightFoot"].map((n) => {
+        const v = this.bones.get(n)?.getWorldPosition(new T.Vector3());
+        return v ? [v.x, v.y, v.z] : [];
+      }),
+      hipsRoll: walkStyle(this.gait, this.style).hipsRoll,
       base: this.channels[0].name,
       upper: this.channels[1].name,
       bones: this.bones.size,

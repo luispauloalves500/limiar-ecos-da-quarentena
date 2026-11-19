@@ -9,6 +9,7 @@ export default defineConfig({
         playerQA: "qa-player.html",
         preceptoraQA: "qa-preceptora.html",
         crawlerQA: "qa-rastejador.html",
+        porteiroQA: "qa-porteiro.html",
       },
     },
   },

@@ -17,39 +17,42 @@ export const CHAPTER2 = new Set<string>([
   "circulo",
   "visor",
 ]);
-export type SmartName = "rastejador" | "preceptora";
+export type SmartName = "rastejador" | "preceptora" | "porteiro";
 const urls: Record<SmartName, string> = {
   rastejador: new URL("./assets/rastejador.glb", import.meta.url).href,
   preceptora: new URL("./assets/preceptora.glb", import.meta.url).href,
+  porteiro: new URL("./assets/porteiro.glb", import.meta.url).href,
 };
 const templates = new Map<SmartName, GLTF>();
-let pending: Promise<void> | undefined;
+const pendingByName = new Map<SmartName, Promise<void>>();
 export const smartAsset = {
   status: "idle" as "idle" | "loading" | "ready" | "fallback",
   error: "",
   loaded: [] as string[],
 };
-/** Chapter-2 characters. Safe to call many times; resolves once. */
-export function preloadChapter2() {
-  if (pending) return pending;
-  smartAsset.status = "loading";
-  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  pending = Promise.all(
-    (Object.keys(urls) as SmartName[]).map((n) =>
-      loader.loadAsync(urls[n]).then((g) => {
-        g.scene.traverse((o) => {
-          if (o instanceof T.SkinnedMesh) {
-            o.geometry.userData.zombieShared = true;
-            const m = o.material as T.MeshStandardMaterial;
-            for (const v of Object.values(m))
-              if (v instanceof T.Texture) v.userData.persistent = true;
-          }
-        });
-        templates.set(n, g);
-        smartAsset.loaded.push(n);
-      }),
-    ),
-  )
+let loader: GLTFLoader | undefined;
+function loadSmart(n: SmartName) {
+  const hit = pendingByName.get(n);
+  if (hit) return hit;
+  loader ??= new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  const p = loader.loadAsync(urls[n]).then((g) => {
+    g.scene.traverse((o) => {
+      if (o instanceof T.SkinnedMesh) {
+        o.geometry.userData.zombieShared = true;
+        const m = o.material as T.MeshStandardMaterial;
+        for (const v of Object.values(m))
+          if (v instanceof T.Texture) v.userData.persistent = true;
+      }
+    });
+    templates.set(n, g);
+    smartAsset.loaded.push(n);
+  });
+  pendingByName.set(n, p);
+  return p;
+}
+function track(p: Promise<unknown>) {
+  if (smartAsset.status !== "ready") smartAsset.status = "loading";
+  return p
     .then(() => {
       smartAsset.status = "ready";
     })
@@ -57,7 +60,21 @@ export function preloadChapter2() {
       smartAsset.status = "fallback";
       smartAsset.error = String(e);
     });
+}
+let pending: Promise<void> | undefined;
+/** Chapter-2 characters. Safe to call many times; resolves once. */
+export function preloadChapter2() {
+  pending ??= track(
+    Promise.all([loadSmart("rastejador"), loadSmart("preceptora")]),
+  );
   return pending;
+}
+let porteiroPending: Promise<void> | undefined;
+/** 0.11: the Porteiro (B01) GLB, fetched while Helena is still in the early
+ * chapter-1 rooms so the átrio never shows the stand-in. */
+export function preloadPorteiro() {
+  porteiroPending ??= track(loadSmart("porteiro"));
+  return porteiroPending;
 }
 export function smartReady(n: SmartName) {
   return templates.has(n);

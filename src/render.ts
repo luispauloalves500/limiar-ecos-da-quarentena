@@ -9,7 +9,13 @@ import {
 import { setZombieProbe, zombieActor } from "./zombie";
 import { preceptoraActor, setPreceptoraProbe } from "./preceptora";
 import { crawlerActor } from "./crawler";
-import { CHAPTER2, preloadChapter2, setSmartProbe } from "./smartrig";
+import {
+  CHAPTER2,
+  preloadChapter2,
+  preloadPorteiro,
+  setSmartProbe,
+} from "./smartrig";
+import { porteiroActor } from "./porteiro";
 import { shoulderOffset } from "./controls";
 import { Environment } from "./environment";
 import { themes } from "./environment-logic";
@@ -86,6 +92,8 @@ export class View {
   preceptoraModel: "glb" | "procedural" = "glb";
   /** QA: "glb" (0.9 default) or "zombie" (0.8 Mixamo crawler). */
   crawlerModel: "glb" | "zombie" = "glb";
+  /** QA: "glb" (0.11 default) or "procedural" (0.10 blocky B01). */
+  porteiroModel: "glb" | "procedural" = "glb";
   animationPreview: string | undefined;
   frustum = new T.Frustum();
   previousEnemyPositions = new Map<string, T.Vector3>();
@@ -303,6 +311,9 @@ export class View {
       this.crawlerModel === "glb"
         ? crawlerActor(e)
         : undefined) ||
+      (e.kind === "B01" && this.porteiroModel === "glb"
+        ? porteiroActor(e)
+        : undefined) ||
       (!e.boss && !this.proceduralZombies ? zombieActor(e) : undefined) ||
       person(true, e.boss, e.id, e.kind);
     this.scene.add(a.root);
@@ -312,12 +323,16 @@ export class View {
   /** Rebuild E05/B02 actors of the current room once the GLBs are ready. */
   refreshChapter2(s: GameState) {
     for (const e of Object.values(s.enemies)) {
-      if (e.room !== this.room || (e.kind !== "E05" && e.kind !== "B02"))
+      if (
+        e.room !== this.room ||
+        (e.kind !== "E05" && e.kind !== "B02" && e.kind !== "B01")
+      )
         continue;
       const old = this.enemyMeshes.get(e.id);
       if (!old || old.root.userData.glb) continue;
       if (e.kind === "E05" && this.crawlerModel !== "glb") continue;
       if (e.kind === "B02" && this.preceptoraModel !== "glb") continue;
+      if (e.kind === "B01" && this.porteiroModel !== "glb") continue;
       old.animation?.dispose();
       this.disposeGroup(old.root);
       this.enemyMeshes.delete(e.id);
@@ -681,6 +696,17 @@ export class View {
     for (const e of Object.values(s.enemies)) {
       if (e.room !== id || (e.dead && corpseOpacity(e) === 0)) continue;
       this.spawnActor(e);
+    }
+    // 0.11: the Porteiro GLB starts downloading in the first chapter-1 room,
+    // long before the átrio; if it is still in flight there, it swaps in.
+    if (
+      !s.flags.boss ||
+      Object.values(s.enemies).some((e) => e.kind === "B01" && !e.removed)
+    ) {
+      const room = id;
+      void preloadPorteiro().then(() => {
+        if (this.room === room) this.refreshChapter2(s);
+      });
     }
     // 0.9: chapter-2 GLBs load lazily; actors swap in when they arrive.
     if (CHAPTER2.has(id) || s.flags.final) {

@@ -1,10 +1,16 @@
-# LIMIAR: Ecos da Quarentena — 0.10.0
+# LIMIAR: Ecos da Quarentena — 0.11.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.10.0 — câmera, animações e tronco dos zumbis
+## Novo na 0.11.0 — Porteiro novo e corpo da Helena
+
+- **O Porteiro (B01) usa o modelo enviado:** uma criatura esquelética alta, curvada, de garras longas. 13,5 MB → 643 KB. Animado por osso: ociosa, andar, aviso do golpe com os braços para cima, investida agachada, choque da armadilha, reação a tiro e morte em três tempos. A luta é a mesma (560 de vida, avisos, armadilha elétrica), com áreas de acerto presas ao corpo novo e o ponto fraco brilhando no peito.
+- **Helena anda com mais balanço:** quadril sobe e gira a cada passo, ombros em contrapeso, passos perto da linha central, braço balançando e rabo de cavalo atrasado. Parada, ela passa o peso de uma perna para a outra. O coice do tiro passa pelo peito e pelo ombro, a mira assenta ao erguer a arma e a recarga mexe o tronco.
+- [Capturas antes/depois](docs/screenshots/v0110/README.md) · [QA e medições](docs/QA.md)
+
+## 0.10.0 preservada — câmera, animações e tronco dos zumbis
 
 - **Tronco dos zumbis não gira mais.** Parados, depois de um golpe ou de um tiro, o peito dos zumbis Mixamo torcia e chegava a dar meia-volta sobre o quadril. Causa: as camadas de postura somavam rotação ao osso a cada quadro e o mixer do three.js não regravava os canais constantes. Agora a pose é restaurada antes do mixer, como já acontecia com a Helena.
 - **Câmera de ombro nova:** segue com amortecimento e ao colidir encurta na hora e volta devagar, sem saltos. Dá para inclinar mais para baixo (−1,3 rad, era −1,05) e mirar um rastejador colado; ao olhar para baixo o braço da câmera encurta e abre para o lado, e ela não atravessa o teto. A mira entra e sai em transição suave (FOV 60 → 50). No modo tank, a câmera fixa acompanha a Helena com o olhar.

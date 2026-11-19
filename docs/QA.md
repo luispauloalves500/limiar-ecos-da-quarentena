@@ -1,4 +1,24 @@
-# QA — LIMIAR 0.10.0
+# QA — LIMIAR 0.11.0
+
+## 0.11.0 — Porteiro novo e corpo da Helena
+**Gates:** 237 testes em 15 arquivos (novos: `tests/porteiro.test.ts`, `tests/walk-style.test.ts`), lint, TypeScript, Prettier em src/tests/scripts, build e `npm audit --omit=dev` (0 vulnerabilidades). Chromium, SwiftShader.
+
+**Porteiro:** GLB 13.550.796 → 642.792 bytes (10.216 → 8.965 triângulos). Na galeria `qa-porteiro.html`: 51–68 draws com o B01 na tela (o procedural da 0.10 tinha 75), brilho PIL do corpo na câmera média 39,3 (0.10) → 41,7. Pés presos ao chão; o pé apoiado fica parado (fase da passada pela distância andada, apoio linear). Capturas em [screenshots/v0110](screenshots/v0110/README.md).
+
+**Helena:** sonda na galeria `qa-player.html` (Walking, 90 amostras): o quadril sobe do lado do pé mais baixo em 100% dos quadros; deslize lateral mediano do pé apoiado 0,10 m/s sem a camada → 0,03–0,05 m/s com ela (p90 0,28 → 0,22–0,25); pés 20 → 14 cm de distância lateral. Antes/depois com `style=0` (mesma build, só a camada nova desligada).
+
+**Benchmark** (`scripts/room-bench.mjs`, base = build exata 0.10.0 da54f9b, dev = 0.11.0, ABBA, duas repetições, Porteiro vivo, 2,5 s de aquecimento, `docs/benchmark-v0110.json`):
+
+| Sala (quadro de trabalho mediano, ms) | Baixa 0.10 → 0.11 | Média 0.10 → 0.11 | Draws (baixa/média) |
+|---|---|---|---|
+| Átrio (Porteiro vivo) | 58,4 → 63,8 (+9,2%) | 211,8 → 224,3 (+5,9%) | 88 → 66 / 142 → 91 |
+| Recepção | 54,1 → 54,6 | 201,2 → 197,2 | 66 / 97 iguais |
+| Corredor | 57,6 → 54,2 | 200,4 → 199,2 | 62 / 90 iguais |
+| Gerador | 54,6 → 54,3 | 195,8 → 203,9 | 62 / 90 iguais |
+
+O átrio com o chefe vivo custa mais por quadro (malha com pele de ~9k triângulos e 74 ossos, contra caixas procedurais), apesar de menos draws; as outras salas ficam no ruído. Transferência: o GLB (643 KB) baixa no Capítulo 1.
+
+**Campanha real (build 0.11.0, `SMOKE_UNTIL=abrigo`, comandos de teclado/mouse):** ombro e tank passaram na primeira tentativa: Porteiro derrotado com armadilha e tiros, átrio liberado, chegada ao abrigo com 100 de vida. Capturas da luta em [porteiro-luta-ombro.jpg](screenshots/v0110/porteiro-luta-ombro.jpg). No tank, a câmera fixa do átrio deixa o Porteiro pequeno e escuro.
 
 ## 0.10.0 — câmera, animações e tronco dos zumbis
 **Gates:** 223 testes em 13 arquivos (novos: `tests/pose-restore.test.ts` prova o acúmulo sem restauração e a pose estável com ela; 3 testes de `shoulderBoom`: câmera abaixo de 3,45 m na inclinação máxima, retículo no chão a <0,7 m, braço/FOV na mira; passada de quatro tempos e mistura de pose do rastejador; alcance 0,8 do E05), lint, TypeScript, Prettier em src/tests/scripts, build e `npm audit --omit=dev` (0 vulnerabilidades). JS de render 868,8 → 871,6 KB, main 46,8 → 47,0 KB. Chromium, SwiftShader.

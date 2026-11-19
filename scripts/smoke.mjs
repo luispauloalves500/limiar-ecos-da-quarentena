@@ -797,7 +797,9 @@ try {
     await moveTo(-4.8, -5.6);
     await moveTo(0, -5.5);
     await tap("e");
+    await page.screenshot({ path: out + "/08b-porteiro-armadilha.png" });
     await shoot("porteiro", "2", 5);
+    await page.screenshot({ path: out + "/08c-porteiro-tiros.png" });
     await tap("r");
     await page.waitForFunction(() => !window.limiar.reloading, {
       timeout: 15000,
@@ -808,6 +810,8 @@ try {
       const before = (await state()).hp;
       await moveTo(0, -5.7);
       await tap("e");
+      if (i === 0)
+        await page.screenshot({ path: out + "/08d-porteiro-choque.png" });
       await shoot("porteiro", "2", 4);
       if ((await state()).ammo === 0) {
         await tap("r");
