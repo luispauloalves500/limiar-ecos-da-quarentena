@@ -66,7 +66,7 @@ assert.ok(
   version,
   "Versão 0.11.0 não encontrada no bundle principal/compartilhado",
 );
-assert.equal(results.filter((x) => x.url.endsWith(".glb")).length, 5);
+assert.equal(results.filter((x) => x.url.endsWith(".glb")).length, 6);
 await mkdir(out.slice(0, out.lastIndexOf("/")), { recursive: true });
 const report = {
   base,
