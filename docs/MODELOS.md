@@ -77,6 +77,17 @@ Redução de **95,3%** em bytes, mesmo comando do rastejador. Rig SmartRig (74 j
 
 **Porteiro (`src/porteiro.ts`, `src/porteiro-pose.ts`):** escala 1,5 (≈2,55 m, a altura do B01 da 0.10). Animação procedural por osso: ociosa (respiração, troca de peso, tique do crânio), andar (passada com apoio linear e fase pela distância percorrida, sem patinar), aviso do golpe (braços sobre a cabeça), aviso da investida (agacha), golpe, recuperação, choque da armadilha (convulsão), reação a tiro e morte em três tempos (cambaleia, cai de joelhos, tomba para a frente). Hitboxes presas aos ossos (crânio, tronco/braços, coxas), núcleo brilhante preso ao peito no lugar do ponto fraco, anel/faixa de aviso como na 0.10. Material com o light probe da sala (ganho 0,85) e rim frio para a silhueta.
 
+### Porta de aço (0.13.0, modelo enviado pelo usuário)
+
+| Modelo | Bytes GLB | Triângulos | Vértices | Texturas |
+|---|---:|---:|---:|---|
+| Porta recebida | 2.853.940 | 826 | 1.434 | 1 PNG 2048² |
+| Porta otimizada (`src/assets/porta.glb`) | 98.496 | 826 (frame 229 + folha 597) | 1.434 | cor WebP 1024² |
+
+Redução de **96,5%** em bytes. O arquivo veio do Blender 4.5 com um rig automático SmartRig (10 ossos, pesos espalhados, nenhum clip) sobre uma malha só: porta de aço enferrujada com batente, visor gradeado, maçanetas dos dois lados e espelho de fechadura; 0,866 × 1,70 × 0,19 m, pivô no centro da base, dobradiças em −X na face +Z (abre para +Z). `scripts/door-asset.mjs` descarta a pele (pose de bind = repouso) e separa a malha por componentes conexos em dois meshes estáticos: **frame** (batente, topo e os dois tambores de dobradiça) e **leaf** (folha, grade, maçanetas, espelho). Depois: `gltf-transform optimize --compress meshopt --texture-compress webp --texture-size 1024 --simplify false --join false --instance false --flatten false --palette false`. O original não vai para o repositório.
+
+Uso (`src/door.ts`): carregado uma vez junto da Helena e dos zumbis (`preloadDoor`), geometria expandida para float32 no espaço do modelo e um único material compartilhado; escala uniforme 1,65 (porta de 1,43 × 2,80 m sob a moldura de 2,86 m). Em cada sala as portas entram no bake estático (AO e luz assada por vértice) e são fundidas numa chamada de desenho para todas as portas da sala. As luzes de tranca acima das portas são um `InstancedMesh` (uma chamada) com cor por instância: vermelho = trancada, verde = passagem livre. Na transição, a cinemática de porta usa o mesmo modelo com a folha girando na dobradiça real.
+
 ## Cache, LOD, culling e descarte
 
 GLTFLoader + MeshoptDecoder carregam os dois zumbis uma vez e Helena uma vez, com tela de espera. Falha mostra aviso de fallback procedural; não há tela silenciosamente vazia. SkeletonUtils.clone mantém skeleton/mixer independentes e compartilha geometria/imagens; materiais são cacheados por LOD/variante/perfil. No Baixo, cor é 512² e normal/metal-rough são desligados; cor 1024² próxima no Médio/Alto.

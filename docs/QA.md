@@ -1,3 +1,39 @@
+# QA — LIMIAR 0.13.0
+
+## 0.13.0 — portas novas e rentes à parede
+
+**Causa do vão entre porta e parede.** As paredes são caixas sólidas de 0,22 m centradas em x = ±6,65 e z = ±8,85; a face interna fica em `HALF_X` = 6,54 e `HALF_Z` = 8,74. As pontas de porta de `world.ts` (x = ±6, z = ±8) são o ponto de interação e de chegada, 0,54 m / 0,74 m para dentro da sala, e `render.ts` montava o grupo da porta exatamente ali. A porta ficava solta, na frente da parede, nas duas câmeras. Correção: `doorPlacement()` (`architecture.ts`) põe a porta no plano da parede com a face +Z (dobradiças, maçaneta) virada para a sala. O batente entra 0,11 m na parede (de 0,22 m) e a folha fica 0,035 m à frente. A ponta de interação, o raio de 1,8 m, a chegada (`inward`) e a colisão não mudaram. O rodapé agora para logo depois do batente (vão de 1,49 m, antes 2,2 m) e a moldura de cima foi ajustada à porta.
+
+**Teste:** `tests/doors.test.ts` (60 casos) cobre as 52 pontas das 26 portas: posição no plano da parede (tolerância 1 cm), as paredes de render batendo com `HALF_X/HALF_Z`, a normal apontando para dentro da sala, a rotação levando +Z do modelo à normal, a ponta de interação a menos de 1,8 m, a porta cabendo no vão do rodapé e na parede, um teste de regressão mostrando que a ponta antiga ficava a mais de 0,5 m da parede, o render usando `doorPlacement`, o giro da folha na dobradiça (−X, abrindo para +Z), a geometria e o material compartilhados entre portas e o GLB entregue (meshopt + WebP, frame/leaf, sem pele, < 600 KB).
+
+**Modelo:** detalhes em [MODELOS.md](MODELOS.md). 2.853.940 → 98.496 bytes, 826 triângulos (batente 229, folha 597). Carregado em `preloadDoor()` na tela inicial; se falhar, a porta procedural reaparece no mesmo plano da parede. Na sala, todas as portas entram no bake e viram uma chamada; as luzes de tranca são um `InstancedMesh` (uma chamada), atualizado só quando uma trava muda (`window.limiar.doorLamps`).
+
+**Capturas** (Chromium/SwiftShader, Alto, 0.12 à esquerda e 0.13 à direita): [README](screenshots/v0130/README.md). Cinco salas dos três capítulos, ombro e tank, duas vistas rasantes ao longo da parede (onde o vão aparece melhor), um close e a cinemática de porta.
+
+**Benchmark** (`scripts/room-bench.mjs`, build 0.12.0 de main 206b6da × build 0.13, ABBA, duas repetições por sala, sem inimigos vivos, `docs/benchmark-v0130.json`). Trabalho mediano por quadro, ms:
+
+| Sala | Baixa 0.12 → 0.13 | Média 0.12 → 0.13 | Draws baixa / média | Triângulos (baixa) |
+|---|---|---|---|---|
+| Recepção | 53,4 → 54,3 | 193,4 → 196,5 | 66 → 64 / 96 → 93 | 18.497 → 20.001 |
+| Corredor | 52,8 → 54,1 | 187,5 → 194,2 | 62 → 61 / 89 → 86 | 19.253 → 22.341 |
+| Átrio | 53,1 → 53,1 | 212,2 → 203,4 | 64 / 85 → 84 | 18.097 → 20.395 |
+| Círculo | 54,4 → 53,7 | 192,9 → 199,6 | 67 → 66 / 96 → 93 | 20.079 → 21.611 |
+| Lavabo | 55,2 → 53,5 | 192,7 → 180,9 | 58 / 84 → 83 | 19.227 → 22.291 |
+| Drenos | 60,8 → 63,6 | 232,3 → 223,6 | 68 / 99 → 98 | 19.233 → 20.789 |
+| Reservatório | 65,4 → 66,2 | 237,8 → 238,2 | 65 / 92 → 91 | 18.855 → 20.387 |
+| **Média** | **56,5 → 56,9 (+0,8%)** | **207,0 → 205,2 (−0,9%)** | | |
+
+Dentro do ruído do SwiftShader (±5% por sala). Draws caem 0–3 por sala; triângulos sobem 1,4–3,1 mil. Memória de textura estimada: +1,3 MB no Baixo (mapa 512²) e +5,3 MB no Médio/Alto (1024²).
+
+**Smoke** (build 0.13 local, entradas reais): `SMOKE_UNTIL=abrigo` no ombro, do início até o abrigo (capítulo 1 inteiro com o Porteiro e metade do capítulo 2, atravessando portas trancadas e livres): **PASS**. Capítulo 3 no tank a partir do save pós-B03 (`reservatorio-pos-b03-tank.json`): porta do chefe D26, elevador e tela final: **PASS**. Sem erros de console nem respostas HTTP falhas.
+
+### Pendências
+
+- A porta da sala não se mexe: o giro acontece na cinemática de transição (tela da porta), como antes; não há porta abrindo dentro da sala.
+- As paredes continuam sólidas atrás da porta; não existe vão real nem a sala vizinha visível.
+- Mudar a qualidade para Baixo/Médio no meio de uma sala só troca o mapa da porta da sala na próxima entrada (a cinemática troca na hora).
+- Pendências da 0.12 seguem: B03 nunca vencido por automação (melhor 95/1050); drenos e reservatório 15–30% mais caros no Médio; câmera de canto do tank mais cara no Médio.
+
 # QA — LIMIAR 0.12.0
 
 ## 0.12.0 — Capítulo 3, desempenho, Porteiro e Helena

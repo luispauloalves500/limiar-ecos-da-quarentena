@@ -51,7 +51,7 @@ for (const path of files) {
   if (
     relative.endsWith(".js") &&
     !relative.includes("QA-") &&
-    body.toString().includes("0.12.0")
+    body.toString().includes("0.13.0")
   )
     version = true;
   results.push({
@@ -64,9 +64,9 @@ for (const path of files) {
 }
 assert.ok(
   version,
-  "Versão 0.12.0 não encontrada no bundle principal/compartilhado",
+  "Versão 0.13.0 não encontrada no bundle principal/compartilhado",
 );
-assert.equal(results.filter((x) => x.url.endsWith(".glb")).length, 6);
+assert.equal(results.filter((x) => x.url.endsWith(".glb")).length, 7);
 await mkdir(out.slice(0, out.lastIndexOf("/")), { recursive: true });
 const report = {
   base,
@@ -75,7 +75,7 @@ const report = {
     timeStyle: "long",
     timeZone: "America/Sao_Paulo",
   }).format(new Date()),
-  version: "0.12.0",
+  version: "0.13.0",
   exactMatch: true,
   results,
 };

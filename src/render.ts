@@ -27,9 +27,16 @@ import { shoulderOffset } from "./controls";
 import { Environment } from "./environment";
 import { themes } from "./environment-logic";
 import { roomDetails } from "./details";
-import { corpseOpacity, isCollected } from "./logic";
+import { canTravel, corpseOpacity, isCollected } from "./logic";
 import { surfaceDetail } from "./art";
-import { architecture, looks, HALF_X, HALF_Z, HEIGHT } from "./architecture";
+import {
+  architecture,
+  doorPlacement,
+  looks,
+  HALF_X,
+  HALF_Z,
+  HEIGHT,
+} from "./architecture";
 import { turnToward, wrap } from "./locomotion";
 import {
   bakeStatic,
@@ -41,7 +48,21 @@ import {
 /** Actors have no N·L from the probe; keep it below wall brightness. */
 const PROBE_GAIN = 0.55;
 import * as T from "three";
-import { rooms, roomDoors, endpoint, type RoomId, type Vec } from "./world";
+import {
+  rooms,
+  roomDoors,
+  endpoint,
+  type Door,
+  type RoomId,
+  type Vec,
+} from "./world";
+import {
+  doorAsset,
+  doorMaterial,
+  doorModel,
+  DOOR_HALF_WIDTH,
+  DOOR_HEIGHT,
+} from "./door";
 import type { Enemy, GameState } from "./logic";
 import {
   defaults,
@@ -111,6 +132,12 @@ export class View {
   doorCamera = new T.PerspectiveCamera(43, 1, 0.1, 30);
   hinge = new T.Group();
   knob = new T.Group();
+  /** 0.13: live lock lamps above this room's doors (one draw). */
+  doorLamps?: T.InstancedMesh;
+  doorList: Door[] = [];
+  doorLampState = "";
+  doorFloor?: T.Mesh;
+  doorParts: T.Mesh[] = [];
   zone = 0;
   lastCut = 0;
   /** 0.12: tank corner camera index while a boss is alive (-1 = none). */
@@ -217,11 +244,46 @@ export class View {
         box(0.17, 3.5, 0.26, mat(0x859389, 0.5, 0.5), x, 1.75, 0),
       );
     this.doorScene.add(box(2.35, 0.15, 0.26, mat(0x859389), 0, 3.5, 0));
-    this.doorScene.add(box(8, 0.1, 10, mat(0x111b1c), 0, -0.06, 0));
+    this.doorFloor = box(8, 0.1, 10, mat(0x111b1c), 0, -0.06, 0);
+    this.doorScene.add(this.doorFloor);
     this.post = new Post(this.renderer, this.scene, this.camera);
     this.setPreferences(this.prefs);
     window.addEventListener("resize", () => this.resize());
     this.resize();
+  }
+  /** 0.13: the door cinematic uses the same GLB: frame fixed in a wall,
+   * leaf swinging on its real hinge (-X, push face +Z toward the camera). */
+  installDoor() {
+    const a = doorAsset();
+    if (!a || this.doorScene.getObjectByName("porta")) return;
+    for (const o of [...this.doorScene.children])
+      if (
+        o instanceof T.Mesh &&
+        o.geometry instanceof T.BoxGeometry &&
+        o !== this.doorFloor
+      )
+        this.disposeGroup(o);
+    this.hinge.removeFromParent();
+    const door = doorModel(a, this.prefs.quality === "low");
+    this.doorScene.add(door.root);
+    this.doorParts = [door.frame, door.leaf];
+    this.hinge = door.hinge;
+    this.knob = new T.Group();
+    const wall = mat(0x3c4640, 0.9, 0.05, this.wallTex),
+      w = DOOR_HALF_WIDTH,
+      h = DOOR_HEIGHT;
+    // Wall around the opening, its face on the frame's mid-plane (flush).
+    for (const x of [-1, 1])
+      this.doorScene.add(box(3, 4, 0.22, wall, x * (w + 1.5 - 0.02), 2, -0.11));
+    this.doorScene.add(
+      box(2 * w + 0.2, 4 - h, 0.22, wall, 0, h + (4 - h) / 2, -0.11),
+    );
+    this.doorScene.add(
+      box(2 * w + 0.2, 0.09, 0.06, mat(0x859389), 0, h + 0.055, 0.03),
+    );
+    this.doorCamera.position.set(0.7, 1.75, 4.6);
+    this.doorCamera.lookAt(0, 1.45, 0);
+    surfaceDetail(this.doorScene, this.prefs.quality !== "low");
   }
   installPlayer() {
     const loaded = playerActor();
@@ -240,6 +302,11 @@ export class View {
     this.renderer.shadowMap.enabled = q.shadows;
     this.light.castShadow = q.shadows;
     this.light.map = q.shadows ? this.cookie : null;
+    const door = doorAsset();
+    if (door)
+      for (const m of this.doorParts)
+        m.material =
+          p.quality === "low" ? doorMaterial(door, true) : door.material;
     [this.group, this.player.root, this.doorScene].forEach((root) =>
       surfaceDetail(root, p.quality !== "low"),
     );
@@ -705,42 +772,95 @@ export class View {
             );
       }
     }
-    for (const d of roomDoors(id)) {
-      const p = endpoint(d, id).position,
+    // 0.13: the user's steel door (porta.glb) on the wall's inner face.
+    // Frame + leaf share one geometry/material set and join the static bake
+    // (one draw for every door of the room); the lock lamps are one
+    // InstancedMesh whose colours follow the key flags every frame.
+    const doorList = roomDoors(id);
+    this.doorList = doorList;
+    this.doorLamps = new T.InstancedMesh(
+      new T.BoxGeometry(0.44, 0.1, 0.05),
+      new T.MeshBasicMaterial(),
+      Math.max(1, doorList.length),
+    );
+    this.doorLamps.count = doorList.length;
+    this.doorLamps.name = "door-lamps";
+    this.doorLamps.userData.dynamic = true;
+    this.doorLampState = "";
+    const doorAssetNow = doorAsset(),
+      hidden = new T.MeshBasicMaterial({ visible: false }),
+      m4 = new T.Matrix4(),
+      q = new T.Quaternion();
+    doorList.forEach((d, i) => {
+      const at = doorPlacement(endpoint(d, id).position),
         g = new T.Group();
-      g.position.set(p.x, 0, p.z);
-      if (Math.abs(p.x) > 5)
-        g.rotation.y = p.x > 0 ? -Math.PI / 2 : Math.PI / 2;
-      else if (p.z > 0) g.rotation.y = Math.PI;
-      const slab = box(
-        1.65,
-        2.65,
-        0.13,
-        mat(0x273d36, 0.65, 0.4, this.rust),
-        0,
-        1.325,
-        0,
-      );
-      g.add(slab);
-      // The cinematic doorway is a physical occluder too: a camera stopped
-      // only by the outer wall could sit BEHIND the closed leaf and see black.
-      this.obstacles.push(slab);
-      g.add(box(0.6, 0.35, 0.04, mat(0x23332c, 0.3, 0.8), 0, 1.9, 0.1));
-      g.add(box(0.12, 0.08, 0.14, mat(0xb7a773, 0.3, 0.6), 0.56, 1.2, 0.15));
-      for (const x of [-0.91, 0.91]) {
-        const frame = box(0.14, 2.8, 0.2, mat(0x9eac8c, 0.5, 0.5), x, 1.4, 0);
-        g.add(frame);
-        this.obstacles.push(frame);
+      g.name = "door-" + d.id;
+      g.position.set(at.x, 0, at.z);
+      g.rotation.y = at.rotation;
+      if (doorAssetNow)
+        g.add(doorModel(doorAssetNow, this.prefs.quality === "low").root);
+      else {
+        // Fallback if the GLB failed: same footprint, same wall plane.
+        g.add(
+          box(
+            DOOR_HALF_WIDTH * 1.8,
+            DOOR_HEIGHT - 0.1,
+            0.08,
+            mat(0x273d36, 0.65, 0.4, this.rust),
+            0,
+            (DOOR_HEIGHT - 0.1) / 2,
+            0,
+          ),
+        );
+        for (const x of [-1, 1])
+          g.add(
+            box(
+              0.12,
+              DOOR_HEIGHT,
+              0.14,
+              mat(0x9eac8c, 0.5, 0.5),
+              x * (DOOR_HALF_WIDTH - 0.06),
+              DOOR_HEIGHT / 2,
+              0,
+            ),
+          );
       }
+      // Camera/shot occluder matching the leaf (never drawn, never baked).
+      const proxy = box(
+        DOOR_HALF_WIDTH * 2,
+        DOOR_HEIGHT,
+        0.14,
+        hidden,
+        0,
+        DOOR_HEIGHT / 2,
+        0.02,
+      );
+      proxy.visible = false;
+      proxy.name = "door-proxy";
+      g.add(proxy);
+      this.obstacles.push(proxy);
       const l = label(
         d.id.replace(/\D/g, "").padStart(2, "0"),
         "#a5b09a",
         0.32,
       );
-      l.position.set(0, 1.92, 0.14);
+      l.position.set(0, 2.52, 0.06);
       g.add(l);
       this.group.add(g);
-    }
+      q.setFromAxisAngle(new T.Vector3(0, 1, 0), at.rotation);
+      m4.compose(
+        new T.Vector3(
+          at.x + at.normal.x * 0.03,
+          2.95,
+          at.z + at.normal.z * 0.03,
+        ),
+        q,
+        new T.Vector3(1, 1, 1),
+      );
+      this.doorLamps!.setMatrixAt(i, m4);
+    });
+    this.doorLamps.instanceMatrix.needsUpdate = true;
+    this.group.add(this.doorLamps);
     for (const item of r.items) {
       if (isCollected(s, item.id)) continue;
       const g = new T.Group();
@@ -1460,6 +1580,7 @@ export class View {
       );
       this.ch3.ripple(lurker?.x ?? 0, lurker?.z ?? 0, !!lurker, this.elapsed);
     }
+    this.updateDoorLamps(s);
     this.environment?.update(
       s,
       dt,
@@ -1639,6 +1760,24 @@ export class View {
       this.scene.add(this.fx);
       this.fxLife = 0.5;
     }
+  }
+  /** Red = locked (key/flag missing), green = passable. Only rewrites the
+   * instance colours when a flag flips. */
+  updateDoorLamps(s: GameState) {
+    const lamps = this.doorLamps;
+    if (!lamps) return;
+    const state = this.doorList.map((d) => (canTravel(d, s) ? 1 : 0)).join("");
+    if (state === this.doorLampState) return;
+    this.doorLampState = state;
+    const c = new T.Color();
+    this.doorList.forEach((d, i) =>
+      lamps.setColorAt(i, c.setHex(canTravel(d, s) ? 0x7fe0a0 : 0xe2483a)),
+    );
+    if (lamps.instanceColor) lamps.instanceColor.needsUpdate = true;
+  }
+  /** Lock-state of the door lamps, for QA/tests: 1 open, 0 locked. */
+  doorLampDiagnostics() {
+    return { doors: this.doorList.map((d) => d.id), state: this.doorLampState };
   }
   render(doorProgress?: number, title = false) {
     this.renderer.info.reset();

@@ -5,6 +5,7 @@ import { transitionOpacity, transitionElapsed } from "./presentation";
 import { Vector3 } from "three";
 import { preloadPlayer, playerDiagnostics, disposePlayerCache } from "./player";
 import { preloadZombie, zombieDiagnostics } from "./zombie";
+import { preloadDoor, doorDiagnostics } from "./door";
 import { smartAsset } from "./smartrig";
 import {
   collect,
@@ -2068,6 +2069,8 @@ Object.defineProperty(window, "limiar", {
     asset: zombieDiagnostics(),
     chapter2: { ...smartAsset },
     playerAsset: playerDiagnostics(),
+    doorAsset: doorDiagnostics(),
+    doorLamps: view.doorLampDiagnostics(),
     playerAnimation: view.playerAnimation?.diagnostic(),
     environment: view.environment?.diagnostics(),
     ambientState: JSON.parse(
@@ -2114,11 +2117,13 @@ Promise.allSettled([
     if (p) p.textContent = "Zumbi: " + n + "%";
   }),
   preloadPlayer(),
+  preloadDoor(),
 ]).then((results) => {
   for (const r of results)
     if (r.status === "rejected")
       console.warn("Modelo indisponível; fallback procedural:", r.reason);
   view.installPlayer();
+  view.installDoor();
   view.load(s.room, s);
   menu();
   if (

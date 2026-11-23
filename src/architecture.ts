@@ -2,6 +2,7 @@ import * as T from "three";
 import type { RoomId } from "./world";
 import { roomDoors, endpoint } from "./world";
 import type { BakeLight } from "./bake";
+import { DOOR_HALF_WIDTH } from "./door";
 
 /** Room look: wall tint, lower-wall band, damp and trim. All procedural. */
 export type RoomLook = {
@@ -263,7 +264,34 @@ export function doorWall(p: { x: number; z: number }) {
   if (Math.abs(p.x) > 5) return { wall: p.x < 0 ? 2 : 3, u: p.z };
   return { wall: p.z < 0 ? 0 : 1, u: p.x };
 }
-/** Split [a,b] removing door gaps (2.2 m wide). */
+/** 0.13: where a door actually stands. Door endpoints (world.ts) are the
+ * interaction/spawn points 0.54 m (side) / 0.74 m (front/back) INSIDE the
+ * room; up to 0.12 the door mesh was placed there and floated off the wall.
+ * The door now sits on the wall's inner face (HALF_X/HALF_Z), its model
+ * +Z (push/hinge face) turned to the room. `normal` points into the room. */
+export function doorPlacement(p: { x: number; z: number }) {
+  const w = doorWall(p);
+  const x = w.wall === 2 ? -HALF_X : w.wall === 3 ? HALF_X : w.u,
+    z = w.wall === 0 ? -HALF_Z : w.wall === 1 ? HALF_Z : w.u,
+    rotation =
+      w.wall === 0
+        ? 0
+        : w.wall === 1
+          ? Math.PI
+          : w.wall === 2
+            ? Math.PI / 2
+            : -Math.PI / 2;
+  return {
+    ...w,
+    x,
+    z,
+    rotation,
+    normal: { x: Math.sin(rotation), z: Math.cos(rotation) },
+  };
+}
+/** Trim stops just outside the door frame (was a fixed 2.2 m gap). */
+export const DOOR_GAP_HALF = DOOR_HALF_WIDTH + 0.03;
+/** Split [a,b] removing door gaps (2.2 m wide by default). */
 export function segments(a: number, b: number, gaps: number[], half = 1.1) {
   const out: [number, number][] = [];
   let start = a;
@@ -298,7 +326,6 @@ export function architecture(
     band = std(L.band, 0.6, 0.3),
     dark = std(0x1d2522, 0.6, 0.3),
     steel = std(0x75827c, 0.6, 0.3),
-    lamp = new T.MeshBasicMaterial({ color: 0x9fc6ad }),
     out: Architecture = {
       room: [],
       ceiling: [],
@@ -310,7 +337,7 @@ export function architecture(
     const p = endpoint(d, id).position,
       w = doorWall(p);
     gaps[w.wall].push(w.u);
-    // The former per-door PointLight is now baked (vertex light) + emissive lamp.
+    // The former per-door PointLight is now baked (vertex light); the lamp is live.
     out.lights.push({
       x: p.x * 0.93,
       y: 2.6,
@@ -419,7 +446,7 @@ export function architecture(
   };
   for (let w = 0; w < 4; w++) {
     const span = w >= 2 ? HALF_Z : HALF_X,
-      segs = segments(-span, span, gaps[w]);
+      segs = segments(-span, span, gaps[w], DOOR_GAP_HALF);
     for (const [a, b] of segs) {
       piece(w, a, b, 0.07, 0.14, 0.035, 0, trim); // baseboard
       piece(w, a, b, 0.62, 1.0, 0.012, 0, band); // lower wall band
@@ -446,8 +473,8 @@ export function architecture(
   for (const d of roomDoors(id)) {
     const p = endpoint(d, id).position,
       w = doorWall(p);
-    piece(w.wall, w.u - 0.22, w.u + 0.22, 2.95, 0.1, 0.05, 0.02, lamp, true); // emissive door lamp
-    piece(w.wall, w.u - 1.02, w.u + 1.02, 2.86, 0.09, 0.06, 0, trim, true); // header moulding
+    // 0.13: the door lamp is a live lock-state light (render.ts doorLamps).
+    piece(w.wall, w.u - 0.86, w.u + 0.86, 2.86, 0.09, 0.06, 0, trim, true); // header moulding
   }
   // Ceiling: cable tray with cables, plus tile grid ribs.
   const tray = (x: number) => {

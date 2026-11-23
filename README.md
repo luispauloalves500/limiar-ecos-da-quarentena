@@ -1,10 +1,18 @@
-# LIMIAR: Ecos da Quarentena — 0.12.0
+# LIMIAR: Ecos da Quarentena — 0.13.0
 
 Survival horror original em português, com Helena Duarte no hospital fictício de Santa Avelina. **Fatia vertical experimental**, não a campanha inteira do [GDD v1.6](docs/GDD-LIMIAR-v1.6.md).
 
 [Jogar no navegador](https://luispauloalves500.github.io/limiar-ecos-da-quarentena/) · [QA e limitações](docs/QA.md)
 
-## Novo na 0.12.0 — Capítulo 3, jogo mais leve
+## Novo na 0.13.0 — portas novas, rentes à parede
+
+- **Porta de aço nova em todas as salas** (capítulos 1–3, inclusive as trancadas e as dos chefes), feita a partir do modelo enviado: batente, visor gradeado, maçanetas e dobradiças. 2,85 MB → 98 KB, carregada na tela inicial.
+- **As portas não ficam mais soltas da parede.** Elas eram colocadas no ponto de interação, 0,54 m a 0,74 m para dentro da sala; agora ficam no plano da parede, nas duas câmeras. Interação e colisão iguais.
+- **Luz de tranca** sobre cada porta: vermelha trancada, verde livre.
+- **A porta abre na dobradiça** na transição entre salas.
+- [Capturas antes/depois](docs/screenshots/v0130/README.md) · [QA e medições](docs/QA.md)
+
+## 0.12.0 preservada — Capítulo 3, jogo mais leve
 
 - **Capítulo 3: centro cirúrgico e estação hídrica.** Depois do visor, sete salas novas: lavabo, sala de operações, esterilização (sala segura), casa de bombas com o quebra-cabeça dos manômetros, galeria de drenos alagada, reservatório e elevador de serviço. Três inimigos novos (Costurado, Sanguessuga de dreno, Sibilante) e o chefe **B03 Mergulhador**, que mergulha e ataca por baixo d'água; as válvulas vermelhas drenam o tanque e expõem o peito dele. Termina no elevador consertado.
 - **Mais leve:** o Porteiro tem 43% menos triângulos sem mudar o rosto; o átrio com ele vivo deixou de pesar mais que as outras salas. Água e cenários novos usam luz assada.

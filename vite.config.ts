@@ -14,4 +14,6 @@ export default defineConfig({
     },
   },
   base: "/limiar-ecos-da-quarentena/",
+  // 0.13: lets tests import a GLB (`?inline`) to check the shipped asset.
+  assetsInclude: ["**/*.glb"],
 });

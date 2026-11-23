@@ -255,6 +255,7 @@ export function bakeStatic(
     parts.forEach((p) => p.dispose());
     if (!g) continue;
     const mat = src.clone();
+    delete mat.userData.zombieShared; // the merged copy belongs to the room
     mat.color.setHex(0xffffff);
     mat.vertexColors = true;
     if (mat instanceof T.MeshStandardMaterial) useBakedLight(mat);
@@ -274,7 +275,9 @@ export function bakeStatic(
 }
 export function dispose(meshes: T.Mesh[]) {
   for (const m of meshes) {
-    m.geometry.dispose();
-    (m.material as T.Material).dispose?.();
+    // Shared assets (door GLB) outlive the room that baked them.
+    if (!m.geometry.userData.zombieShared) m.geometry.dispose();
+    const mat = m.material as T.Material;
+    if (!mat.userData?.zombieShared) mat.dispose?.();
   }
 }
